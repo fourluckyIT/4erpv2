@@ -37,6 +37,16 @@ class Job {
                 }
             }
             
+            // Data integrity: site must belong to customer
+            if (!empty($data['site_id'])) {
+                $stmt = $this->db->prepare("SELECT customer_id FROM sites WHERE id = ?");
+                $stmt->execute([$data['site_id']]);
+                $site = $stmt->fetch();
+                if (!$site || $site['customer_id'] != $data['customer_id']) {
+                    throw new Exception("Site ไม่ได้เป็นของ Customer ที่เลือก");
+                }
+            }
+            
             // Generate job number BEFORE transaction (has its own transaction)
             $jobNumber = $this->docNum->generate('JOB');
             
@@ -94,7 +104,9 @@ class Job {
             return ['success' => true, 'id' => $jobId, 'job_number' => $jobNumber];
             
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
