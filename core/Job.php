@@ -220,6 +220,12 @@ class Job {
                     $updateFields['closed_at'] = date('Y-m-d H:i:s');
                     $updateFields['closed_by'] = $_SESSION['user_id'];
                     break;
+                case 'cancel':
+                case 'reject':
+                    $updateFields['voided_at'] = date('Y-m-d H:i:s'); // Use same field
+                    $updateFields['voided_by'] = $_SESSION['user_id'];
+                    $updateFields['void_reason'] = $reason;
+                    break;
                 case 'void':
                     $updateFields['voided_at'] = date('Y-m-d H:i:s');
                     $updateFields['voided_by'] = $_SESSION['user_id'];

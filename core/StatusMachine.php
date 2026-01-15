@@ -12,7 +12,7 @@
 
 class StatusMachine {
     
-    // All valid statuses
+    // All valid statuses (16 total)
     const STATUSES = [
         'Draft',
         'Submitted',
@@ -28,17 +28,18 @@ class StatusMachine {
         'Paid',
         'Partial Paid',
         'Closed',
-        'Voided'
+        'Cancelled',  // Draft abandoned or Rejected
+        'Voided'      // Post-Approved errors only
     ];
     
     // Valid transitions: from => [to, to, ...]
     const TRANSITIONS = [
-        'Draft' => ['Submitted', 'Voided'],
-        'Submitted' => ['Approved', 'Draft', 'Voided'],
-        'Approved' => ['Planned', 'Voided'],
-        'Planned' => ['Dispatched'],
-        'Dispatched' => ['In Progress', 'Returned'],
-        'In Progress' => ['Returned'],
+        'Draft' => ['Submitted', 'Cancelled'],
+        'Submitted' => ['Approved', 'Cancelled'],  // Reject = Cancelled
+        'Approved' => ['Planned', 'Voided'],       // After Approved = Voided only
+        'Planned' => ['Dispatched', 'Voided'],
+        'Dispatched' => ['In Progress', 'Returned', 'Voided'],
+        'In Progress' => ['Returned', 'Voided'],
         'Returned' => ['WH Received'],
         'WH Received' => ['POS Checked'],
         'POS Checked' => ['Accounting Ready'],
@@ -46,15 +47,17 @@ class StatusMachine {
         'Invoiced' => ['Paid', 'Partial Paid'],
         'Partial Paid' => ['Paid'],
         'Paid' => ['Closed'],
-        'Closed' => [],  // Terminal
-        'Voided' => []   // Terminal
+        'Closed' => [],     // Terminal
+        'Cancelled' => [],  // Terminal (pre-Approved)
+        'Voided' => []      // Terminal (post-Approved)
     ];
     
     // Actions mapped to transitions
     const ACTIONS = [
         'submit' => ['from' => 'Draft', 'to' => 'Submitted'],
         'approve' => ['from' => 'Submitted', 'to' => 'Approved'],
-        'reject' => ['from' => 'Submitted', 'to' => 'Draft'],
+        'reject' => ['from' => 'Submitted', 'to' => 'Cancelled'],      // Rejected = Cancelled
+        'cancel' => ['from' => 'Draft', 'to' => 'Cancelled'],          // Abandon draft
         'plan' => ['from' => 'Approved', 'to' => 'Planned'],
         'dispatch' => ['from' => 'Planned', 'to' => 'Dispatched'],
         'start' => ['from' => 'Dispatched', 'to' => 'In Progress'],
@@ -66,7 +69,7 @@ class StatusMachine {
         'pay' => ['from' => ['Invoiced', 'Partial Paid'], 'to' => 'Paid'],
         'partial_pay' => ['from' => 'Invoiced', 'to' => 'Partial Paid'],
         'close' => ['from' => 'Paid', 'to' => 'Closed'],
-        'void' => ['from' => ['Draft', 'Submitted', 'Approved'], 'to' => 'Voided']
+        'void' => ['from' => ['Approved', 'Planned', 'Dispatched', 'In Progress'], 'to' => 'Voided']  // Post-Approved only
     ];
     
     // Who can perform actions (role codes)
@@ -74,6 +77,7 @@ class StatusMachine {
         'submit' => ['ADM', 'SAL', 'PLN'],
         'approve' => ['ADM', 'MGR', 'PLN'],
         'reject' => ['ADM', 'MGR', 'PLN'],
+        'cancel' => ['ADM', 'SAL', 'PLN'],  // Owner can cancel own draft
         'plan' => ['ADM', 'PLN'],
         'dispatch' => ['ADM', 'PLN'],
         'start' => ['ADM', 'PLN', 'WH'],
@@ -85,7 +89,7 @@ class StatusMachine {
         'pay' => ['ADM', 'ACC'],
         'partial_pay' => ['ADM', 'ACC'],
         'close' => ['ADM', 'MGR'],
-        'void' => ['ADM', 'MGR']
+        'void' => ['ADM', 'MGR']  // MGR approval required for void
     ];
     
     // Editable fields per status (lockpoints)
@@ -111,7 +115,7 @@ class StatusMachine {
     ];
     
     // Statuses that require a reason
-    const REASON_REQUIRED = ['Voided', 'Rejected'];
+    const REASON_REQUIRED = ['Voided', 'Cancelled'];
     
     /**
      * Check if transition is valid
@@ -182,7 +186,7 @@ class StatusMachine {
         // After Planned, nothing is directly editable
         $afterPlanned = ['Planned', 'Dispatched', 'In Progress', 'Returned', 'WH Received', 
                          'POS Checked', 'Accounting Ready', 'Invoiced', 'Paid', 'Partial Paid', 
-                         'Closed', 'Voided'];
+                         'Closed', 'Cancelled', 'Voided'];
         
         if (in_array($status, $afterPlanned)) {
             return false;
@@ -233,7 +237,8 @@ class StatusMachine {
             'Invoiced' => 'primary',
             'Paid', 'Partial Paid' => 'success',
             'Closed' => 'dark',
-            'Voided' => 'danger',
+            'Cancelled' => 'secondary',  // Gray - just cancelled
+            'Voided' => 'danger',         // Red - error/serious
             default => 'secondary'
         };
     }
@@ -257,7 +262,8 @@ class StatusMachine {
             'Paid' => 'ชำระแล้ว',
             'Partial Paid' => 'ชำระบางส่วน',
             'Closed' => 'ปิดงาน',
-            'Voided' => 'ยกเลิก',
+            'Cancelled' => 'ยกเลิก',     // Draft/Rejected
+            'Voided' => 'ยกเลิก(Void)',  // Post-Approved error
             default => $status
         };
     }
@@ -281,7 +287,8 @@ class StatusMachine {
             'pay' => 'ชำระเงิน',
             'partial_pay' => 'ชำระบางส่วน',
             'close' => 'ปิดงาน',
-            'void' => 'ยกเลิก',
+            'cancel' => 'ยกเลิก',
+            'void' => 'Void (ยกเลิกหลังอนุมัติ)',
             default => $action
         };
     }
