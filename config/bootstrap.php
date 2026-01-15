@@ -1,0 +1,38 @@
+<?php
+/**
+ * Bootstrap - Application initialization
+ * ERP v2 - Phase 1
+ */
+
+// Error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', dirname(__DIR__) . '/logs/error.log');
+
+// Load constants FIRST (before using SESSION_NAME)
+require_once __DIR__ . '/constants.php';
+require_once __DIR__ . '/database.php';
+
+// Start session
+if (session_status() === PHP_SESSION_NONE) {
+    session_name(SESSION_NAME);
+    session_start();
+}
+
+// Load core classes
+require_once dirname(__DIR__) . '/core/Session.php';
+require_once dirname(__DIR__) . '/core/Auth.php';
+require_once dirname(__DIR__) . '/core/AuditLog.php';
+require_once dirname(__DIR__) . '/core/RBAC.php';
+
+// Load helpers
+require_once dirname(__DIR__) . '/includes/functions.php';
+
+// Generate request ID for audit trail
+if (!isset($_SESSION['request_id'])) {
+    $_SESSION['request_id'] = generateUUID();
+}
+
+// Timezone
+date_default_timezone_set('Asia/Bangkok');
