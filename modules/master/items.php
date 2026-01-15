@@ -97,7 +97,7 @@ $suppliers = $db->query("SELECT id, code, name FROM suppliers WHERE is_active = 
 
 // List
 $search = get('search', '');
-$where = 'is_active = 1';
+$where = 'i.is_active = 1';
 $params = [];
 
 if ($typeFilter) {
