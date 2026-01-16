@@ -20,6 +20,20 @@ if (isPost()) {
         redirect('create.php');
     }
     
+    // Validation
+    $purpose = trim(post('purpose', ''));
+    if (empty($purpose)) {
+        setFlash('error', 'กรุณาระบุวัตถุประสงค์');
+        redirect('create.php');
+    }
+    
+    $items = post('items', []);
+    $validItems = array_filter($items, fn($item) => !empty($item['description']));
+    if (empty($validItems)) {
+        setFlash('error', 'กรุณาเพิ่มอย่างน้อย 1 รายการ');
+        redirect('create.php');
+    }
+    
     try {
         $db->beginTransaction();
         
@@ -35,7 +49,7 @@ if (isPost()) {
             $prNumber,
             post('job_id') ?: null,
             $_SESSION['user_id'],
-            post('purpose'),
+            $purpose,
             post('required_date') ?: null,
             post('notes'),
             $_SESSION['user_id']
@@ -44,12 +58,9 @@ if (isPost()) {
         $prId = $db->lastInsertId();
         
         // Insert items
-        $items = post('items', []);
         $totalAmount = 0;
         
-        foreach ($items as $item) {
-            if (empty($item['description'])) continue;
-            
+        foreach ($validItems as $item) {
             $qty = (float) ($item['qty'] ?? 1);
             $unitPrice = (float) ($item['unit_price'] ?? 0);
             $amount = $qty * $unitPrice;
@@ -80,8 +91,26 @@ if (isPost()) {
         setFlash('success', "สร้าง PR เรียบร้อย: $prNumber");
         redirect("view.php?id=$prId");
         
+    } catch (PDOException $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        // Log failure to audit
+        $audit->log('create_failed', 'PR', null, null, ['error' => $e->getMessage()]);
+        
+        // User-friendly error message
+        $errorMsg = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+        if (strpos($e->getMessage(), 'Duplicate') !== false) {
+            $errorMsg = 'เลขที่เอกสารซ้ำ กรุณาลองใหม่';
+        }
+        setFlash('error', $errorMsg);
+        redirect('create.php');
+        
     } catch (Exception $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        $audit->log('create_failed', 'PR', null, null, ['error' => $e->getMessage()]);
         setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         redirect('create.php');
     }
