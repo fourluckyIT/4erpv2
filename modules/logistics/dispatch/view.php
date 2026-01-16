@@ -71,12 +71,68 @@ if (isPost()) {
         setFlash('success', 'บันทึก Serial แล้ว');
         redirect("view.php?id=$id");
         
+
     } elseif ($action === 'dispatch') {
-        // Validate logic here (check if serials provided for serialized items etc)
-        $db->prepare("UPDATE dispatch_notes SET status = 'Dispatched' WHERE id = ?")->execute([$id]);
-        $audit->log('dispatch', 'DO', $id);
-        setFlash('success', 'ยืนยันการจัดส่ง (Dispatched)');
-        redirect("view.php?id=$id");
+        // Validate and update serials
+        $db->beginTransaction();
+        try {
+            // Get Plan's Job ID
+            $jobId = $do['job_id'] ?? 0;
+            if (!$jobId) {
+                // If not in $do, fetch it
+                $stmt = $db->prepare("SELECT job_id FROM plans WHERE id = ?");
+                $stmt->execute([$do['plan_id']]);
+                $jobId = $stmt->fetchColumn();
+            }
+
+            foreach ($items as $item) {
+                if ($item['is_serialized']) {
+                    $itemSerials = json_decode($item['serial_numbers'] ?? '[]', true);
+                    if (count($itemSerials) > $item['qty']) {
+                         throw new Exception("สินค้า {$item['code']} มี Serial เกินจำนวนที่ระบุ");
+                    }
+
+                    foreach ($itemSerials as $sn) {
+                        // Check status
+                        $check = $db->prepare("SELECT id, status FROM serials WHERE serial_number = ? FOR UPDATE");
+                        $check->execute([$sn]);
+                        $sInfo = $check->fetch();
+                        
+                        if (!$sInfo) {
+                            throw new Exception("ไม่พบ Serial: $sn");
+                        }
+                        
+                        // Strict check: Must be Available
+                        // (You might allow 'Allocated' if we had allocation logic, but for now strict)
+                        if ($sInfo['status'] !== 'Available') {
+                            throw new Exception("Serial $sn ไม่พร้อมใช้งาน (สถานะ: {$sInfo['status']})");
+                        }
+                        
+                        // Update status
+                        $db->prepare("
+                            UPDATE serials 
+                            SET status = 'Dispatched', current_job_id = ?, updated_at = NOW() 
+                            WHERE id = ?
+                        ")->execute([$jobId, $sInfo['id']]);
+                        
+                        // Log history? (Maybe in serial_history table later)
+                    }
+                }
+            }
+            
+            $db->prepare("UPDATE dispatch_notes SET status = 'Dispatched' WHERE id = ?")->execute([$id]);
+            $audit->log('dispatch', 'DO', $id);
+            $db->commit();
+            
+            setFlash('success', 'ยืนยันการจัดส่ง (Dispatched) และตัดสต็อก Serial แล้ว');
+            redirect("view.php?id=$id");
+            
+        } catch (Exception $e) {
+            $db->rollBack();
+            setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+            redirect("view.php?id=$id");
+        }
+
         
     } elseif ($action === 'cancel') {
         $db->prepare("UPDATE dispatch_notes SET status = 'Cancelled' WHERE id = ?")->execute([$id]);
