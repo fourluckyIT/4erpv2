@@ -25,6 +25,7 @@ require_once dirname(__DIR__) . '/core/Session.php';
 require_once dirname(__DIR__) . '/core/Auth.php';
 require_once dirname(__DIR__) . '/core/AuditLog.php';
 require_once dirname(__DIR__) . '/core/RBAC.php';
+require_once dirname(__DIR__) . '/core/DocumentNumber.php';
 
 // Load helpers
 require_once dirname(__DIR__) . '/includes/functions.php';
