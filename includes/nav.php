@@ -37,6 +37,23 @@ $userRoles = $auth->getCurrentRoles();
                 </li>
                 <?php endif; ?>
                 
+                <!-- Planning (Phase 5) -->
+                <li class="nav-item">
+                    <a class="nav-link" href="/4erpv2/modules/planning/">
+                        <i class="bi bi-calendar-check me-1"></i>Planning
+                    </a>
+                </li>
+                
+                <!-- Logistics Dropdown (Phase 5) -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-truck me-1"></i>Logistics
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/4erpv2/modules/logistics/dispatch/">Dispatch</a></li>
+                    </ul>
+                </li>
+                
                 <!-- Procurement Dropdown -->
                 <?php if ($rbac->can('view', 'PR') || $rbac->can('view', 'PO')): ?>
                 <li class="nav-item dropdown">
