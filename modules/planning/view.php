@@ -152,8 +152,8 @@ require_once __DIR__ . '/../../includes/header.php';
             <?php endif; ?>
             
             <?php if ($plan['status'] === 'Confirmed'): ?>
-            <a href="../logistics/dispatch/create.php?plan_id=<?= $plan['id'] ?>" class="btn btn-primary">
-                <i class="bi bi-truck me-1"></i>สร้าง Dispatch Note
+            <a href="../logistics/routes/create.php?plan_id=<?= $plan['id'] ?>" class="btn btn-primary">
+                <i class="bi bi-signpost-2 me-1"></i>สร้าง Route
             </a>
             <?php endif; ?>
             

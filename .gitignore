@@ -34,3 +34,4 @@ uploads/*
 
 # Sensitive
 config/database.local.php
+uploads/

@@ -1,0 +1,780 @@
+<?php
+/**
+ * Route Model Class
+ * ERP v2 - Phase 5 v2
+ * 
+ * Handles Route CRUD with:
+ * - 1 Plan → Many Routes
+ * - Route items (serials/people per route)
+ * - Status management with photo enforcement
+ * - Job status integration
+ */
+
+require_once __DIR__ . '/DocumentNumber.php';
+
+class Route {
+    private PDO $db;
+    private AuditLog $audit;
+    private DocumentNumber $docNum;
+    
+    // Photo requirements per event
+    const PHOTOS_REQUIRED = 4;
+    
+    public function __construct() {
+        $this->db = getDB();
+        $this->audit = new AuditLog();
+        $this->docNum = new DocumentNumber();
+    }
+    
+    /**
+     * Create a new route for a confirmed plan
+     */
+    public function create(int $planId, array $data): array {
+        try {
+            // Validate plan exists and is confirmed
+            $plan = $this->getPlan($planId);
+            if (!$plan) {
+                return ['success' => false, 'error' => 'Plan not found'];
+            }
+            if ($plan['status'] !== 'Confirmed') {
+                return ['success' => false, 'error' => 'เฉพาะ Plan ที่ Confirmed แล้วเท่านั้นที่สามารถสร้าง Route ได้'];
+            }
+            
+            // Generate route number
+            $routeNumber = $this->docNum->generate('ROUTE');
+            
+            $this->db->beginTransaction();
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO routes (
+                    route_number, plan_id, vehicle_serial_id, supplier_id,
+                    route_date, status, driver_name, driver_phone, destination, notes, created_by
+                ) VALUES (
+                    :route_number, :plan_id, :vehicle_serial_id, :supplier_id,
+                    :route_date, 'Draft', :driver_name, :driver_phone, :destination, :notes, :created_by
+                )
+            ");
+            
+            $stmt->execute([
+                'route_number' => $routeNumber,
+                'plan_id' => $planId,
+                'vehicle_serial_id' => $data['vehicle_serial_id'] ?? null,
+                'supplier_id' => $data['supplier_id'] ?? null,
+                'route_date' => $data['route_date'] ?? date('Y-m-d'),
+                'driver_name' => $data['driver_name'] ?? null,
+                'driver_phone' => $data['driver_phone'] ?? null,
+                'destination' => $data['destination'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'created_by' => $_SESSION['user_id']
+            ]);
+            
+            $routeId = (int) $this->db->lastInsertId();
+            
+            // Audit log
+            $this->audit->log(
+                AUDIT_ACTION_CREATE,
+                'ROUTE',
+                $routeId,
+                null,
+                ['route_number' => $routeNumber, 'plan_id' => $planId]
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true, 'id' => $routeId, 'route_number' => $routeNumber];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Add serial item to route
+     */
+    public function addSerial(int $routeId, int $serialId, string $itemType, string $conditionOut = 'Good', ?string $notes = null): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Draft') {
+                return ['success' => false, 'error' => 'ไม่สามารถเพิ่มรายการใน Route ที่ไม่ใช่ Draft'];
+            }
+            
+            // Validate serial is allocated to this plan
+            $stmt = $this->db->prepare("
+                SELECT s.*, pa.id as assignment_id
+                FROM serials s
+                JOIN plan_assignments pa ON pa.serial_id = s.id
+                JOIN routes r ON r.plan_id = pa.plan_id
+                WHERE s.id = ? AND r.id = ?
+            ");
+            $stmt->execute([$serialId, $routeId]);
+            $serial = $stmt->fetch();
+            
+            if (!$serial) {
+                return ['success' => false, 'error' => 'Serial นี้ไม่ได้ถูกจัดสรรใน Plan ที่เกี่ยวข้อง'];
+            }
+            
+            // Check not already in this route
+            $stmt = $this->db->prepare("SELECT id FROM route_items WHERE route_id = ? AND serial_id = ?");
+            $stmt->execute([$routeId, $serialId]);
+            if ($stmt->fetch()) {
+                return ['success' => false, 'error' => 'Serial นี้อยู่ใน Route นี้แล้ว'];
+            }
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO route_items (route_id, serial_id, item_type, condition_out, notes)
+                VALUES (:route_id, :serial_id, :item_type, :condition_out, :notes)
+            ");
+            $stmt->execute([
+                'route_id' => $routeId,
+                'serial_id' => $serialId,
+                'item_type' => $itemType,
+                'condition_out' => $conditionOut,
+                'notes' => $notes
+            ]);
+            
+            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Add manpower to route
+     */
+    public function addPeople(int $routeId, int $peopleId, ?string $notes = null): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Draft') {
+                return ['success' => false, 'error' => 'ไม่สามารถเพิ่มบุคลากรใน Route ที่ไม่ใช่ Draft'];
+            }
+            
+            // Check not already in this route
+            $stmt = $this->db->prepare("SELECT id FROM route_items WHERE route_id = ? AND people_id = ?");
+            $stmt->execute([$routeId, $peopleId]);
+            if ($stmt->fetch()) {
+                return ['success' => false, 'error' => 'บุคคลนี้อยู่ใน Route นี้แล้ว'];
+            }
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO route_items (route_id, people_id, item_type, notes)
+                VALUES (:route_id, :people_id, 'Manpower', :notes)
+            ");
+            $stmt->execute([
+                'route_id' => $routeId,
+                'people_id' => $peopleId,
+                'notes' => $notes
+            ]);
+            
+            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Remove item from route
+     */
+    public function removeItem(int $itemId): array {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT ri.*, r.status as route_status
+                FROM route_items ri
+                JOIN routes r ON ri.route_id = r.id
+                WHERE ri.id = ?
+            ");
+            $stmt->execute([$itemId]);
+            $item = $stmt->fetch();
+            
+            if (!$item) {
+                return ['success' => false, 'error' => 'Item not found'];
+            }
+            if ($item['route_status'] !== 'Draft') {
+                return ['success' => false, 'error' => 'ไม่สามารถลบรายการใน Route ที่ไม่ใช่ Draft'];
+            }
+            
+            $stmt = $this->db->prepare("DELETE FROM route_items WHERE id = ?");
+            $stmt->execute([$itemId]);
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Confirm route - requires dispatch photos
+     */
+    public function confirm(int $routeId): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Draft') {
+                return ['success' => false, 'error' => 'เฉพาะ Route ที่เป็น Draft เท่านั้นที่สามารถ Confirm ได้'];
+            }
+            
+            // Get route items
+            $items = $this->getItems($routeId);
+            if (empty($items)) {
+                return ['success' => false, 'error' => 'กรุณาเพิ่มรายการใน Route ก่อน Confirm'];
+            }
+            
+            $this->db->beginTransaction();
+            
+            // Update route status
+            $stmt = $this->db->prepare("
+                UPDATE routes 
+                SET status = 'Confirmed', confirmed_at = NOW(), confirmed_by = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id'], $routeId]);
+            
+            // Audit log
+            $this->audit->log(
+                'confirm',
+                'ROUTE',
+                $routeId,
+                ['status' => 'Draft'],
+                ['status' => 'Confirmed']
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Dispatch route - REQUIRES 4 dispatch photos
+     */
+    public function dispatch(int $routeId): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Confirmed') {
+                return ['success' => false, 'error' => 'เฉพาะ Route ที่ Confirmed แล้วเท่านั้นที่สามารถ Dispatch ได้'];
+            }
+            
+            // Check dispatch photos
+            $photoCount = $this->getPhotoCount($routeId, 'Dispatch');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false, 
+                    'error' => "กรุณาอัพโหลดรูป Dispatch ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
+            
+            $this->db->beginTransaction();
+            
+            // Update route status
+            $stmt = $this->db->prepare("
+                UPDATE routes 
+                SET status = 'Dispatched', dispatched_at = NOW(), dispatched_by = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id'], $routeId]);
+            
+            // Update serial status for items in this route
+            $items = $this->getItems($routeId);
+            foreach ($items as $item) {
+                if ($item['serial_id']) {
+                    $stmt = $this->db->prepare("UPDATE serials SET status = 'Dispatched' WHERE id = ?");
+                    $stmt->execute([$item['serial_id']]);
+                }
+            }
+            
+            // Check if all routes in plan are dispatched, then update job status
+            $this->checkAndUpdateJobStatus($route['plan_id']);
+            
+            // Audit log
+            $this->audit->log(
+                'dispatch',
+                'ROUTE',
+                $routeId,
+                ['status' => 'Confirmed'],
+                ['status' => 'Dispatched']
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Mark route as in progress (arrived at site)
+     */
+    public function startProgress(int $routeId): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Dispatched') {
+                return ['success' => false, 'error' => 'เฉพาะ Route ที่ Dispatched แล้วเท่านั้นที่สามารถเริ่มงานได้'];
+            }
+            
+            // Check receive photos
+            $photoCount = $this->getPhotoCount($routeId, 'Receive');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false, 
+                    'error' => "กรุณาอัพโหลดรูป Receive ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
+            
+            $this->db->beginTransaction();
+            
+            $stmt = $this->db->prepare("
+                UPDATE routes 
+                SET status = 'InProgress', in_progress_at = NOW(), in_progress_by = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id'], $routeId]);
+            
+            // Update serial status
+            $items = $this->getItems($routeId);
+            foreach ($items as $item) {
+                if ($item['serial_id']) {
+                    $stmt = $this->db->prepare("UPDATE serials SET status = 'InUse' WHERE id = ?");
+                    $stmt->execute([$item['serial_id']]);
+                }
+            }
+            
+            // Update job status
+            $this->checkAndUpdateJobStatus($route['plan_id']);
+            
+            // Audit log
+            $this->audit->log(
+                'start_progress',
+                'ROUTE',
+                $routeId,
+                ['status' => 'Dispatched'],
+                ['status' => 'InProgress']
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Mark route as returned from site
+     */
+    public function markReturned(int $routeId, array $itemConditions = []): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if (!in_array($route['status'], ['Dispatched', 'InProgress'])) {
+                return ['success' => false, 'error' => 'Route ต้องอยู่ในสถานะ Dispatched หรือ In Progress'];
+            }
+            
+            // Check return photos
+            $photoCount = $this->getPhotoCount($routeId, 'Return');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false, 
+                    'error' => "กรุณาอัพโหลดรูป Return ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
+            
+            $this->db->beginTransaction();
+            
+            $stmt = $this->db->prepare("
+                UPDATE routes 
+                SET status = 'Returned', returned_at = NOW(), returned_by = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id'], $routeId]);
+            
+            // Update item conditions and serial status
+            $items = $this->getItems($routeId);
+            foreach ($items as $item) {
+                if ($item['serial_id']) {
+                    $conditionIn = $itemConditions[$item['id']] ?? 'Good';
+                    
+                    // Update route_items
+                    $stmt = $this->db->prepare("UPDATE route_items SET condition_in = ? WHERE id = ?");
+                    $stmt->execute([$conditionIn, $item['id']]);
+                    
+                    // Update serial status
+                    $serialStatus = ($conditionIn === 'Lost') ? 'Lost' : 'Returned';
+                    $stmt = $this->db->prepare("UPDATE serials SET status = ? WHERE id = ?");
+                    $stmt->execute([$serialStatus, $item['serial_id']]);
+                }
+            }
+            
+            // Check job status
+            $this->checkAndUpdateJobStatus($route['plan_id']);
+            
+            // Audit log
+            $this->audit->log(
+                'return',
+                'ROUTE',
+                $routeId,
+                ['status' => $route['status']],
+                ['status' => 'Returned']
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * WH Receive - warehouse receives returned items
+     */
+    public function whReceive(int $routeId): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Returned') {
+                return ['success' => false, 'error' => 'เฉพาะ Route ที่ Returned แล้วเท่านั้นที่สามารถ WH Receive ได้'];
+            }
+            
+            $this->db->beginTransaction();
+            
+            $stmt = $this->db->prepare("
+                UPDATE routes 
+                SET status = 'WHReceived', wh_received_at = NOW(), wh_received_by = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id'], $routeId]);
+            
+            // Update serial status - returned items are now Available (if Good/Fair)
+            $items = $this->getItems($routeId);
+            foreach ($items as $item) {
+                if ($item['serial_id'] && $item['condition_in'] !== 'Lost') {
+                    $stmt = $this->db->prepare("
+                        UPDATE serials 
+                        SET status = 'Available', current_job_id = NULL 
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([$item['serial_id']]);
+                }
+            }
+            
+            // Check job status
+            $this->checkAndUpdateJobStatus($route['plan_id']);
+            
+            // Audit log
+            $this->audit->log(
+                'wh_receive',
+                'ROUTE',
+                $routeId,
+                ['status' => 'Returned'],
+                ['status' => 'WHReceived']
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Cancel route
+     */
+    public function cancel(int $routeId, string $reason): array {
+        try {
+            if (empty(trim($reason))) {
+                return ['success' => false, 'error' => 'กรุณาระบุเหตุผลในการยกเลิก'];
+            }
+            
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] === 'Cancelled') {
+                return ['success' => false, 'error' => 'Route นี้ถูกยกเลิกไปแล้ว'];
+            }
+            if (in_array($route['status'], ['InProgress', 'Returned', 'WHReceived'])) {
+                return ['success' => false, 'error' => 'ไม่สามารถยกเลิก Route ที่อยู่ระหว่างดำเนินการหรือเสร็จสิ้นแล้ว'];
+            }
+            
+            $this->db->beginTransaction();
+            
+            // Revert serial status if dispatched
+            if ($route['status'] === 'Dispatched') {
+                $items = $this->getItems($routeId);
+                foreach ($items as $item) {
+                    if ($item['serial_id']) {
+                        $stmt = $this->db->prepare("UPDATE serials SET status = 'Allocated' WHERE id = ?");
+                        $stmt->execute([$item['serial_id']]);
+                    }
+                }
+            }
+            
+            $stmt = $this->db->prepare("
+                UPDATE routes 
+                SET status = 'Cancelled', cancelled_at = NOW(), cancelled_by = ?, cancel_reason = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id'], $reason, $routeId]);
+            
+            // Audit log
+            $this->audit->log(
+                'cancel',
+                'ROUTE',
+                $routeId,
+                ['status' => $route['status']],
+                ['status' => 'Cancelled'],
+                $reason
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Get route by ID
+     */
+    public function getById(int $id): ?array {
+        $stmt = $this->db->prepare("
+            SELECT r.*, 
+                   p.plan_number, p.job_id,
+                   j.job_number, j.scope_short,
+                   c.name as customer_name,
+                   vs.serial_number as vehicle_serial,
+                   vi.name as vehicle_name,
+                   sup.name as supplier_name,
+                   u.full_name as created_by_name
+            FROM routes r
+            LEFT JOIN plans p ON r.plan_id = p.id
+            LEFT JOIN jobs j ON p.job_id = j.id
+            LEFT JOIN customers c ON j.customer_id = c.id
+            LEFT JOIN serials vs ON r.vehicle_serial_id = vs.id
+            LEFT JOIN items vi ON vs.item_id = vi.id
+            LEFT JOIN suppliers sup ON r.supplier_id = sup.id
+            LEFT JOIN users u ON r.created_by = u.id
+            WHERE r.id = ?
+        ");
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+    
+    /**
+     * Get routes by plan ID
+     */
+    public function getByPlanId(int $planId): array {
+        $stmt = $this->db->prepare("
+            SELECT r.*, 
+                   vs.serial_number as vehicle_serial,
+                   vi.name as vehicle_name
+            FROM routes r
+            LEFT JOIN serials vs ON r.vehicle_serial_id = vs.id
+            LEFT JOIN items vi ON vs.item_id = vi.id
+            WHERE r.plan_id = ?
+            ORDER BY r.route_date, r.id
+        ");
+        $stmt->execute([$planId]);
+        return $stmt->fetchAll();
+    }
+    
+    /**
+     * Get route items
+     */
+    public function getItems(int $routeId): array {
+        $stmt = $this->db->prepare("
+            SELECT ri.*,
+                   s.serial_number, s.status as serial_status,
+                   i.name as item_name, i.code as item_code, i.item_type as item_category,
+                   pe.full_name as people_name, pe.code as people_code, pe.position
+            FROM route_items ri
+            LEFT JOIN serials s ON ri.serial_id = s.id
+            LEFT JOIN items i ON s.item_id = i.id
+            LEFT JOIN people pe ON ri.people_id = pe.id
+            WHERE ri.route_id = ?
+            ORDER BY ri.item_type, ri.id
+        ");
+        $stmt->execute([$routeId]);
+        return $stmt->fetchAll();
+    }
+    
+    /**
+     * Get list of routes
+     */
+    public function getList(array $filters = [], int $limit = 50, int $offset = 0): array {
+        $where = ['1=1'];
+        $params = [];
+        
+        if (!empty($filters['status'])) {
+            $where[] = 'r.status = :status';
+            $params['status'] = $filters['status'];
+        }
+        
+        if (!empty($filters['plan_id'])) {
+            $where[] = 'r.plan_id = :plan_id';
+            $params['plan_id'] = $filters['plan_id'];
+        }
+        
+        if (!empty($filters['date_from'])) {
+            $where[] = 'r.route_date >= :date_from';
+            $params['date_from'] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $where[] = 'r.route_date <= :date_to';
+            $params['date_to'] = $filters['date_to'];
+        }
+        
+        $sql = "
+            SELECT r.*, 
+                   p.plan_number,
+                   j.job_number, j.scope_short,
+                   c.name as customer_name,
+                   vs.serial_number as vehicle_serial
+            FROM routes r
+            LEFT JOIN plans p ON r.plan_id = p.id
+            LEFT JOIN jobs j ON p.job_id = j.id
+            LEFT JOIN customers c ON j.customer_id = c.id
+            LEFT JOIN serials vs ON r.vehicle_serial_id = vs.id
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY r.route_date DESC, r.id DESC
+            LIMIT $limit OFFSET $offset
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+    
+    /**
+     * Get photo count for route event
+     */
+    public function getPhotoCount(int $routeId, string $eventType): int {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*) FROM evidence_photos 
+            WHERE route_id = ? AND event_type = ?
+        ");
+        $stmt->execute([$routeId, $eventType]);
+        return (int) $stmt->fetchColumn();
+    }
+    
+    /**
+     * Check and update job status based on route statuses
+     */
+    private function checkAndUpdateJobStatus(int $planId): void {
+        $plan = $this->getPlan($planId);
+        if (!$plan) return;
+        
+        $jobId = $plan['job_id'];
+        
+        // Get all route statuses for this plan
+        $stmt = $this->db->prepare("
+            SELECT status, COUNT(*) as cnt 
+            FROM routes 
+            WHERE plan_id = ? AND status != 'Cancelled'
+            GROUP BY status
+        ");
+        $stmt->execute([$planId]);
+        $statuses = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        
+        $total = array_sum($statuses);
+        if ($total === 0) return;
+        
+        // Determine job status based on route statuses
+        $newJobStatus = null;
+        $currentJob = $this->getJob($jobId);
+        
+        if (isset($statuses['WHReceived']) && $statuses['WHReceived'] == $total) {
+            $newJobStatus = 'WH Received';
+        } elseif (isset($statuses['Returned']) && ($statuses['Returned'] + ($statuses['WHReceived'] ?? 0)) == $total) {
+            $newJobStatus = 'Returned';
+        } elseif (isset($statuses['InProgress']) && $statuses['InProgress'] > 0) {
+            $newJobStatus = 'In Progress';
+        } elseif (isset($statuses['Dispatched']) && $statuses['Dispatched'] > 0) {
+            $newJobStatus = 'Dispatched';
+        }
+        
+        if ($newJobStatus && $currentJob['status'] !== $newJobStatus) {
+            $stmt = $this->db->prepare("UPDATE jobs SET status = ? WHERE id = ?");
+            $stmt->execute([$newJobStatus, $jobId]);
+            
+            // Log status change
+            $stmt = $this->db->prepare("
+                INSERT INTO job_status_history (job_id, old_status, new_status, changed_by, reason)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $jobId, 
+                $currentJob['status'], 
+                $newJobStatus, 
+                $_SESSION['user_id'],
+                'Auto-updated from route status changes'
+            ]);
+        }
+    }
+    
+    // Helper methods
+    private function getPlan(int $id): ?array {
+        $stmt = $this->db->prepare("SELECT * FROM plans WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+    
+    private function getJob(int $id): ?array {
+        $stmt = $this->db->prepare("SELECT * FROM jobs WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+}

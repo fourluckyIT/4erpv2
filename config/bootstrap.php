@@ -28,6 +28,8 @@ require_once dirname(__DIR__) . '/core/RBAC.php';
 require_once dirname(__DIR__) . '/core/DocumentNumber.php';
 require_once dirname(__DIR__) . '/core/Plan.php';
 require_once dirname(__DIR__) . '/core/Dispatch.php';
+require_once dirname(__DIR__) . '/core/Route.php';
+require_once dirname(__DIR__) . '/core/EvidencePhoto.php';
 
 // Load helpers
 require_once dirname(__DIR__) . '/includes/functions.php';
