@@ -30,9 +30,14 @@ class DocumentNumber {
     public function generate(string $docType, ?int $entityId = null): string {
         $currentYear = (int) date('Y');
         
+        $transactionStarted = false;
+        
         try {
-            // Start transaction for atomic operation
-            $this->db->beginTransaction();
+            // Start transaction if not already in one
+            if (!$this->db->inTransaction()) {
+                $this->db->beginTransaction();
+                $transactionStarted = true;
+            }
             
             // Lock the row for update (prevents concurrent access)
             $stmt = $this->db->prepare("
@@ -45,9 +50,15 @@ class DocumentNumber {
             $setting = $stmt->fetch();
             
             if (!$setting) {
-                $this->db->rollBack();
+                // If we didn't find the setting, we must exception.
+                // Rollback if we started the transaction.
+                if ($transactionStarted) {
+                     $this->db->rollBack();
+                }
                 throw new Exception("Document type '$docType' not configured");
             }
+            
+            // ... (rest of logic same until commit)
             
             // Check if year changed and reset is enabled
             $nextNumber = (int) $setting['next_number'];
@@ -90,13 +101,17 @@ class DocumentNumber {
                 'user_id' => $_SESSION['user_id'] ?? 0
             ]);
             
-            // Commit transaction
-            $this->db->commit();
+            // Commit ONLY if we started it
+            if ($transactionStarted) {
+                $this->db->commit();
+            }
             
             return $docNumber;
             
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($transactionStarted && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             throw $e;
         }
     }

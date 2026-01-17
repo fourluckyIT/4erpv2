@@ -47,6 +47,7 @@ class Plan {
             }
             
             // Generate plan number
+            // Generate plan number
             $planNumber = $this->docNum->generate('PLAN');
             
             $this->db->beginTransaction();
@@ -88,6 +89,7 @@ class Plan {
             }
             return ['success' => false, 'error' => $e->getMessage()];
         }
+
     }
     
     /**
@@ -111,6 +113,12 @@ class Plan {
             if ($serial['status'] !== 'Available') {
                 return ['success' => false, 'error' => 'Serial นี้ไม่ว่าง (สถานะ: ' . $serial['status'] . ')'];
             }
+
+            // Determine assignment type from item definition
+            // Normalize: DEVICE->Device, EQUIPMENT->Equipment. Default to Equipment if unknown.
+            $rawType = ucwords(strtolower($serial['item_type'] ?? 'Equipment'));
+            $validTypes = ['Device', 'Equipment', 'Vehicle'];
+            $assignType = in_array($rawType, $validTypes) ? $rawType : 'Equipment';
             
             // Check not already assigned to this plan
             $stmt = $this->db->prepare("SELECT id FROM plan_assignments WHERE plan_id = ? AND serial_id = ?");
@@ -121,7 +129,7 @@ class Plan {
             
             $stmt = $this->db->prepare("
                 INSERT INTO plan_assignments (plan_id, serial_id, assignment_type, notes)
-                VALUES (:plan_id, :serial_id, 'Serial', :notes)
+                VALUES (:plan_id, :serial_id, :assign_type, :notes)
             ");
             
             $this->db->beginTransaction();
@@ -129,6 +137,7 @@ class Plan {
             $stmt->execute([
                 'plan_id' => $planId,
                 'serial_id' => $serialId,
+                'assign_type' => $assignType,
                 'notes' => $notes
             ]);
             
