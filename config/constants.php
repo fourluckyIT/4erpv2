@@ -116,3 +116,20 @@ define('REQUIRED_PHOTOS_POS_CHECK', 4);
 // Paths
 define('BASE_PATH', dirname(__DIR__));
 define('UPLOAD_PATH', BASE_PATH . '/uploads');
+
+// URL - auto-detect based on server config
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost:8888';
+$scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
+$baseDir = '';
+
+// Find the project root from the script path
+if (strpos($scriptDir, '/4erpv2') !== false) {
+    $baseDir = substr($scriptDir, 0, strpos($scriptDir, '/4erpv2') + 7);
+} elseif (strpos($scriptDir, '/modules') !== false) {
+    $baseDir = substr($scriptDir, 0, strpos($scriptDir, '/modules'));
+} else {
+    $baseDir = $scriptDir;
+}
+
+define('BASE_URL', rtrim($protocol . $host . $baseDir, '/'));
