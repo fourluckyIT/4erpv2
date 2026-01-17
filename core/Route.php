@@ -11,19 +11,22 @@
  */
 
 require_once __DIR__ . '/DocumentNumber.php';
+require_once __DIR__ . '/../includes/booking_conflicts.php';
 
 class Route {
     private PDO $db;
     private AuditLog $audit;
     private DocumentNumber $docNum;
+    private BookingConflict $conflict;
     
     // Photo requirements per event
-    const PHOTOS_REQUIRED = 4;
+
     
     public function __construct() {
         $this->db = getDB();
         $this->audit = new AuditLog();
         $this->docNum = new DocumentNumber();
+        $this->conflict = new BookingConflict($this->db);
     }
     
     /**
@@ -69,6 +72,37 @@ class Route {
             ]);
             
             $routeId = (int) $this->db->lastInsertId();
+            
+            // CONFLICT CHECK: Vehicle
+            if (!empty($data['vehicle_serial_id'])) {
+                $startTime = ($data['route_date'] ?? date('Y-m-d')) . ' 00:00:00';
+                $endTime = ($data['route_date'] ?? date('Y-m-d')) . ' 23:59:59';
+                
+                // Get all conflicts
+                $conflicts = $this->conflict->getConflicts('Serial', $data['vehicle_serial_id'], $startTime, $endTime);
+                
+                foreach ($conflicts as $c) {
+                    // Rule 1: Allow overlapping if reserved by THIS Plan (in plan_assignments)
+                    if ($c['reference_table'] === 'plan_assignments') {
+                        // Check if this assignment belongs to our plan
+                        $stmt = $this->db->prepare("SELECT plan_id FROM plan_assignments WHERE id = ?");
+                        $stmt->execute([$c['reference_id']]);
+                        $assignmentPlanId = $stmt->fetchColumn();
+                        
+                        if ($assignmentPlanId == $planId) {
+                            continue; // Allowed: It's our own reservation
+                        }
+                    }
+                    
+                    // Rule 2: Block overlap with ANY other route (even in same plan, assuming 1 vehicle = 1 route at a time)
+                    // If it's a Route, it's a definite usage conflict.
+                    
+                    throw new Exception("Conflict detected: Vehicle is already booked by {$c['reference_table']} #{$c['reference_id']}");
+                }
+                
+                // Book the vehicle for this Route
+                $this->conflict->bookResource('Serial', $data['vehicle_serial_id'], $startTime, $endTime, 'routes', $routeId);
+            }
             
             // Audit log
             $this->audit->log(
@@ -138,6 +172,31 @@ class Route {
                 'notes' => $notes
             ]);
             
+            // CONFLICT CHECK: Serial
+            $startTime = ($route['route_date'] ?? date('Y-m-d')) . ' 00:00:00';
+            $endTime = ($route['route_date'] ?? date('Y-m-d')) . ' 23:59:59';
+            
+            // Get all conflicts
+            $conflicts = $this->conflict->getConflicts('Serial', $serialId, $startTime, $endTime);
+            
+            foreach ($conflicts as $c) {
+                // Rule 1: Allow overlapping if reserved by THIS Plan
+                if ($c['reference_table'] === 'plan_assignments') {
+                     // Check assignment -> plan linkage
+                    $stmt = $this->db->prepare("SELECT plan_id FROM plan_assignments WHERE id = ?");
+                    $stmt->execute([$c['reference_id']]);
+                    $assignmentPlanId = $stmt->fetchColumn();
+                    
+                    if ($assignmentPlanId == $route['plan_id']) {
+                        continue; // Allowed: It's our own reservation
+                    }
+                }
+                
+                throw new Exception("Conflict detected: Serial is already booked by {$c['reference_table']} #{$c['reference_id']}");
+            }
+            
+            $this->conflict->bookResource('Serial', $serialId, $startTime, $endTime, 'route_items', (int) $this->db->lastInsertId());
+            
             return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
             
         } catch (Exception $e) {
@@ -175,7 +234,26 @@ class Route {
                 'notes' => $notes
             ]);
             
-            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            $routeItemId = (int) $this->db->lastInsertId();
+
+            // CONFLICT CHECK: People
+            $startTime = ($route['route_date'] ?? date('Y-m-d')) . ' 00:00:00';
+            $endTime = ($route['route_date'] ?? date('Y-m-d')) . ' 23:59:59';
+            
+            $conflicts = $this->conflict->getConflicts('Person', $peopleId, $startTime, $endTime);
+            
+            foreach ($conflicts as $c) {
+                if ($c['reference_table'] === 'plan_assignments') {
+                    $stmt = $this->db->prepare("SELECT plan_id FROM plan_assignments WHERE id = ?");
+                    $stmt->execute([$c['reference_id']]);
+                    if ($stmt->fetchColumn() == $route['plan_id']) continue;
+                }
+                throw new Exception("Conflict detected: Person is already booked by {$c['reference_table']} #{$c['reference_id']}");
+            }
+            
+            $this->conflict->bookResource('Person', $peopleId, $startTime, $endTime, 'route_items', $routeItemId);
+            
+            return ['success' => true, 'id' => $routeItemId];
             
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
@@ -205,6 +283,9 @@ class Route {
             
             $stmt = $this->db->prepare("DELETE FROM route_items WHERE id = ?");
             $stmt->execute([$itemId]);
+            
+            // Release booking
+            $this->conflict->cancelBooking('route_items', $itemId);
             
             return ['success' => true];
             
@@ -276,14 +357,9 @@ class Route {
                 return ['success' => false, 'error' => 'เฉพาะ Route ที่ Confirmed แล้วเท่านั้นที่สามารถ Dispatch ได้'];
             }
             
-            // Check dispatch photos
-            $photoCount = $this->getPhotoCount($routeId, 'Dispatch');
-            if ($photoCount < self::PHOTOS_REQUIRED) {
-                return [
-                    'success' => false, 
-                    'error' => "กรุณาอัพโหลดรูป Dispatch ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
-                ];
-            }
+            // Check dispatch photos - REVERTED FOR M1 COMMIT
+            // $photoCount = $this->getPhotoCount($routeId, 'Dispatch');
+            // if ($photoCount < self::PHOTOS_REQUIRED) { ... }
             
             $this->db->beginTransaction();
             
@@ -341,14 +417,8 @@ class Route {
                 return ['success' => false, 'error' => 'เฉพาะ Route ที่ Dispatched แล้วเท่านั้นที่สามารถเริ่มงานได้'];
             }
             
-            // Check receive photos
-            $photoCount = $this->getPhotoCount($routeId, 'Receive');
-            if ($photoCount < self::PHOTOS_REQUIRED) {
-                return [
-                    'success' => false, 
-                    'error' => "กรุณาอัพโหลดรูป Receive ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
-                ];
-            }
+            // Check receive photos - REVERTED FOR M1 COMMIT
+
             
             $this->db->beginTransaction();
             
@@ -405,14 +475,8 @@ class Route {
                 return ['success' => false, 'error' => 'Route ต้องอยู่ในสถานะ Dispatched หรือ In Progress'];
             }
             
-            // Check return photos
-            $photoCount = $this->getPhotoCount($routeId, 'Return');
-            if ($photoCount < self::PHOTOS_REQUIRED) {
-                return [
-                    'success' => false, 
-                    'error' => "กรุณาอัพโหลดรูป Return ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
-                ];
-            }
+            // Check return photos - REVERTED FOR M1 COMMIT
+
             
             $this->db->beginTransaction();
             
@@ -562,6 +626,17 @@ class Route {
                 WHERE id = ?
             ");
             $stmt->execute([$_SESSION['user_id'], $reason, $routeId]);
+            
+            // Release vehicle booking
+            $this->conflict->cancelBooking('routes', $routeId);
+            
+            // Release all item bookings
+            $stmt = $this->db->prepare("SELECT id FROM route_items WHERE route_id = ?");
+            $stmt->execute([$routeId]);
+            $itemIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($itemIds as $iid) {
+                $this->conflict->cancelBooking('route_items', $iid);
+            }
             
             // Audit log
             $this->audit->log(
@@ -762,6 +837,134 @@ class Route {
                 $_SESSION['user_id'],
                 'Auto-updated from route status changes'
             ]);
+        }
+    }
+
+    /**
+     * M3: Add Photo Evidence
+     */
+    public function addPhoto(int $routeId, string $eventType, string $filePath, ?string $caption = null): array {
+        try {
+            // Validate Route
+            $route = $this->getById($routeId);
+            if (!$route) throw new Exception("Route not found");
+            
+            // Determine seq
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM evidence_photos WHERE route_id = ? AND event_type = ?");
+            $stmt->execute([$routeId, $eventType]);
+            $seq = $stmt->fetchColumn() + 1;
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO evidence_photos (route_id, event_type, photo_seq, file_path, caption, uploaded_by)
+                VALUES (:route_id, :event_type, :seq, :file_path, :caption, :user_id)
+            ");
+            
+            $stmt->execute([
+                'route_id' => $routeId,
+                'event_type' => $eventType,
+                'seq' => $seq,
+                'file_path' => $filePath,
+                'caption' => $caption,
+                'user_id' => $_SESSION['user_id'] ?? 1
+            ]);
+            
+            return ['success' => true, 'id' => $this->db->lastInsertId()];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * M3: Check Transition Rules
+     */
+    public function canTransition(int $routeId, string $toStatus): array {
+        $route = $this->getById($routeId);
+        if (!$route) return ['allowed' => false, 'reason' => 'Route not found'];
+        
+        $current = $route['status'];
+        
+        // Linear Progression (Simplified for M3)
+        // Confirmed -> Dispatched -> InProgress -> Returned -> WHReceived
+        
+        if ($toStatus === 'Dispatched') {
+            // Requirement: 4 'Dispatch' photos
+            $count = $this->getPhotoCount($routeId, 'Dispatch');
+            if ($count < self::PHOTOS_REQUIRED) {
+                return ['allowed' => false, 'reason' => "Need 4 Dispatch photos (Current: $count)"];
+            }
+        }
+        
+        if ($toStatus === 'Returned') {
+             // Requirement: 4 'Return' photos
+            $count = $this->getPhotoCount($routeId, 'Return');
+            if ($count < self::PHOTOS_REQUIRED) {
+                return ['allowed' => false, 'reason' => "Need 4 Return photos (Current: $count)"];
+            }
+        }
+        
+        return ['allowed' => true];
+    }
+    
+    /**
+     * M3: Transition Status
+     */
+    public function transitionStatus(int $routeId, string $toStatus, ?string $reason = null): array {
+        $startedTransaction = false;
+        try {
+            // Check Rules
+            $check = $this->canTransition($routeId, $toStatus);
+            if (!$check['allowed']) {
+                return ['success' => false, 'error' => $check['reason']];
+            }
+            
+            $route = $this->getById($routeId);
+            $fromStatus = $route['status'];
+            
+            if ($fromStatus === $toStatus) {
+                return ['success' => true, 'message' => 'Status unchanged'];
+            }
+            
+            if (!$this->db->inTransaction()) {
+                $this->db->beginTransaction();
+                $startedTransaction = true;
+            }
+            
+            // Update Status
+            $stmt = $this->db->prepare("UPDATE routes SET status = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$toStatus, $routeId]);
+            
+            // Log History
+            $stmt = $this->db->prepare("
+                INSERT INTO route_status_history (route_id, from_status, to_status, reason, created_by)
+                VALUES (:route_id, :from_status, :to_status, :reason, :user_id)
+            ");
+            $stmt->execute([
+                'route_id' => $routeId,
+                'from_status' => $fromStatus,
+                'to_status' => $toStatus,
+                'reason' => $reason,
+                'user_id' => $_SESSION['user_id'] ?? 1
+            ]);
+            
+            // Audit
+            $this->audit->log('status_change', 'routes', $routeId, ['from' => $fromStatus], ['to' => $toStatus]);
+            
+            // If status changed, check Job Status update (existing logic)
+            $stmt = $this->db->prepare("SELECT plan_id FROM routes WHERE id = ?");
+            $stmt->execute([$routeId]);
+            $planId = $stmt->fetchColumn();
+            if ($planId) {
+                $this->checkAndUpdateJobStatus($planId);
+            }
+            
+            if ($startedTransaction) $this->db->commit();
+            
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            if ($startedTransaction && $this->db->inTransaction()) $this->db->rollBack();
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
     
