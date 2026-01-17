@@ -1,12 +1,39 @@
 -- ===========================================
 -- ERP v2 Database Schema - Phase 5 v2: Routes & Evidence
 -- ===========================================
--- New tables: routes, route_items, evidence_photos
--- Modifications: plan_assignments, dispatch_notes
+-- New tables: plan_assignments, routes, route_items, evidence_photos
+-- Note: plan_items (existing) = BOM/packing list
+--       plan_assignments (new) = serial + manpower assignments
 -- ===========================================
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- -------------------------------------------
+-- Table: plan_assignments
+-- Assigns serials and/or people to a plan
+-- (Separate from plan_items which is for BOM/packing list)
+-- -------------------------------------------
+CREATE TABLE IF NOT EXISTS `plan_assignments` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `plan_id` INT UNSIGNED NOT NULL,
+    `serial_id` INT UNSIGNED COMMENT 'Assigned serial (nullable if people-only)',
+    `people_id` INT UNSIGNED COMMENT 'Assigned person (nullable if serial-only)',
+    `assignment_type` ENUM('Device', 'Equipment', 'Vehicle', 'Manpower', 'Consumable') NOT NULL,
+    `qty` DECIMAL(10,2) DEFAULT 1 COMMENT 'Quantity for consumables',
+    `notes` TEXT,
+    `cert_override_by` INT UNSIGNED COMMENT 'Manager who approved cert override',
+    `cert_override_reason` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_plan` (`plan_id`),
+    INDEX `idx_serial` (`serial_id`),
+    INDEX `idx_people` (`people_id`),
+    INDEX `idx_type` (`assignment_type`),
+    CONSTRAINT `fk_pa_plan` FOREIGN KEY (`plan_id`) REFERENCES `plans`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_pa_serial` FOREIGN KEY (`serial_id`) REFERENCES `serials`(`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pa_people` FOREIGN KEY (`people_id`) REFERENCES `people`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------
 -- Table: routes
@@ -101,24 +128,23 @@ CREATE TABLE IF NOT EXISTS `evidence_photos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------
--- Modify plan_assignments: add resource_type for 3-tab filtering
+-- Note: plan_assignments columns (resource_type, cert_override_by, cert_override_reason)
+-- are now included in the CREATE TABLE statement above
 -- -------------------------------------------
-ALTER TABLE `plan_assignments` 
-ADD COLUMN IF NOT EXISTS `resource_type` ENUM('Manpower', 'Device', 'Equipment', 'Vehicle', 'Consumable') 
-    AFTER `assignment_type`;
-
-ALTER TABLE `plan_assignments`
-ADD COLUMN IF NOT EXISTS `cert_override_by` INT UNSIGNED AFTER `notes`,
-ADD COLUMN IF NOT EXISTS `cert_override_reason` TEXT AFTER `cert_override_by`;
 
 -- -------------------------------------------
 -- Modify dispatch_notes: link to route instead of plan
 -- -------------------------------------------
-ALTER TABLE `dispatch_notes`
-ADD COLUMN IF NOT EXISTS `route_id` INT UNSIGNED AFTER `plan_id`;
-
--- Add FK if not exists (will fail silently if already exists)
--- ALTER TABLE `dispatch_notes` ADD CONSTRAINT `fk_dn_route` FOREIGN KEY (`route_id`) REFERENCES `routes`(`id`);
+SET @tablename = 'dispatch_notes';
+SET @columnname = 'route_id';
+SET @preparedStatement = (SELECT IF(
+    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
+    'SELECT 1',
+    'ALTER TABLE dispatch_notes ADD COLUMN route_id INT UNSIGNED AFTER plan_id'
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
