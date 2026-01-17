@@ -11,16 +11,19 @@
  */
 
 require_once __DIR__ . '/DocumentNumber.php';
+require_once __DIR__ . '/../includes/booking_conflicts.php';
 
 class Plan {
     private PDO $db;
     private AuditLog $audit;
     private DocumentNumber $docNum;
+    private BookingConflict $conflict;
     
     public function __construct() {
         $this->db = getDB();
         $this->audit = new AuditLog();
         $this->docNum = new DocumentNumber();
+        $this->conflict = new BookingConflict($this->db);
     }
     
     /**
@@ -120,15 +123,41 @@ class Plan {
                 INSERT INTO plan_assignments (plan_id, serial_id, assignment_type, notes)
                 VALUES (:plan_id, :serial_id, 'Serial', :notes)
             ");
+            
+            $this->db->beginTransaction();
+            
             $stmt->execute([
                 'plan_id' => $planId,
                 'serial_id' => $serialId,
                 'notes' => $notes
             ]);
             
-            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            $assignmentId = (int) $this->db->lastInsertId();
+
+            // M1: Conflict Check & Booking
+            // Derive Start/End from Plan Date
+            // Assuming Plan is single-day or we use Job dates? The Plan header has 'plan_date'.
+            // For rigorous checking, we'll book the whole day of 'plan_date'.
+            $startTime = $plan['plan_date'] . ' 00:00:00';
+            $endTime = $plan['plan_date'] . ' 23:59:59';
+            
+            $this->conflict->bookResource(
+                'Serial', 
+                $serialId, 
+                $startTime, 
+                $endTime, 
+                'plan_assignments', 
+                $assignmentId
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true, 'id' => $assignmentId];
             
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -166,15 +195,38 @@ class Plan {
                 INSERT INTO plan_assignments (plan_id, people_id, assignment_type, notes)
                 VALUES (:plan_id, :people_id, 'People', :notes)
             ");
+            
+            $this->db->beginTransaction();
+            
             $stmt->execute([
                 'plan_id' => $planId,
                 'people_id' => $peopleId,
                 'notes' => $notes
             ]);
             
-            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            $assignmentId = (int) $this->db->lastInsertId();
+            
+            // M1: Conflict Check & Booking
+            $startTime = $plan['plan_date'] . ' 00:00:00';
+            $endTime = $plan['plan_date'] . ' 23:59:59';
+            
+            $this->conflict->bookResource(
+                'Person', 
+                $peopleId, 
+                $startTime, 
+                $endTime, 
+                'plan_assignments', 
+                $assignmentId
+            );
+            
+            $this->db->commit();
+            
+            return ['success' => true, 'id' => $assignmentId];
             
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -200,12 +252,22 @@ class Plan {
                 return ['success' => false, 'error' => 'ไม่สามารถลบ Assignment ใน Plan ที่ไม่ใช่ Draft'];
             }
             
+            $this->db->beginTransaction();
+            
+            // Cancel booking M1
+            $this->conflict->cancelBooking('plan_assignments', $assignmentId);
+            
             $stmt = $this->db->prepare("DELETE FROM plan_assignments WHERE id = ?");
             $stmt->execute([$assignmentId]);
+            
+            $this->db->commit();
             
             return ['success' => true];
             
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -301,15 +363,18 @@ class Plan {
                 return ['success' => false, 'error' => 'กรุณาระบุเหตุผลในการยกเลิก'];
             }
             
+            $this->db->beginTransaction(); // Move transaction start up to cover logic
+            
             $plan = $this->getById($planId);
             if (!$plan) {
                 return ['success' => false, 'error' => 'Plan not found'];
             }
             if ($plan['status'] === 'Cancelled') {
+                $this->db->rollBack(); // Release transaction if started
                 return ['success' => false, 'error' => 'Plan นี้ถูกยกเลิกไปแล้ว'];
             }
             
-            $this->db->beginTransaction();
+            // $this->db->beginTransaction(); // Already started
             
             // If plan was confirmed, release serials
             if ($plan['status'] === 'Confirmed') {
@@ -339,6 +404,15 @@ class Plan {
                     VALUES (?, 'Planned', 'Approved', ?, ?)
                 ");
                 $stmt->execute([$plan['job_id'], $_SESSION['user_id'], 'Plan cancelled: ' . $reason]);
+            }
+            
+            // M1: Cancel all bookings linked to this plan's assignments
+            $stmt = $this->db->prepare("SELECT id FROM plan_assignments WHERE plan_id = ?");
+            $stmt->execute([$planId]);
+            $assignmentIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            foreach ($assignmentIds as $aid) {
+                $this->conflict->cancelBooking('plan_assignments', $aid);
             }
             
             // Update plan status
