@@ -20,7 +20,7 @@ class Route {
     private BookingConflict $conflict;
     
     // Photo requirements per event
-
+    const PHOTOS_REQUIRED = 4;
     
     public function __construct() {
         $this->db = getDB();
@@ -357,9 +357,14 @@ class Route {
                 return ['success' => false, 'error' => 'เฉพาะ Route ที่ Confirmed แล้วเท่านั้นที่สามารถ Dispatch ได้'];
             }
             
-            // Check dispatch photos - REVERTED FOR M1 COMMIT
-            // $photoCount = $this->getPhotoCount($routeId, 'Dispatch');
-            // if ($photoCount < self::PHOTOS_REQUIRED) { ... }
+            // Check dispatch photos
+            $photoCount = $this->getPhotoCount($routeId, 'Dispatch');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false, 
+                    'error' => "กรุณาอัพโหลดรูป Dispatch ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
             
             $this->db->beginTransaction();
             
@@ -417,8 +422,14 @@ class Route {
                 return ['success' => false, 'error' => 'เฉพาะ Route ที่ Dispatched แล้วเท่านั้นที่สามารถเริ่มงานได้'];
             }
             
-            // Check receive photos - REVERTED FOR M1 COMMIT
-
+            // Check receive photos
+            $photoCount = $this->getPhotoCount($routeId, 'Receive');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false, 
+                    'error' => "กรุณาอัพโหลดรูป Receive ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
             
             $this->db->beginTransaction();
             
@@ -475,8 +486,14 @@ class Route {
                 return ['success' => false, 'error' => 'Route ต้องอยู่ในสถานะ Dispatched หรือ In Progress'];
             }
             
-            // Check return photos - REVERTED FOR M1 COMMIT
-
+            // Check return photos
+            $photoCount = $this->getPhotoCount($routeId, 'Return');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false, 
+                    'error' => "กรุณาอัพโหลดรูป Return ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
             
             $this->db->beginTransaction();
             
