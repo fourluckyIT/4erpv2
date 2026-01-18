@@ -21,10 +21,15 @@ const NAV_LINKS = [
     { name: 'Jobs', url: '/modules/jobs/' },
     { name: 'Planning', url: '/modules/planning/' },
     { name: 'Logistics - Dispatch', url: '/modules/logistics/dispatch/' },
+    { name: 'Logistics - Routes', url: '/modules/logistics/routes/' },
+    { name: 'Warehouse - Movements', url: '/modules/warehouse/movements.php' },
+    { name: 'Warehouse - Receive', url: '/modules/warehouse/receive.php' },
     { name: 'Procurement Hub', url: '/modules/procurement/' },
     { name: 'Procurement - PR', url: '/modules/procurement/pr/' },
     { name: 'Procurement - PO', url: '/modules/procurement/po/' },
     { name: 'Procurement - GR', url: '/modules/procurement/gr/' },
+    { name: 'Accounting - Invoices', url: '/modules/accounting/invoices/' },
+    { name: 'Accounting - Payments', url: '/modules/accounting/payments/' },
     { name: 'Admin Dashboard', url: '/modules/admin/' },
     { name: 'Admin - Users', url: '/modules/admin/users.php' },
     { name: 'Admin - Roles', url: '/modules/admin/roles.php' },
@@ -39,7 +44,7 @@ const NAV_LINKS = [
     { name: 'Master - Serials', url: '/modules/master/serials.php' },
     { name: 'Master - Sites', url: '/modules/master/sites.php' },
     { name: 'Master - People', url: '/modules/master/people.php' },
-    { name: 'Routes', url: '/modules/logistics/routes/' },
+    { name: 'Profile', url: '/modules/auth/profile.php' },
 ];
 
 // PHP error indicators
@@ -100,7 +105,7 @@ test.describe('Smoke Navigation Crawl', () => {
         const procDropdown = page.locator('text=Procurement');
         if (await procDropdown.isVisible()) {
             await procDropdown.click();
-            await expect(page.locator('.dropdown-menu >> text=Purchase')).toBeVisible();
+            await expect(page.locator('.dropdown-menu >> text=Purchase').first()).toBeVisible();
         }
 
         // Check Admin dropdown
