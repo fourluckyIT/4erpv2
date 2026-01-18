@@ -11,7 +11,7 @@ const BASE_URL = 'http://localhost:8888/4erp/4erpv2';
 
 const TEST_USER = {
     username: 'admin',
-    password: 'admin123'
+    password: 'Test1234!'
 };
 
 const TEST_PREFIX = 'UI-E2E-' + Date.now() + '-';

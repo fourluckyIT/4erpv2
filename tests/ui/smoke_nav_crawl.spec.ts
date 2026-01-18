@@ -9,10 +9,10 @@ import { test, expect, Page } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:8888/4erp/4erpv2';
 
-// Test user credentials (must exist in test DB)
+// Test user credentials (seeded by scripts/seed_rbac_test_users.php)
 const TEST_USER = {
     username: 'admin',
-    password: 'admin123'
+    password: 'Test1234!'
 };
 
 // All discoverable nav links from nav.php

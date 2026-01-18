@@ -15,14 +15,14 @@ interface TestUser {
     role: string;
 }
 
-// Test users per role (must exist in test DB)
+// Test users per role (seeded by scripts/seed_rbac_test_users.php)
 const TEST_USERS: Record<string, TestUser> = {
-    ADM: { username: 'admin', password: 'admin123', role: 'ADM' },
-    PLN: { username: 'planner', password: 'planner123', role: 'PLN' },
-    PUR: { username: 'purchaser', password: 'purchaser123', role: 'PUR' },
-    WH: { username: 'warehouse', password: 'warehouse123', role: 'WH' },
-    ACC: { username: 'accountant', password: 'accountant123', role: 'ACC' },
-    MGR: { username: 'manager', password: 'manager123', role: 'MGR' },
+    ADM: { username: 'admin', password: 'Test1234!', role: 'ADM' },
+    PLN: { username: 'planner', password: 'Test1234!', role: 'PLN' },
+    PUR: { username: 'purchaser', password: 'Test1234!', role: 'PUR' },
+    WH: { username: 'warehouse', password: 'Test1234!', role: 'WH' },
+    ACC: { username: 'accountant', password: 'Test1234!', role: 'ACC' },
+    MGR: { username: 'manager', password: 'Test1234!', role: 'MGR' },
 };
 
 async function loginAs(page: Page, role: string) {
