@@ -1,0 +1,230 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link " ERP v2" [ref=e4] [cursor=pointer]:
+        - /url: /4erpv2/index.php
+        - generic [ref=e5]: 
+        - text: ERP v2
+      - generic [ref=e6]:
+        - list [ref=e7]:
+          - listitem [ref=e8]:
+            - link " Dashboard" [ref=e9] [cursor=pointer]:
+              - /url: /4erpv2/index.php
+              - generic [ref=e10]: 
+              - text: Dashboard
+          - listitem [ref=e11]:
+            - link " Jobs" [ref=e12] [cursor=pointer]:
+              - /url: /4erpv2/modules/jobs/
+              - generic [ref=e13]: 
+              - text: Jobs
+          - listitem [ref=e14]:
+            - link " Planning" [ref=e15] [cursor=pointer]:
+              - /url: /4erpv2/modules/planning/
+              - generic [ref=e16]: 
+              - text: Planning
+          - listitem [ref=e17]:
+            - link " Logistics" [ref=e18] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e19]: 
+              - text: Logistics
+          - listitem [ref=e20]:
+            - link " Procurement" [ref=e21] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e22]: 
+              - text: Procurement
+          - listitem [ref=e23]:
+            - link " Admin" [ref=e24] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e25]: 
+              - text: Admin
+        - list [ref=e26]:
+          - listitem [ref=e27]:
+            - link " System Administrator ADM" [ref=e28] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e29]: 
+              - text: System Administrator
+              - generic [ref=e30]: ADM
+            - text:  
+  - main [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e34]:
+        - heading " Document Number Settings" [level=2] [ref=e35]:
+          - generic [ref=e36]: 
+          - text: Document Number Settings
+        - navigation "breadcrumb" [ref=e37]:
+          - list [ref=e38]:
+            - listitem [ref=e39]:
+              - link "Admin" [ref=e40] [cursor=pointer]:
+                - /url: index.php
+            - listitem [ref=e41]: / Document Numbers
+      - generic [ref=e42]:
+        - generic [ref=e43]: 
+        - strong [ref=e44]: "Warning:"
+        - text: Changing next_number may cause duplicate document numbers. Only modify if you know what you're doing.
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: 
+          - text: Current Settings
+        - table [ref=e49]:
+          - rowgroup [ref=e50]:
+            - row "Document Type Prefix Current Year Next Number Padding Sample Output Actions" [ref=e51]:
+              - columnheader "Document Type" [ref=e52]
+              - columnheader "Prefix" [ref=e53]
+              - columnheader "Current Year" [ref=e54]
+              - columnheader "Next Number" [ref=e55]
+              - columnheader "Padding" [ref=e56]
+              - columnheader "Sample Output" [ref=e57]
+              - columnheader "Actions" [ref=e58]
+          - rowgroup [ref=e59]:
+            - row "DN DN- 2026 1 5 DN-2026-00001 " [ref=e60]:
+              - cell "DN" [ref=e61]:
+                - strong [ref=e62]: DN
+              - cell "DN-" [ref=e63]
+              - cell "2026" [ref=e64]
+              - cell "1" [ref=e65]
+              - cell "5" [ref=e66]
+              - cell "DN-2026-00001" [ref=e67]:
+                - code [ref=e68]: DN-2026-00001
+              - cell "" [ref=e69]:
+                - button "" [ref=e70] [cursor=pointer]:
+                  - generic [ref=e71]: 
+            - row "DO DO- 2026 1 5 DO-2026-00001 " [ref=e72]:
+              - cell "DO" [ref=e73]:
+                - strong [ref=e74]: DO
+              - cell "DO-" [ref=e75]
+              - cell "2026" [ref=e76]
+              - cell "1" [ref=e77]
+              - cell "5" [ref=e78]
+              - cell "DO-2026-00001" [ref=e79]:
+                - code [ref=e80]: DO-2026-00001
+              - cell "" [ref=e81]:
+                - button "" [ref=e82] [cursor=pointer]:
+                  - generic [ref=e83]: 
+            - row "GR GR- 2026 20 5 GR-2026-00020 " [ref=e84]:
+              - cell "GR" [ref=e85]:
+                - strong [ref=e86]: GR
+              - cell "GR-" [ref=e87]
+              - cell "2026" [ref=e88]
+              - cell "20" [ref=e89]
+              - cell "5" [ref=e90]
+              - cell "GR-2026-00020" [ref=e91]:
+                - code [ref=e92]: GR-2026-00020
+              - cell "" [ref=e93]:
+                - button "" [ref=e94] [cursor=pointer]:
+                  - generic [ref=e95]: 
+            - row "INV INV- 2026 17 5 INV-2026-00017 " [ref=e96]:
+              - cell "INV" [ref=e97]:
+                - strong [ref=e98]: INV
+              - cell "INV-" [ref=e99]
+              - cell "2026" [ref=e100]
+              - cell "17" [ref=e101]
+              - cell "5" [ref=e102]
+              - cell "INV-2026-00017" [ref=e103]:
+                - code [ref=e104]: INV-2026-00017
+              - cell "" [ref=e105]:
+                - button "" [ref=e106] [cursor=pointer]:
+                  - generic [ref=e107]: 
+            - row "JOB JOB- 2026 118 5 JOB-2026-00118 " [ref=e108]:
+              - cell "JOB" [ref=e109]:
+                - strong [ref=e110]: JOB
+              - cell "JOB-" [ref=e111]
+              - cell "2026" [ref=e112]
+              - cell "118" [ref=e113]
+              - cell "5" [ref=e114]
+              - cell "JOB-2026-00118" [ref=e115]:
+                - code [ref=e116]: JOB-2026-00118
+              - cell "" [ref=e117]:
+                - button "" [ref=e118] [cursor=pointer]:
+                  - generic [ref=e119]: 
+            - row "PAY PAY- 2026 41 5 PAY-2026-00041 " [ref=e120]:
+              - cell "PAY" [ref=e121]:
+                - strong [ref=e122]: PAY
+              - cell "PAY-" [ref=e123]
+              - cell "2026" [ref=e124]
+              - cell "41" [ref=e125]
+              - cell "5" [ref=e126]
+              - cell "PAY-2026-00041" [ref=e127]:
+                - code [ref=e128]: PAY-2026-00041
+              - cell "" [ref=e129]:
+                - button "" [ref=e130] [cursor=pointer]:
+                  - generic [ref=e131]: 
+            - row "PLAN PLN 2026 25 5 PLN2026-00025 " [ref=e132]:
+              - cell "PLAN" [ref=e133]:
+                - strong [ref=e134]: PLAN
+              - cell "PLN" [ref=e135]
+              - cell "2026" [ref=e136]
+              - cell "25" [ref=e137]
+              - cell "5" [ref=e138]
+              - cell "PLN2026-00025" [ref=e139]:
+                - code [ref=e140]: PLN2026-00025
+              - cell "" [ref=e141]:
+                - button "" [ref=e142] [cursor=pointer]:
+                  - generic [ref=e143]: 
+            - row "PLN PLN- 2026 1 5 PLN-2026-00001 " [ref=e144]:
+              - cell "PLN" [ref=e145]:
+                - strong [ref=e146]: PLN
+              - cell "PLN-" [ref=e147]
+              - cell "2026" [ref=e148]
+              - cell "1" [ref=e149]
+              - cell "5" [ref=e150]
+              - cell "PLN-2026-00001" [ref=e151]:
+                - code [ref=e152]: PLN-2026-00001
+              - cell "" [ref=e153]:
+                - button "" [ref=e154] [cursor=pointer]:
+                  - generic [ref=e155]: 
+            - row "PO PO- 2026 21 5 PO-2026-00021 " [ref=e156]:
+              - cell "PO" [ref=e157]:
+                - strong [ref=e158]: PO
+              - cell "PO-" [ref=e159]
+              - cell "2026" [ref=e160]
+              - cell "21" [ref=e161]
+              - cell "5" [ref=e162]
+              - cell "PO-2026-00021" [ref=e163]:
+                - code [ref=e164]: PO-2026-00021
+              - cell "" [ref=e165]:
+                - button "" [ref=e166] [cursor=pointer]:
+                  - generic [ref=e167]: 
+            - row "PR PR- 2026 23 5 PR-2026-00023 " [ref=e168]:
+              - cell "PR" [ref=e169]:
+                - strong [ref=e170]: PR
+              - cell "PR-" [ref=e171]
+              - cell "2026" [ref=e172]
+              - cell "23" [ref=e173]
+              - cell "5" [ref=e174]
+              - cell "PR-2026-00023" [ref=e175]:
+                - code [ref=e176]: PR-2026-00023
+              - cell "" [ref=e177]:
+                - button "" [ref=e178] [cursor=pointer]:
+                  - generic [ref=e179]: 
+            - row "RN RN- 2026 1 5 RN-2026-00001 " [ref=e180]:
+              - cell "RN" [ref=e181]:
+                - strong [ref=e182]: RN
+              - cell "RN-" [ref=e183]
+              - cell "2026" [ref=e184]
+              - cell "1" [ref=e185]
+              - cell "5" [ref=e186]
+              - cell "RN-2026-00001" [ref=e187]:
+                - code [ref=e188]: RN-2026-00001
+              - cell "" [ref=e189]:
+                - button "" [ref=e190] [cursor=pointer]:
+                  - generic [ref=e191]: 
+            - row "ROUTE RT 2026 30 5 RT2026-00030 " [ref=e192]:
+              - cell "ROUTE" [ref=e193]:
+                - strong [ref=e194]: ROUTE
+              - cell "RT" [ref=e195]
+              - cell "2026" [ref=e196]
+              - cell "30" [ref=e197]
+              - cell "5" [ref=e198]
+              - cell "RT2026-00030" [ref=e199]:
+                - code [ref=e200]: RT2026-00030
+              - cell "" [ref=e201]:
+                - button "" [ref=e202] [cursor=pointer]:
+                  - generic [ref=e203]: 
+  - contentinfo [ref=e204]:
+    - generic [ref=e206]:
+      - generic [ref=e207]: ERP v2 © 2026
+      - generic [ref=e208]: Version 2.0.0
+```

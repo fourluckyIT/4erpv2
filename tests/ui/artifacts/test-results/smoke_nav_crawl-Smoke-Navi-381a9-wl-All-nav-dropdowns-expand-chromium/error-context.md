@@ -1,0 +1,190 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link " ERP v2" [ref=e4] [cursor=pointer]:
+        - /url: /4erpv2/index.php
+        - generic [ref=e5]: 
+        - text: ERP v2
+      - generic [ref=e6]:
+        - list [ref=e7]:
+          - listitem [ref=e8]:
+            - link " Dashboard" [ref=e9] [cursor=pointer]:
+              - /url: /4erpv2/index.php
+              - generic [ref=e10]: 
+              - text: Dashboard
+          - listitem [ref=e11]:
+            - link " Jobs" [ref=e12] [cursor=pointer]:
+              - /url: /4erpv2/modules/jobs/
+              - generic [ref=e13]: 
+              - text: Jobs
+          - listitem [ref=e14]:
+            - link " Planning" [ref=e15] [cursor=pointer]:
+              - /url: /4erpv2/modules/planning/
+              - generic [ref=e16]: 
+              - text: Planning
+          - listitem [ref=e17]:
+            - link " Logistics" [ref=e18] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e19]: 
+              - text: Logistics
+          - listitem [ref=e20]:
+            - link " Procurement" [expanded] [active] [ref=e21] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e22]: 
+              - text: Procurement
+            - list [ref=e23]:
+              - listitem [ref=e24]:
+                - link "Purchase Requests" [ref=e25] [cursor=pointer]:
+                  - /url: /4erpv2/modules/pr/
+              - listitem [ref=e26]:
+                - link "Purchase Orders" [ref=e27] [cursor=pointer]:
+                  - /url: /4erpv2/modules/po/
+          - listitem [ref=e28]:
+            - link " Admin" [ref=e29] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e30]: 
+              - text: Admin
+        - list [ref=e31]:
+          - listitem [ref=e32]:
+            - link " System Administrator ADM" [ref=e33] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e34]: 
+              - text: System Administrator
+              - generic [ref=e35]: ADM
+            - text:  
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e39]:
+        - heading " Dashboard" [level=2] [ref=e40]:
+          - generic [ref=e41]: 
+          - text: Dashboard
+        - paragraph [ref=e42]: ยินดีต้อนรับ, System Administrator
+      - generic [ref=e43]:
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - generic [ref=e49]: "0"
+            - generic [ref=e50]: Active Jobs
+          - generic [ref=e51]: 
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: "0"
+            - generic [ref=e58]: Completed This Month
+          - generic [ref=e59]: 
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]: "0"
+            - generic [ref=e66]: Pending Approval
+          - generic [ref=e67]: 
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]: "0"
+            - generic [ref=e74]: Overdue
+          - generic [ref=e75]: 
+      - generic [ref=e76]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]: 
+            - text: Quick Actions
+          - generic [ref=e82]:
+            - link " New Job" [ref=e83] [cursor=pointer]:
+              - /url: /4erpv2/modules/jobs/create.php
+              - generic [ref=e84]: 
+              - text: New Job
+            - link " New Purchase Request" [ref=e85] [cursor=pointer]:
+              - /url: /4erpv2/modules/pr/create.php
+              - generic [ref=e86]: 
+              - text: New Purchase Request
+            - link " Admin Dashboard" [ref=e87] [cursor=pointer]:
+              - /url: /4erpv2/modules/admin/
+              - generic [ref=e88]: 
+              - text: Admin Dashboard
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]: 
+              - text: Recent Activity
+            - link "View All" [ref=e94] [cursor=pointer]:
+              - /url: /4erpv2/modules/admin/audit_logs.php
+          - generic [ref=e95]:
+            - generic [ref=e97]:
+              - generic [ref=e98]:
+                - strong [ref=e99]: System Administrator
+                - generic [ref=e100]: ADM
+                - text: "login USER #1"
+              - generic [ref=e101]: 18 Jan 14:52
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - strong [ref=e105]: System Administrator
+                - generic [ref=e106]: ADM
+                - text: "login USER #1"
+              - generic [ref=e107]: 18 Jan 14:52
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - strong [ref=e111]: System Administrator
+                - generic [ref=e112]: ADM
+                - text: "login USER #1"
+              - generic [ref=e113]: 18 Jan 14:52
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - strong [ref=e117]: System Administrator
+                - generic [ref=e118]: ADM
+                - text: "login USER #1"
+              - generic [ref=e119]: 18 Jan 14:52
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - strong [ref=e123]: System Administrator
+                - generic [ref=e124]: ADM
+                - text: "login USER #1"
+              - generic [ref=e125]: 18 Jan 14:52
+            - generic [ref=e127]:
+              - generic [ref=e128]:
+                - strong [ref=e129]: System Administrator
+                - generic [ref=e130]: ADM
+                - text: "login USER #1"
+              - generic [ref=e131]: 18 Jan 14:52
+            - generic [ref=e133]:
+              - generic [ref=e134]:
+                - strong [ref=e135]: System Administrator
+                - generic [ref=e136]: ADM
+                - text: "login USER #1"
+              - generic [ref=e137]: 18 Jan 14:52
+            - generic [ref=e139]:
+              - generic [ref=e140]:
+                - strong [ref=e141]: System Administrator
+                - generic [ref=e142]: ADM
+                - text: "login USER #1"
+              - generic [ref=e143]: 18 Jan 14:52
+            - generic [ref=e145]:
+              - generic [ref=e146]:
+                - strong [ref=e147]: System Administrator
+                - generic [ref=e148]: ADM
+                - text: "login USER #1"
+              - generic [ref=e149]: 18 Jan 14:52
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - strong [ref=e153]: System Administrator
+                - generic [ref=e154]: ADM
+                - text: "login USER #1"
+              - generic [ref=e155]: 18 Jan 14:52
+      - generic [ref=e158]:
+        - generic [ref=e159]:
+          - generic [ref=e160]: 
+          - text: System Information
+        - generic [ref=e162]:
+          - generic [ref=e163]:
+            - strong [ref=e164]: "Version:"
+            - text: 2.0.0
+          - generic [ref=e165]:
+            - strong [ref=e166]: "PHP Version:"
+            - text: 8.3.28
+          - generic [ref=e167]:
+            - strong [ref=e168]: "Server Time:"
+            - text: 2026-01-18 14:52:17
+  - contentinfo [ref=e169]:
+    - generic [ref=e171]:
+      - generic [ref=e172]: ERP v2 © 2026
+      - generic [ref=e173]: Version 2.0.0
+```

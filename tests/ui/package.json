@@ -1,0 +1,16 @@
+{
+  "name": "4erpv2-ui-tests",
+  "version": "1.0.0",
+  "description": "UI automation tests for 4ERP v2",
+  "scripts": {
+    "ui:test": "npx playwright test",
+    "ui:test:headed": "npx playwright test --headed",
+    "ui:test:debug": "npx playwright test --debug",
+    "ui:trace": "npx playwright show-trace",
+    "ui:codegen": "npx playwright codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^25.0.9"
+  }
+}
