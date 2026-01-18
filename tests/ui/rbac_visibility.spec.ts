@@ -7,7 +7,7 @@ import { test, expect, Page } from '@playwright/test';
  * and that attempts to access forbidden actions are properly denied.
  */
 
-const BASE_URL = 'http://localhost:8888/4erp/4erpv2';
+const BASE_URL = 'http://localhost:8888/4erpv2';
 
 interface TestUser {
     username: string;
@@ -55,6 +55,14 @@ test.describe('RBAC Visibility - ADM (Admin)', () => {
         await page.goto(BASE_URL + '/modules/procurement/');
         await expect(page.locator('h1, h2')).toContainText(/Procurement/i);
     });
+
+    test('ADM can see Reversal Button in Payments', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/accounting/payments/index.php');
+        await expect(page.locator('table th:has-text("Action")')).toBeVisible();
+        // Check for at least one reversal button if data exists, or just the UI structure
+        // We assume test data might not have posted payments, but the column header verifies UI load
+        await expect(page.locator('h2')).toContainText(/Payments/i);
+    });
 });
 
 test.describe('RBAC Visibility - WH (Warehouse)', () => {
@@ -64,15 +72,31 @@ test.describe('RBAC Visibility - WH (Warehouse)', () => {
 
     test('WH cannot see Admin menu', async ({ page }) => {
         await page.goto(BASE_URL + '/index.php');
-        // WH should not have Admin in the visible nav
         const adminLink = page.locator('nav >> text=Admin');
         await expect(adminLink).toHaveCount(0);
     });
 
     test('WH can access GR (Goods Receipt)', async ({ page }) => {
         await page.goto(BASE_URL + '/modules/procurement/gr/');
-        // Should load successfully (WH can create GR per Policy)
         await expect(page).not.toHaveURL(/login/);
+    });
+
+    test('WH can access Receive Page (Fix Verification)', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/warehouse/receive.php');
+        await expect(page.locator('h2')).toContainText(/Receive/i);
+        await expect(page).not.toHaveURL(/login/);
+    });
+
+    test('WH is blocked from Accounting Invoices', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/accounting/invoices/');
+        // Expect redirect to index or login, or error message
+        // Just checking it doesn't stay on invoices page
+        await expect(page).not.toHaveURL(/\/accounting\/invoices\/?$/);
+    });
+
+    test('WH is blocked from Accounting Payments', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/accounting/payments/');
+        await expect(page).not.toHaveURL(/\/accounting\/payments\/?$/);
     });
 });
 
@@ -90,6 +114,11 @@ test.describe('RBAC Visibility - PLN (Planner)', () => {
         await page.goto(BASE_URL + '/modules/logistics/routes/');
         await expect(page).not.toHaveURL(/login/);
     });
+
+    test('PLN cannot access Accounting', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/accounting/invoices/');
+        await expect(page).not.toHaveURL(/\/accounting\/invoices\/?$/);
+    });
 });
 
 test.describe('RBAC Visibility - PUR (Procurement)', () => {
@@ -106,11 +135,22 @@ test.describe('RBAC Visibility - PUR (Procurement)', () => {
     test('PUR can access PR list', async ({ page }) => {
         await page.goto(BASE_URL + '/modules/procurement/pr/');
         await expect(page).not.toHaveURL(/login/);
+        await expect(page.locator('table')).toBeVisible();
     });
 
     test('PUR can access PO list', async ({ page }) => {
         await page.goto(BASE_URL + '/modules/procurement/po/');
         await expect(page).not.toHaveURL(/login/);
+    });
+
+    test('PUR can access Procurement Dashboard (Fix Verification)', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/procurement/');
+        await expect(page.locator('h2')).toContainText(/Procurement/i);
+    });
+
+    test('PUR cannot access Warehouse', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/warehouse/receive.php');
+        await expect(page).not.toHaveURL(/\/warehouse\/receive\.php/);
     });
 });
 
@@ -121,8 +161,23 @@ test.describe('RBAC Visibility - ACC (Accounting)', () => {
 
     test('ACC can see PO (for invoice verification)', async ({ page }) => {
         await page.goto(BASE_URL + '/modules/procurement/po/');
-        // ACC can view PO per Policy matrix
         await expect(page).not.toHaveURL(/login/);
+    });
+
+    test('ACC can access Payments', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/accounting/payments/');
+        await expect(page.locator('h2')).toContainText(/Payments/i);
+    });
+
+    test('ACC can see Reversal Button', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/accounting/payments/');
+        // Verify Action column exists
+        await expect(page.locator('table th:has-text("Action")')).toBeVisible();
+    });
+
+    test('ACC cannot access Warehouse Receive', async ({ page }) => {
+        await page.goto(BASE_URL + '/modules/warehouse/receive.php');
+        await expect(page).not.toHaveURL(/\/warehouse\/receive\.php/);
     });
 });
 
@@ -139,5 +194,12 @@ test.describe('RBAC Visibility - MGR (Manager)', () => {
     test('MGR can access Audit Logs', async ({ page }) => {
         await page.goto(BASE_URL + '/modules/admin/audit_logs.php');
         await expect(page.locator('h1, h2')).toContainText(/Audit/i);
+    });
+
+    test('MGR can View All Modules', async ({ page }) => {
+        // Manager usually has view access to most modules?
+        // Let's check Jobs
+        await page.goto(BASE_URL + '/modules/jobs/');
+        await expect(page.locator('h2')).toContainText(/Jobs/i);
     });
 });

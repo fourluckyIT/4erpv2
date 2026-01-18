@@ -12,7 +12,7 @@ $auth->requireAuth();
 
 // RBAC: WH, ADM, MGR can view
 $rbac = new RBAC();
-if (!$auth->isAdmin() && !$auth->hasRole(ROLE_WH) && !$auth->hasRole(ROLE_MANAGER)) {
+if (!$auth->isAdmin() && !$auth->hasRole(ROLE_WAREHOUSE) && !$auth->hasRole(ROLE_MANAGER)) {
     setFlash('error', 'ไม่มีสิทธิ์เข้าถึงหน้านี้');
     header('Location: /4erpv2/index.php');
     exit;

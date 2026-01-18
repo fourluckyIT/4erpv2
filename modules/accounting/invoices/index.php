@@ -11,7 +11,7 @@ $auth = new Auth();
 $auth->requireAuth();
 
 // RBAC: ACC, ADM can view
-if (!$auth->isAdmin() && !$auth->hasRole(ROLE_ACC)) {
+if (!$auth->isAdmin() && !$auth->hasRole(ROLE_ACCOUNTANT)) {
     setFlash('error', 'ไม่มีสิทธิ์เข้าถึงหน้านี้');
     header('Location: /4erpv2/index.php');
     exit;
