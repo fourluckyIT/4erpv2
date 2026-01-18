@@ -11,7 +11,7 @@ $auth = new Auth();
 $auth->requireAuth();
 
 // RBAC: WH + ADM only
-if (!$auth->isAdmin() && !$auth->hasRole(ROLE_WH)) {
+if (!$auth->isAdmin() && !$auth->hasRole(ROLE_WAREHOUSE)) {
     setFlash('error', 'ไม่มีสิทธิ์เข้าถึงหน้านี้');
     header('Location: /4erpv2/index.php');
     exit;

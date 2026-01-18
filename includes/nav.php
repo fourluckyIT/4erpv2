@@ -56,7 +56,7 @@ $userRoles = $auth->getCurrentRoles();
                 </li>
                 
                 <!-- Warehouse Dropdown -->
-                <?php if ($rbac->can('view', 'WH') || $auth->hasRole(ROLE_WH) || $auth->isAdmin()): ?>
+                <?php if ($rbac->can('view', 'WH') || $auth->hasRole(ROLE_WAREHOUSE) || $auth->isAdmin()): ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-box-seam me-1"></i>Warehouse
@@ -87,7 +87,7 @@ $userRoles = $auth->getCurrentRoles();
                 <?php endif; ?>
                 
                 <!-- Accounting Dropdown -->
-                <?php if ($rbac->can('view', 'INVOICE') || $auth->hasRole(ROLE_ACC) || $auth->isAdmin()): ?>
+                <?php if ($rbac->can('view', 'INVOICE') || $auth->hasRole(ROLE_ACCOUNTANT) || $auth->isAdmin()): ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-calculator me-1"></i>Accounting

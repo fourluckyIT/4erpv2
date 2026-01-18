@@ -11,7 +11,7 @@ $auth = new Auth();
 $auth->requireAuth();
 
 // RBAC: ACC, ADM can view
-if (!$auth->isAdmin() && !$auth->hasRole(ROLE_ACC)) {
+if (!$auth->isAdmin() && !$auth->hasRole(ROLE_ACCOUNTANT)) {
     setFlash('error', 'ไม่มีสิทธิ์เข้าถึงหน้านี้');
     header('Location: /4erpv2/index.php');
     exit;
@@ -128,6 +128,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                         <th>Method</th>
                         <th class="text-end">Amount</th>
                         <th>Status</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -150,6 +151,13 @@ require_once __DIR__ . '/../../../includes/header.php';
                                 <span class="badge bg-<?= $pay['status'] === 'Reversed' ? 'danger' : 'success' ?>">
                                     <?= e($pay['status']) ?>
                                 </span>
+                            </td>
+                            <td>
+                                <?php if ($pay['status'] === 'Posted' && ($auth->isAdmin() || $auth->hasRole(ROLE_ACCOUNTANT))): ?>
+                                <a href="reverse.php?id=<?= $pay['id'] ?>" class="btn btn-sm btn-outline-danger" title="Reverse Payment">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </a>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

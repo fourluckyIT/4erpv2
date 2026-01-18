@@ -1,0 +1,50 @@
+{
+    "run_id": "AUDIT_002",
+    "timestamp": "2026-01-18T17:15:00+07:00",
+    "environment": "localhost:8888",
+    "fix_verification": "Corrected RBAC constants (ROLE_WH->ROLE_WAREHOUSE, ROLE_ACC->ROLE_ACCOUNTANT). Added Payment Reversal UI.",
+    "steps": [
+        {
+            "name": "Warehouse Role Verification",
+            "status": "PASS",
+            "actions": [
+                {
+                    "action": "Access Receive Page",
+                    "expected": "200 OK",
+                    "result": "PASS",
+                    "screenshot": "audit_002_wh_receive_success.png"
+                },
+                {
+                    "action": "Access Accounting",
+                    "expected": "403/Redirect",
+                    "result": "PASS (Blocked)",
+                    "screenshot": "audit_002_wh_accounting_blocked_v3.png"
+                }
+            ]
+        },
+        {
+            "name": "Purchaser Role Verification",
+            "status": "PASS",
+            "actions": [
+                {
+                    "action": "Access Procurement Dashboard",
+                    "expected": "200 OK",
+                    "result": "PASS",
+                    "screenshot": "audit_002_pur_procurement_success.png"
+                }
+            ]
+        },
+        {
+            "name": "Admin Reversal UI Verification",
+            "status": "PASS",
+            "actions": [
+                {
+                    "action": "Check Payments Index",
+                    "expected": "Action Column + Reverse Button",
+                    "result": "PASS",
+                    "screenshot": "audit_002_admin_reversal_ui.png"
+                }
+            ]
+        }
+    ]
+}
