@@ -8,11 +8,16 @@
  * 3. PO Creation from PR
  * 4. GR Recording with stock update
  * 
- * Run: php tests/manual_procurement_flow.php
+ * Run: TEST_USER_ID=1 php tests/manual_procurement_flow.php
  */
 
 require_once __DIR__ . '/../config/bootstrap.php';
 require_once __DIR__ . '/../modules/procurement/ProcurementService.php';
+
+// Setup test session (required for DocumentNumber FK constraint)
+$_SESSION['user_id'] = getenv('TEST_USER_ID') ?: 1;
+$_SESSION['username'] = 'test_user';
+$_SESSION['roles'] = ['ADM', 'PUR'];
 
 try {
     $db = getDB();

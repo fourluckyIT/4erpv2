@@ -8,12 +8,17 @@
  * 3. Route cannot Return without 4 Return photos
  * 4. Status history is recorded
  * 
- * Run: php tests/manual_route_execution_m3.php
+ * Run: TEST_USER_ID=1 php tests/manual_route_execution_m3.php
  */
 
 require_once __DIR__ . '/../config/bootstrap.php';
 require_once __DIR__ . '/../core/Route.php';
 require_once __DIR__ . '/../core/EvidencePhoto.php';
+
+// Setup test session
+$_SESSION['user_id'] = getenv('TEST_USER_ID') ?: 1;
+$_SESSION['username'] = 'test_user';
+$_SESSION['roles'] = ['ADM'];
 
 try {
     $db = getDB();
@@ -30,16 +35,19 @@ try {
     if (!$routeId) {
         echo "[Setup] No Confirmed route found. Creating test route...\n";
         
-        // Get a job
-        $stmt = $db->prepare("SELECT id FROM jobs WHERE status IN ('Planned', 'Approved') LIMIT 1");
+        // Get a plan (routes use plan_id, not job_id)
+        $stmt = $db->prepare("SELECT id FROM plans LIMIT 1");
         $stmt->execute();
-        $jobId = $stmt->fetchColumn() ?: 1;
+        $planId = $stmt->fetchColumn() ?: 1;
         
-        // Create route directly for testing
+        // Generate test route number
+        $routeNumber = 'TEST-RT-' . date('YmdHis');
+        
+        // Create route directly for testing (using plan_id)
         $db->prepare("
-            INSERT INTO routes (job_id, route_date, status, created_by, created_at)
-            VALUES (?, CURDATE(), 'Confirmed', 1, NOW())
-        ")->execute([$jobId]);
+            INSERT INTO routes (route_number, plan_id, route_date, status, created_by, created_at)
+            VALUES (?, ?, CURDATE(), 'Confirmed', ?, NOW())
+        ")->execute([$routeNumber, $planId, $_SESSION['user_id']]);
         $routeId = $db->lastInsertId();
         echo "[Setup] Created Route ID: $routeId\n\n";
     } else {
@@ -61,12 +69,12 @@ try {
     
     // ======= TEST 2: Upload 4 Dispatch photos =======
     echo "[Test 2] Uploading 4 Dispatch photos...\n";
+    $insertStmt = $db->prepare("
+        INSERT INTO evidence_photos (route_id, event_type, photo_seq, file_path, uploaded_by, uploaded_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+    ");
     for ($i = 1; $i <= 4; $i++) {
-        $photo->addPhoto($routeId, 'Dispatch', [
-            'filename' => "test_dispatch_$i.jpg",
-            'path' => "/uploads/test/dispatch_$i.jpg",
-            'uploaded_by' => 1
-        ]);
+        $insertStmt->execute([$routeId, 'Dispatch', $i, "/uploads/test/dispatch_$i.jpg", $_SESSION['user_id']]);
         echo "  Photo $i uploaded.\n";
     }
     echo "[DONE] 4 photos uploaded.\n\n";
@@ -123,11 +131,7 @@ try {
     // ======= TEST 7: Upload 4 Return photos and complete =======
     echo "[Test 7] Uploading 4 Return photos...\n";
     for ($i = 1; $i <= 4; $i++) {
-        $photo->addPhoto($routeId, 'Return', [
-            'filename' => "test_return_$i.jpg",
-            'path' => "/uploads/test/return_$i.jpg",
-            'uploaded_by' => 1
-        ]);
+        $insertStmt->execute([$routeId, 'Return', $i, "/uploads/test/return_$i.jpg", $_SESSION['user_id']]);
     }
     
     $result = $route->transitionStatus($routeId, 'Returned');
