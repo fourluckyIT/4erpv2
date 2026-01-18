@@ -118,7 +118,7 @@ class Plan {
             
             $stmt = $this->db->prepare("
                 INSERT INTO plan_assignments (plan_id, serial_id, assignment_type, notes)
-                VALUES (:plan_id, :serial_id, 'Serial', :notes)
+                VALUES (:plan_id, :serial_id, 'Device', :notes)
             ");
             $stmt->execute([
                 'plan_id' => $planId,
@@ -164,7 +164,7 @@ class Plan {
             
             $stmt = $this->db->prepare("
                 INSERT INTO plan_assignments (plan_id, people_id, assignment_type, notes)
-                VALUES (:plan_id, :people_id, 'People', :notes)
+                VALUES (:plan_id, :people_id, 'Manpower', :notes)
             ");
             $stmt->execute([
                 'plan_id' => $planId,
