@@ -51,8 +51,22 @@ $userRoles = $auth->getCurrentRoles();
                     </a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="/4erpv2/modules/logistics/dispatch/">Dispatch</a></li>
+                        <li><a class="dropdown-item" href="/4erpv2/modules/logistics/routes/">Routes</a></li>
                     </ul>
                 </li>
+                
+                <!-- Warehouse Dropdown -->
+                <?php if ($rbac->can('view', 'WH') || $auth->hasRole(ROLE_WH) || $auth->isAdmin()): ?>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-box-seam me-1"></i>Warehouse
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/4erpv2/modules/warehouse/movements.php">Stock Movements</a></li>
+                        <li><a class="dropdown-item" href="/4erpv2/modules/warehouse/receive.php">WH Receive</a></li>
+                    </ul>
+                </li>
+                <?php endif; ?>
                 
                 <!-- Procurement Dropdown -->
                 <?php if ($rbac->can('view', 'PR') || $rbac->can('view', 'PO')): ?>
@@ -62,11 +76,25 @@ $userRoles = $auth->getCurrentRoles();
                     </a>
                     <ul class="dropdown-menu">
                         <?php if ($rbac->can('view', 'PR')): ?>
-                        <li><a class="dropdown-item" href="/4erpv2/modules/pr/">Purchase Requests</a></li>
+                        <li><a class="dropdown-item" href="/4erpv2/modules/procurement/pr/">Purchase Requests</a></li>
                         <?php endif; ?>
                         <?php if ($rbac->can('view', 'PO')): ?>
-                        <li><a class="dropdown-item" href="/4erpv2/modules/po/">Purchase Orders</a></li>
+                        <li><a class="dropdown-item" href="/4erpv2/modules/procurement/po/">Purchase Orders</a></li>
                         <?php endif; ?>
+                        <li><a class="dropdown-item" href="/4erpv2/modules/procurement/gr/">Goods Receipts</a></li>
+                    </ul>
+                </li>
+                <?php endif; ?>
+                
+                <!-- Accounting Dropdown -->
+                <?php if ($rbac->can('view', 'INVOICE') || $auth->hasRole(ROLE_ACC) || $auth->isAdmin()): ?>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-calculator me-1"></i>Accounting
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/4erpv2/modules/accounting/invoices/">Invoices</a></li>
+                        <li><a class="dropdown-item" href="/4erpv2/modules/accounting/payments/">Payments</a></li>
                     </ul>
                 </li>
                 <?php endif; ?>
