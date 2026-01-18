@@ -1,0 +1,75 @@
+{
+    "run_id": "AUDIT_001",
+    "timestamp": "2026-01-18T16:45:00+07:00",
+    "environment": "localhost:8888",
+    "steps": [
+        {
+            "name": "Admin Smoke Crawl",
+            "status": "PASS",
+            "pages_visited": 21,
+            "screenshots": [
+                "page_dashboard_index.png",
+                "page_jobs_index.png",
+                "page_planning_index.png",
+                "page_logistics_dispatch_index.png",
+                "page_logistics_routes_index.png",
+                "page_warehouse_movements.png",
+                "page_warehouse_receive.png",
+                "page_procurement_index.png",
+                "page_procurement_pr_index.png",
+                "page_procurement_po_index.png",
+                "page_procurement_gr_index.png",
+                "page_accounting_invoices_index.png",
+                "page_accounting_payments_index.png",
+                "page_admin_users.png",
+                "page_admin_roles.png",
+                "page_admin_permissions.png",
+                "page_admin_doc_numbers.png",
+                "page_admin_audit_logs.png",
+                "page_master_customers.png",
+                "page_master_items.png",
+                "page_auth_profile.png"
+            ]
+        },
+        {
+            "name": "RBAC Verification",
+            "status": "PARTIAL_FAIL",
+            "details": "Unauthorized access blocked correctly (PASS). Authorized specialized users (WH, PUR) encountering 500 errors on their own modules (FAIL).",
+            "actions": [
+                {
+                    "role": "warehouse",
+                    "target": "Accounting",
+                    "result": "BLOCKED",
+                    "screenshot": "rbac_wh_accounting_denied.png"
+                },
+                {
+                    "role": "accountant",
+                    "target": "Warehouse",
+                    "result": "BLOCKED",
+                    "screenshot": "rbac_acc_receive_denied.png"
+                },
+                {
+                    "role": "purchaser",
+                    "target": "Procurement",
+                    "result": "CRASH (500)",
+                    "screenshot": "rbac_pur_procurement_allowed.png"
+                }
+            ]
+        },
+        {
+            "name": "E2E Happy Path (Admin)",
+            "status": "PASS",
+            "flow": "Job -> Invoice -> Payment",
+            "data_created": {
+                "job_id": 63,
+                "job_name": "E2E Audit Run 001",
+                "customer_id": 2
+            },
+            "screenshots": [
+                "e2e_01_job_created.png",
+                "e2e_02_invoice_issued.png",
+                "e2e_03_payment_success.png"
+            ]
+        }
+    ]
+}
