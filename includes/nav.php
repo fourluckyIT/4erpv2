@@ -102,7 +102,7 @@ $userRoles = $auth->getCurrentRoles();
                 <!-- Admin Menu -->
                 <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" data-testid="nav-admin">
                         <i class="bi bi-gear me-1"></i>Admin
                     </a>
                     <ul class="dropdown-menu">

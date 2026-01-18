@@ -43,7 +43,7 @@ test.describe('RBAC Visibility - ADM (Admin)', () => {
 
     test('ADM can see Admin menu', async ({ page }) => {
         await page.goto(BASE_URL + '/index.php');
-        await expect(page.locator('nav >> text=Admin')).toBeVisible();
+        await expect(page.getByTestId('nav-admin')).toBeVisible();
     });
 
     test('ADM can access Jobs', async ({ page }) => {
