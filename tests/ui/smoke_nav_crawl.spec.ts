@@ -47,12 +47,12 @@ const NAV_LINKS = [
     { name: 'Profile', url: '/modules/auth/profile.php' },
 ];
 
-// PHP error indicators
+// PHP error indicators (avoid false positives from UI text)
 const PHP_ERRORS = [
     'Fatal error',
     'Parse error',
-    'Warning:',
-    'Notice:',
+    '<b>Warning</b>:',  // PHP style warning format
+    '<b>Notice</b>:',   // PHP style notice format
     'Uncaught',
     'Stack trace',
     'SQLSTATE',

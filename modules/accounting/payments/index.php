@@ -45,7 +45,7 @@ if ($status) {
     $params['status'] = $status;
 }
 
-$sql = "SELECT p.*, inv.invoice_number, c.name as customer_name
+$sql = "SELECT p.*, p.payment_no as payment_number, inv.invoice_no as invoice_number, c.name as customer_name
         FROM payments p
         LEFT JOIN ar_invoices inv ON p.invoice_id = inv.id
         LEFT JOIN customers c ON inv.customer_id = c.id
@@ -96,7 +96,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                 <label class="form-label">Status</label>
                 <select name="status" class="form-select">
                     <option value="">All</option>
-                    <option value="Completed" <?= $status === 'Completed' ? 'selected' : '' ?>>Completed</option>
+                    <option value="Posted" <?= $status === 'Posted' ? 'selected' : '' ?>>Posted</option>
                     <option value="Reversed" <?= $status === 'Reversed' ? 'selected' : '' ?>>Reversed</option>
                 </select>
             </div>

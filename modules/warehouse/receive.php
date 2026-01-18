@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get items for dropdown
-$items = $db->query("SELECT id, code, name, qty_on_hand FROM items ORDER BY name")->fetchAll();
+$items = $db->query("SELECT id, code, name, quantity as qty_on_hand FROM items ORDER BY name")->fetchAll();
 
 // Get recent routes for reference
 $routes = $db->query("

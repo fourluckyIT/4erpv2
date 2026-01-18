@@ -1,0 +1,235 @@
+{
+  "timestamp": "2026-01-18T08:12:33.657Z",
+  "baseUrl": "http://localhost:8888/4erp/4erpv2",
+  "totalPages": 25,
+  "totalErrors": 1,
+  "pages": [
+    {
+      "url": "/index.php",
+      "status": 200,
+      "title": "Dashboard - ERP v2",
+      "linksClicked": 4,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 53
+    },
+    {
+      "url": "/modules/jobs/",
+      "status": 200,
+      "title": "Jobs - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 107
+    },
+    {
+      "url": "/modules/jobs/create.php",
+      "status": 200,
+      "title": "Create Job - ERP v2",
+      "linksClicked": 2,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 86
+    },
+    {
+      "url": "/modules/planning/",
+      "status": 200,
+      "title": "Planning - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 63
+    },
+    {
+      "url": "/modules/planning/create.php",
+      "status": 200,
+      "title": "Planning - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 2,
+      "errors": [],
+      "duration": 117
+    },
+    {
+      "url": "/modules/logistics/routes/",
+      "status": 200,
+      "title": "Routes - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 80
+    },
+    {
+      "url": "/modules/logistics/dispatch/",
+      "status": 200,
+      "title": "Dispatch - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 57
+    },
+    {
+      "url": "/modules/procurement/",
+      "status": 200,
+      "title": "Procurement - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 48
+    },
+    {
+      "url": "/modules/procurement/pr/",
+      "status": 200,
+      "title": "Purchase Requests - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 49
+    },
+    {
+      "url": "/modules/procurement/pr/create.php",
+      "status": 200,
+      "title": "สร้าง PR - ERP v2",
+      "linksClicked": 3,
+      "buttonsClicked": 3,
+      "errors": [],
+      "duration": 56
+    },
+    {
+      "url": "/modules/procurement/po/",
+      "status": 200,
+      "title": "Purchase Orders - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 62
+    },
+    {
+      "url": "/modules/procurement/gr/",
+      "status": 200,
+      "title": "Goods Receipts - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 68
+    },
+    {
+      "url": "/modules/admin/",
+      "status": 200,
+      "title": "Admin Dashboard - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 59
+    },
+    {
+      "url": "/modules/admin/users.php",
+      "status": 200,
+      "title": "User Management - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 43
+    },
+    {
+      "url": "/modules/admin/roles.php",
+      "status": 200,
+      "title": "Roles & Permissions - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 54
+    },
+    {
+      "url": "/modules/admin/permissions.php",
+      "status": 200,
+      "title": "Custom Permissions - ERP v2",
+      "linksClicked": 4,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 155
+    },
+    {
+      "url": "/modules/admin/doc_numbers.php",
+      "status": 200,
+      "title": "Document Numbers - ERP v2",
+      "linksClicked": 1,
+      "buttonsClicked": 3,
+      "errors": [
+        "PHP Warning detected"
+      ],
+      "duration": 64
+    },
+    {
+      "url": "/modules/admin/audit_logs.php",
+      "status": 200,
+      "title": "Audit Logs - ERP v2",
+      "linksClicked": 2,
+      "buttonsClicked": 3,
+      "errors": [],
+      "duration": 110
+    },
+    {
+      "url": "/modules/master/",
+      "status": 200,
+      "title": "Master Data - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 0,
+      "errors": [],
+      "duration": 60
+    },
+    {
+      "url": "/modules/master/customers.php",
+      "status": 200,
+      "title": "Customers - ERP v2",
+      "linksClicked": 4,
+      "buttonsClicked": 3,
+      "errors": [],
+      "duration": 50
+    },
+    {
+      "url": "/modules/master/suppliers.php",
+      "status": 200,
+      "title": "Suppliers - ERP v2",
+      "linksClicked": 2,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 43
+    },
+    {
+      "url": "/modules/master/items.php",
+      "status": 200,
+      "title": "Items - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 43
+    },
+    {
+      "url": "/modules/master/serials.php",
+      "status": 200,
+      "title": "Serial Numbers - ERP v2",
+      "linksClicked": 2,
+      "buttonsClicked": 2,
+      "errors": [],
+      "duration": 39
+    },
+    {
+      "url": "/modules/master/sites.php",
+      "status": 200,
+      "title": "Sites - ERP v2",
+      "linksClicked": 2,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 47
+    },
+    {
+      "url": "/modules/master/people.php",
+      "status": 200,
+      "title": "People - ERP v2",
+      "linksClicked": 5,
+      "buttonsClicked": 1,
+      "errors": [],
+      "duration": 56
+    }
+  ]
+}
