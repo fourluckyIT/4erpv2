@@ -44,6 +44,20 @@ mkdir -p logs
 chmod 777 logs
 ```
 
+## Testing
+
+### Self-Tests (PHP)
+Run the full regression suite:
+```bash
+php tests/run_selftests.php
+```
+
+### UI Tests (Playwright)
+Run headless UI regression tests:
+```bash
+cd tests/ui && npm run ui:test
+```
+
 ## Default Login
 
 - **Username:** admin
