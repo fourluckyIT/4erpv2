@@ -111,7 +111,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                         <div class="col-md-4 mb-3">
                             <label class="form-label">ประเภท <span class="text-danger">*</span></label>
                             <select class="form-select" name="people_type" id="peopleType" required>
-                                <option value="Internal" <?= $person['people_type'] === 'Employee' ? 'selected' : '' ?>>พนักงานประจำ</option>
+                                <option value="Employee" <?= $person['people_type'] === 'Employee' ? 'selected' : '' ?>>พนักงานประจำ</option>
                                 <option value="External" <?= $person['people_type'] === 'External' ? 'selected' : '' ?>>แรงงานภายนอก</option>
                             </select>
                         </div>
@@ -306,6 +306,10 @@ document.getElementById('confirmSubmit').addEventListener('click', function() {
 document.getElementById('peopleType').addEventListener('change', function() {
     document.getElementById('supplierField').style.display = this.value === 'External' ? 'block' : 'none';
 });
+
+// Initialize supplier field visibility
+document.getElementById('supplierField').style.display = 
+    document.getElementById('peopleType').value === 'External' ? 'block' : 'none';
 </script>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
