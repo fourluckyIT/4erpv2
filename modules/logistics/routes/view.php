@@ -49,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         case 'return':
             $itemConditions = post('item_conditions', []);
-            $result = $routeModel->markReturned($id, $itemConditions);
+            $consumableUsed = post('consumable_used', []);
+            $result = $routeModel->markReturned($id, $itemConditions, $consumableUsed);
             break;
             
         case 'wh_receive':
@@ -450,8 +451,8 @@ require_once __DIR__ . '/../../../includes/header.php';
                         <thead>
                             <tr>
                                 <th>รายการ</th>
-                                <th>สภาพตอนออก</th>
-                                <th>สภาพตอนเข้า</th>
+                                <th>ส่งออก</th>
+                                <th>สภาพ/จำนวนคืน</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -474,6 +475,25 @@ require_once __DIR__ . '/../../../includes/header.php';
                                         <option value="Damaged">เสียหาย</option>
                                         <option value="Lost">สูญหาย</option>
                                     </select>
+                                </td>
+                            </tr>
+                            <?php elseif ($item['item_type'] === 'Consumable'): ?>
+                            <tr>
+                                <td>
+                                    <strong><?= e($item['item_name']) ?></strong><br>
+                                    <small class="text-muted">Consumable</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary"><?= formatNumber($item['qty_out']) ?> <?= e($item['unit']) ?></span>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" name="consumable_used[<?= $item['id'] ?>]" 
+                                               min="0" max="<?= $item['qty_out'] ?>" step="0.01" 
+                                               placeholder="ใช้ไป" value="<?= $item['qty_out'] ?>">
+                                        <span class="input-group-text"><?= e($item['unit']) ?></span>
+                                    </div>
+                                    <small class="text-muted">คงเหลือจะถูกคืนคลัง</small>
                                 </td>
                             </tr>
                             <?php endif; ?>

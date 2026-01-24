@@ -476,7 +476,7 @@ class Route {
     /**
      * Mark route as returned from site
      */
-    public function markReturned(int $routeId, array $itemConditions = []): array {
+    public function markReturned(int $routeId, array $itemConditions = [], array $consumableUsed = []): array {
         try {
             $route = $this->getById($routeId);
             if (!$route) {
@@ -518,6 +518,15 @@ class Route {
                     $serialStatus = ($conditionIn === 'Lost') ? 'Lost' : 'Returned';
                     $stmt = $this->db->prepare("UPDATE serials SET status = ? WHERE id = ?");
                     $stmt->execute([$serialStatus, $item['serial_id']]);
+                } elseif ($item['item_type'] === 'Consumable' && isset($consumableUsed[$item['id']])) {
+                    // Record actual used quantity for consumables
+                    $qtyUsed = (float) $consumableUsed[$item['id']];
+                    $qtyOut = (float) $item['qty_out'];
+                    $qtyReturned = max(0, $qtyOut - $qtyUsed);
+                    
+                    // Update route_items with actual used and returned qty
+                    $stmt = $this->db->prepare("UPDATE route_items SET qty_used = ?, qty_in = ? WHERE id = ?");
+                    $stmt->execute([$qtyUsed, $qtyReturned, $item['id']]);
                 }
             }
             
@@ -530,7 +539,7 @@ class Route {
                 'ROUTE',
                 $routeId,
                 ['status' => $route['status']],
-                ['status' => 'Returned']
+                ['status' => 'Returned', 'consumable_used' => $consumableUsed]
             );
             
             $this->db->commit();
