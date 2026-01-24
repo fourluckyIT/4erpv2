@@ -95,7 +95,7 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </div>
 
-<form method="POST">
+<form method="POST" id="editForm" onsubmit="return showChangesConfirm(event)">
     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
     
     <div class="row">
@@ -183,7 +183,126 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </form>
 
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>ยืนยันการแก้ไข</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>คุณได้ทำการเปลี่ยนแปลงข้อมูลดังนี้:</p>
+                <div id="changesList" class="mb-3"></div>
+                <p class="text-muted mb-0">ต้องการบันทึกการเปลี่ยนแปลงนี้หรือไม่?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-success" id="confirmSubmit">
+                    <i class="bi bi-check-circle me-1"></i>ยืนยันบันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// Store original values
+const originalValues = {
+    people_type: '<?= e($person['people_type']) ?>',
+    is_active: '<?= $person['is_active'] ? '1' : '0' ?>',
+    full_name: '<?= e($person['full_name']) ?>',
+    position: '<?= e($person['position']) ?>',
+    id_card: '<?= e($person['id_card']) ?>',
+    hire_date: '<?= $person['hire_date'] ?? '' ?>',
+    phone: '<?= e($person['phone']) ?>',
+    email: '<?= e($person['email']) ?>',
+    supplier_id: '<?= $person['supplier_id'] ?? '' ?>'
+};
+
+const fieldLabels = {
+    people_type: 'ประเภท',
+    is_active: 'สถานะ',
+    full_name: 'ชื่อ-นามสกุล',
+    position: 'ตำแหน่ง',
+    id_card: 'บัตรประชาชน',
+    hire_date: 'วันที่เริ่มงาน',
+    phone: 'โทรศัพท์',
+    email: 'อีเมล',
+    supplier_id: 'ผู้ขาย/บริษัท'
+};
+
+function getFormValues() {
+    const form = document.getElementById('editForm');
+    const values = {};
+    
+    // Map Internal to Employee for comparison
+    let peopleType = form.querySelector('[name="people_type"]').value;
+    if (peopleType === 'Internal') peopleType = 'Employee';
+    values.people_type = peopleType;
+    
+    values.is_active = form.querySelector('[name="is_active"]').value;
+    values.full_name = form.querySelector('[name="full_name"]').value;
+    values.position = form.querySelector('[name="position"]').value;
+    values.id_card = form.querySelector('[name="id_card"]').value;
+    values.hire_date = form.querySelector('[name="hire_date"]').value;
+    values.phone = form.querySelector('[name="phone"]').value;
+    values.email = form.querySelector('[name="email"]').value;
+    values.supplier_id = form.querySelector('[name="supplier_id"]').value;
+    
+    return values;
+}
+
+function getChanges() {
+    const newValues = getFormValues();
+    const changes = [];
+    
+    for (const key in originalValues) {
+        const oldVal = originalValues[key] || '';
+        const newVal = newValues[key] || '';
+        
+        if (oldVal !== newVal) {
+            changes.push({
+                field: fieldLabels[key] || key,
+                oldValue: oldVal || '(ว่าง)',
+                newValue: newVal || '(ว่าง)'
+            });
+        }
+    }
+    
+    return changes;
+}
+
+function showChangesConfirm(event) {
+    event.preventDefault();
+    
+    const changes = getChanges();
+    
+    if (changes.length === 0) {
+        alert('ไม่มีการเปลี่ยนแปลงข้อมูล');
+        return false;
+    }
+    
+    // Build changes list HTML
+    let html = '<table class="table table-sm table-bordered"><thead class="table-light"><tr><th>ฟิลด์</th><th>ค่าเดิม</th><th>ค่าใหม่</th></tr></thead><tbody>';
+    changes.forEach(c => {
+        html += `<tr><td><strong>${c.field}</strong></td><td class="text-danger"><del>${c.oldValue}</del></td><td class="text-success">${c.newValue}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    
+    document.getElementById('changesList').innerHTML = html;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    modal.show();
+    
+    return false;
+}
+
+document.getElementById('confirmSubmit').addEventListener('click', function() {
+    document.getElementById('editForm').onsubmit = null;
+    document.getElementById('editForm').submit();
+});
+
 document.getElementById('peopleType').addEventListener('change', function() {
     document.getElementById('supplierField').style.display = this.value === 'External' ? 'block' : 'none';
 });

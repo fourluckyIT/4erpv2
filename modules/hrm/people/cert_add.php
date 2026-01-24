@@ -144,7 +144,7 @@ require_once __DIR__ . '/../../../includes/header.php';
     <strong><?= e($person['code']) ?> - <?= e($person['full_name']) ?></strong>
 </div>
 
-<form method="POST">
+<form method="POST" id="certForm"<?php if ($editId): ?> onsubmit="return showCertChangesConfirm(event)"<?php endif; ?>>
     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
     
     <div class="row">
@@ -293,6 +293,67 @@ document.getElementById('setReminderBtn').addEventListener('click', function() {
         alert(`ตั้งเตือน: ${certType} ใกล้หมดอายุ\nวันแจ้งเตือน: ${reminderDate.toLocaleDateString('th-TH')}\nวันหมดอายุ: ${new Date(expiryDate).toLocaleDateString('th-TH')}\n\n(ฟีเจอร์การแจ้งเตือนจะเพิ่มในเวอร์ชันถัดไป)`);
     }
 });
+
+<?php if ($editId): ?>
+// Edit mode - show changes confirmation
+const certOriginal = {
+    certificate_type: '<?= e($cert['certificate_type'] ?? '') ?>',
+    certificate_number: '<?= e($cert['certificate_number'] ?? '') ?>',
+    issuer: '<?= e($cert['issuer'] ?? '') ?>',
+    issue_date: '<?= $cert['issue_date'] ?? '' ?>',
+    expiry_date: '<?= $cert['expiry_date'] ?? '' ?>',
+    notes: '<?= e($cert['notes'] ?? '') ?>'
+};
+
+const certLabels = {
+    certificate_type: 'ประเภทใบรับรอง',
+    certificate_number: 'เลขที่ใบรับรอง',
+    issuer: 'ออกโดย',
+    issue_date: 'วันที่ออก',
+    expiry_date: 'วันหมดอายุ',
+    notes: 'หมายเหตุ'
+};
+
+function showCertChangesConfirm(event) {
+    event.preventDefault();
+    
+    const form = document.getElementById('certForm');
+    const changes = [];
+    
+    for (const key in certOriginal) {
+        const input = form.querySelector(`[name="${key}"]`);
+        if (!input) continue;
+        
+        const oldVal = certOriginal[key] || '';
+        const newVal = input.value || '';
+        
+        if (oldVal !== newVal) {
+            changes.push({
+                field: certLabels[key] || key,
+                oldValue: oldVal || '(ว่าง)',
+                newValue: newVal || '(ว่าง)'
+            });
+        }
+    }
+    
+    if (changes.length === 0) {
+        alert('ไม่มีการเปลี่ยนแปลงข้อมูล');
+        return false;
+    }
+    
+    let msg = 'คุณได้ทำการเปลี่ยนแปลงข้อมูลดังนี้:\n\n';
+    changes.forEach(c => {
+        msg += `• ${c.field}: "${c.oldValue}" → "${c.newValue}"\n`;
+    });
+    msg += '\nต้องการบันทึกการเปลี่ยนแปลงนี้หรือไม่?';
+    
+    if (confirm(msg)) {
+        form.onsubmit = null;
+        form.submit();
+    }
+    return false;
+}
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
