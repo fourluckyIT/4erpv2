@@ -32,12 +32,13 @@ if (isPost()) {
         $siteId = $db->query("SELECT id FROM sites LIMIT 1")->fetchColumn() ?: null;
         
         $stmt = $db->prepare("
-            INSERT INTO compliance_requirements (site_id, name, requirement_type, validity_days, is_mandatory, is_active)
-            VALUES (?, ?, ?, ?, ?, 1)
+            INSERT INTO compliance_requirements (site_id, name, description, requirement_type, validity_days, is_mandatory, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
         ");
         $stmt->execute([
             $siteId,
             post('name'),
+            post('default_issuer'),
             post('requirement_type'),
             post('validity_days') ?: null,
             post('is_mandatory', 0)
@@ -51,11 +52,12 @@ if (isPost()) {
         $id = (int) post('id');
         $stmt = $db->prepare("
             UPDATE compliance_requirements SET
-                name = ?, requirement_type = ?, validity_days = ?, is_mandatory = ?
+                name = ?, description = ?, requirement_type = ?, validity_days = ?, is_mandatory = ?
             WHERE id = ?
         ");
         $stmt->execute([
             post('name'),
+            post('default_issuer'),
             post('requirement_type'),
             post('validity_days') ?: null,
             post('is_mandatory', 0),
@@ -107,6 +109,7 @@ require_once __DIR__ . '/../../includes/header.php';
             <thead class="table-light">
                 <tr>
                     <th>ชื่อ</th>
+                    <th>สถาบัน/ผู้ออก</th>
                     <th>หมวดหมู่</th>
                     <th class="text-center">อายุ (วัน)</th>
                     <th class="text-center">บังคับ</th>
@@ -116,11 +119,12 @@ require_once __DIR__ . '/../../includes/header.php';
             </thead>
             <tbody>
                 <?php if (empty($certTypes)): ?>
-                <tr><td colspan="6" class="text-center text-muted py-4">ยังไม่มีข้อมูล</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">ยังไม่มีข้อมูล</td></tr>
                 <?php else: ?>
                 <?php foreach ($certTypes as $ct): ?>
                 <tr class="<?= !$ct['is_active'] ? 'table-secondary' : '' ?>">
                     <td><strong><?= e($ct['name']) ?></strong></td>
+                    <td><?= e($ct['description'] ?: '-') ?></td>
                     <td>
                         <span class="badge bg-<?= match($ct['requirement_type'] ?? '') {
                             'Certificate' => 'info',
@@ -181,8 +185,13 @@ require_once __DIR__ . '/../../includes/header.php';
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">ชื่อ <span class="text-danger">*</span></label>
+                        <label class="form-label">ชื่อใบรับรอง <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">สถาบัน/ผู้ออก (Default)</label>
+                        <input type="text" class="form-control" name="default_issuer" placeholder="เช่น กรมพัฒนาฝีมือแรงงาน">
+                        <small class="text-muted">จะถูกดึงไปใช้อัตโนมัติเวลาเพิ่มใบรับรอง</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">หมวดหมู่</label>
@@ -225,8 +234,12 @@ require_once __DIR__ . '/../../includes/header.php';
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">ชื่อ <span class="text-danger">*</span></label>
+                        <label class="form-label">ชื่อใบรับรอง <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="name" id="editName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">สถาบัน/ผู้ออก (Default)</label>
+                        <input type="text" class="form-control" name="default_issuer" id="editIssuer" placeholder="เช่น กรมพัฒนาฝีมือแรงงาน">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">หมวดหมู่</label>
@@ -258,6 +271,7 @@ require_once __DIR__ . '/../../includes/header.php';
 function editType(data) {
     document.getElementById('editId').value = data.id;
     document.getElementById('editName').value = data.name;
+    document.getElementById('editIssuer').value = data.description || '';
     document.getElementById('editType').value = data.requirement_type || 'Other';
     document.getElementById('editValidity').value = data.validity_days || '';
     document.getElementById('editMandatory').checked = data.is_mandatory == 1;

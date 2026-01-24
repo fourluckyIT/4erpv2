@@ -78,15 +78,20 @@ require_once __DIR__ . '/../../../includes/header.php';
 ?>
 
 <div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0"><i class="bi bi-pencil me-2"></i>แก้ไขข้อมูลบุคลากร</h2>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="index.php">People</a></li>
-                <li class="breadcrumb-item"><a href="view.php?id=<?= $id ?>"><?= e($person['code']) ?></a></li>
-                <li class="breadcrumb-item active">แก้ไข</li>
-            </ol>
-        </nav>
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-pencil me-2"></i>แก้ไขข้อมูลบุคลากร</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="index.php">People</a></li>
+                    <li class="breadcrumb-item"><a href="view.php?id=<?= $id ?>"><?= e($person['code']) ?></a></li>
+                    <li class="breadcrumb-item active">แก้ไข</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="view.php?id=<?= $id ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับ
+        </a>
     </div>
 </div>
 

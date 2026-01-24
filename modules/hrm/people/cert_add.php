@@ -38,10 +38,10 @@ if ($editId) {
     $cert = $stmt->fetch();
 }
 
-// Get compliance requirements for dropdown
+// Get compliance requirements for dropdown (include description as default issuer)
 $requirements = [];
 try {
-    $requirements = $db->query("SELECT id, name, requirement_type FROM compliance_requirements WHERE is_active = 1 ORDER BY requirement_type, name")->fetchAll();
+    $requirements = $db->query("SELECT id, name, description, requirement_type FROM compliance_requirements WHERE is_active = 1 ORDER BY requirement_type, name")->fetchAll();
 } catch (PDOException $e) {
     // Table may not have all columns
 }
@@ -122,15 +122,20 @@ require_once __DIR__ . '/../../../includes/header.php';
 ?>
 
 <div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0"><i class="bi bi-award me-2"></i><?= $editId ? 'แก้ไข' : 'เพิ่ม' ?>ใบรับรอง/ใบอนุญาต</h2>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="index.php">People</a></li>
-                <li class="breadcrumb-item"><a href="view.php?id=<?= $peopleId ?>"><?= e($person['full_name']) ?></a></li>
-                <li class="breadcrumb-item active"><?= $editId ? 'แก้ไข' : 'เพิ่ม' ?>ใบรับรอง</li>
-            </ol>
-        </nav>
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-award me-2"></i><?= $editId ? 'แก้ไข' : 'เพิ่ม' ?>ใบรับรอง/ใบอนุญาต</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="index.php">People</a></li>
+                    <li class="breadcrumb-item"><a href="view.php?id=<?= $peopleId ?>"><?= e($person['full_name']) ?></a></li>
+                    <li class="breadcrumb-item active"><?= $editId ? 'แก้ไข' : 'เพิ่ม' ?>ใบรับรอง</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="view.php?id=<?= $peopleId ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับ
+        </a>
     </div>
 </div>
 
@@ -166,7 +171,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                                         echo '<optgroup label="' . e($currentCat) . '">';
                                     }
                                 ?>
-                                <option value="<?= e($r['name']) ?>" <?= ($cert && $cert['certificate_type'] == $r['name']) ? 'selected' : '' ?>>
+                                <option value="<?= e($r['name']) ?>" data-issuer="<?= e($r['description'] ?? '') ?>" <?= ($cert && $cert['certificate_type'] == $r['name']) ? 'selected' : '' ?>>
                                     <?= e($r['name']) ?>
                                 </option>
                                 <?php endforeach; ?>
@@ -236,6 +241,12 @@ require_once __DIR__ . '/../../../includes/header.php';
 document.getElementById('requirementSelect').addEventListener('change', function() {
     if (this.value) {
         document.getElementById('certType').value = this.value;
+        // Auto-fill issuer from data attribute
+        const selectedOption = this.options[this.selectedIndex];
+        const issuer = selectedOption.dataset.issuer;
+        if (issuer) {
+            document.querySelector('[name="issuer"]').value = issuer;
+        }
     }
 });
 </script>

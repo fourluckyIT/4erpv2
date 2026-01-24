@@ -107,15 +107,20 @@ require_once __DIR__ . '/../../../includes/header.php';
 ?>
 
 <div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0"><i class="bi bi-cash-stack me-2"></i>เพิ่มข้อมูลเงินเดือน</h2>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="../people/">People</a></li>
-                <li class="breadcrumb-item"><a href="../people/view.php?id=<?= $peopleId ?>"><?= e($person['full_name']) ?></a></li>
-                <li class="breadcrumb-item active">Salary</li>
-            </ol>
-        </nav>
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-cash-stack me-2"></i>เพิ่มข้อมูลเงินเดือน</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="../people/">People</a></li>
+                    <li class="breadcrumb-item"><a href="../people/view.php?id=<?= $peopleId ?>"><?= e($person['full_name']) ?></a></li>
+                    <li class="breadcrumb-item active">Salary</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="../people/view.php?id=<?= $peopleId ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับ
+        </a>
     </div>
 </div>
 
