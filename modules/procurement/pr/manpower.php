@@ -63,8 +63,7 @@ if (isPost()) {
         foreach ($validPositions as $pos) {
             $qty = (int) ($pos['qty'] ?? 1);
             $dailyRate = (float) ($pos['daily_rate'] ?? 0);
-            $days = (int) ($pos['days'] ?? 1);
-            $amount = $qty * $dailyRate * $days;
+            $amount = $qty * $dailyRate;
             $totalAmount += $amount;
             
             $description = $pos['position_name'];
@@ -80,9 +79,9 @@ if (isPost()) {
                 $prId,
                 $description,
                 $qty,
-                $dailyRate * $days,
+                $dailyRate,
                 $amount,
-                "วันละ " . number_format($dailyRate, 2) . " บาท x " . $days . " วัน"
+                "ค่าแรงวันละ " . number_format($dailyRate, 2) . " บาท"
             ]);
         }
         
@@ -200,10 +199,9 @@ require_once __DIR__ . '/../../../includes/header.php';
                         <tr>
                             <th style="width: 200px;">ตำแหน่ง</th>
                             <th>ทักษะ/คุณสมบัติ</th>
-                            <th style="width: 80px;">จำนวน (คน)</th>
-                            <th style="width: 120px;">ค่าแรง/วัน</th>
-                            <th style="width: 80px;">จำนวนวัน</th>
-                            <th style="width: 120px;">รวม</th>
+                            <th style="width: 100px;">จำนวน (คน)</th>
+                            <th style="width: 150px;">ค่าแรง/วัน (บาท)</th>
+                            <th style="width: 150px;">รวม</th>
                             <th style="width: 50px;"></th>
                         </tr>
                     </thead>
@@ -212,7 +210,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="5" class="text-end"><strong>รวมทั้งสิ้น</strong></td>
+                            <td colspan="4" class="text-end"><strong>รวมทั้งสิ้น</strong></td>
                             <td><strong id="grandTotal">0.00</strong></td>
                             <td></td>
                         </tr>
@@ -271,11 +269,6 @@ function addPosition() {
                    onchange="calcPosRow(${posIndex})">
         </td>
         <td>
-            <input type="number" class="form-control form-control-sm" 
-                   name="positions[${posIndex}][days]" value="1" min="1" 
-                   onchange="calcPosRow(${posIndex})">
-        </td>
-        <td>
             <span id="posAmount_${posIndex}">500.00</span>
         </td>
         <td>
@@ -292,8 +285,7 @@ function addPosition() {
 function calcPosRow(idx) {
     const qty = parseInt(document.querySelector(`[name="positions[${idx}][qty]"]`).value) || 0;
     const rate = parseFloat(document.querySelector(`[name="positions[${idx}][daily_rate]"]`).value) || 0;
-    const days = parseInt(document.querySelector(`[name="positions[${idx}][days]"]`).value) || 0;
-    const amount = qty * rate * days;
+    const amount = qty * rate;
     document.getElementById(`posAmount_${idx}`).textContent = amount.toFixed(2);
     calcPosTotal();
 }

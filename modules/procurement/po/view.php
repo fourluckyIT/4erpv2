@@ -95,6 +95,38 @@ if (isPost()) {
         $audit->log('approve', 'PO', $id);
         setFlash('success', 'อนุมัติเรียบร้อย');
         
+    } elseif ($action === 'reject' && $po['status'] === 'Submitted') {
+        if (!in_array('ADM', $_SESSION['roles']) && !in_array('MGR', $_SESSION['roles'])) {
+            setFlash('error', 'คุณไม่มีสิทธิ์ปฏิเสธ');
+            redirect("view.php?id=$id");
+        }
+        
+        $rejectReason = post('reject_reason', '');
+        $db->prepare("
+            UPDATE purchase_orders 
+            SET status = 'Cancelled', reject_reason = ?
+            WHERE id = ?
+        ")->execute([$rejectReason, $id]);
+        
+        $audit->log('reject', 'PO', $id, null, ['reason' => $rejectReason]);
+        setFlash('success', 'ปฏิเสธเรียบร้อย');
+        
+    } elseif ($action === 'void' && in_array($po['status'], ['Approved', 'Partially Received'])) {
+        if (!in_array('ADM', $_SESSION['roles']) && !in_array('MGR', $_SESSION['roles'])) {
+            setFlash('error', 'คุณไม่มีสิทธิ์ยกเลิก');
+            redirect("view.php?id=$id");
+        }
+        
+        $voidReason = post('void_reason', '');
+        $db->prepare("
+            UPDATE purchase_orders 
+            SET status = 'Cancelled', reject_reason = ?
+            WHERE id = ?
+        ")->execute([$voidReason, $id]);
+        
+        $audit->log('void', 'PO', $id, null, ['reason' => $voidReason]);
+        setFlash('success', 'ยกเลิก PO เรียบร้อย');
+        
     } elseif ($action === 'cancel') {
         $db->prepare("UPDATE purchase_orders SET status = 'Cancelled' WHERE id = ?")->execute([$id]);
         $audit->log('cancel', 'PO', $id);
@@ -180,6 +212,15 @@ require_once __DIR__ . '/../../../includes/header.php';
             <?php if ($po['status'] === 'Submitted' && (in_array('ADM', $_SESSION['roles']) || in_array('MGR', $_SESSION['roles']))): ?>
             <button type="submit" name="action" value="approve" class="btn btn-success" onclick="return confirm('ยืนยันอนุมัติ?')">
                 <i class="bi bi-check-circle me-1"></i>อนุมัติ
+            </button>
+            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                <i class="bi bi-x-circle me-1"></i>ปฏิเสธ
+            </button>
+            <?php endif; ?>
+            
+            <?php if (in_array($po['status'], ['Approved', 'Partially Received']) && (in_array('ADM', $_SESSION['roles']) || in_array('MGR', $_SESSION['roles']))): ?>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#voidModal">
+                <i class="bi bi-trash me-1"></i>Void
             </button>
             <?php endif; ?>
             
@@ -377,5 +418,61 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </div>
 <?php endif; ?>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="reject">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>ปฏิเสธ PO</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">เหตุผลในการปฏิเสธ <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="reject_reason" rows="3" required placeholder="ระบุเหตุผล..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-danger">ยืนยันปฏิเสธ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Void Modal -->
+<div class="modal fade" id="voidModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="void">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-trash me-2"></i>Void PO</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        การ Void จะยกเลิก PO นี้ และไม่สามารถกู้คืนได้
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">เหตุผลในการ Void <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="void_reason" rows="3" required placeholder="ระบุเหตุผล..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-danger">ยืนยัน Void</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>

@@ -70,33 +70,34 @@ if (isPost()) {
         
         $poId = $db->lastInsertId();
         
-        // Insert items (for Goods/Service)
-        if ($poType !== 'Manpower') {
-            $items = post('items', []);
+        // Insert items (for all PO types including Manpower)
+        $items = post('items', []);
+        
+        foreach ($items as $item) {
+            if (empty($item['description'])) continue;
             
-            foreach ($items as $item) {
-                if (empty($item['description'])) continue;
-                
-                $qty = (float) ($item['qty'] ?? 1);
-                $unitPrice = (float) ($item['unit_price'] ?? 0);
-                $amount = $qty * $unitPrice;
-                $subtotal += $amount;
-                
-                $stmt = $db->prepare("
-                    INSERT INTO po_items (po_id, pr_item_id, item_id, description, qty, unit, unit_price, amount)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $poId,
-                    $item['pr_item_id'] ?? null,
-                    $item['item_id'] ?: null,
-                    $item['description'],
-                    $qty,
-                    $item['unit'] ?? 'pcs',
-                    $unitPrice,
-                    $amount
-                ]);
-            }
+            $qty = (float) ($item['qty'] ?? 1);
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $amount = $qty * $unitPrice;
+            $subtotal += $amount;
+            
+            // For Manpower, unit is 'คน' (person)
+            $unit = $item['unit'] ?? ($poType === 'Manpower' ? 'คน' : 'pcs');
+            
+            $stmt = $db->prepare("
+                INSERT INTO po_items (po_id, pr_item_id, item_id, description, qty, unit, unit_price, amount)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $poId,
+                $item['pr_item_id'] ?? null,
+                $item['item_id'] ?: null,
+                $item['description'],
+                $qty,
+                $unit,
+                $unitPrice,
+                $amount
+            ]);
         }
         
         // Calculate VAT
@@ -180,12 +181,17 @@ require_once __DIR__ . '/../../../includes/header.php';
                     </div>
                     <div class="mb-3">
                         <label class="form-label">ผู้ขาย <span class="text-danger">*</span></label>
-                        <select class="form-select" name="supplier_id" required>
-                            <option value="">-- เลือก --</option>
-                            <?php foreach ($suppliers as $s): ?>
-                            <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="input-group">
+                            <select class="form-select" name="supplier_id" id="supplierSelect" required>
+                                <option value="">-- เลือก --</option>
+                                <?php foreach ($suppliers as $s): ?>
+                                <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" onclick="showNewSupplierModal()" title="เพิ่มผู้ขายใหม่">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">วันที่สั่ง <span class="text-danger">*</span></label>
@@ -346,6 +352,84 @@ if (prItems.length > 0) {
 document.getElementById('poType').addEventListener('change', function() {
     document.getElementById('itemsCard').style.display = this.value === 'Manpower' ? 'none' : 'block';
 });
+
+// New Supplier Modal
+function showNewSupplierModal() {
+    document.getElementById('newSupCode').value = '';
+    document.getElementById('newSupName').value = '';
+    document.getElementById('newSupContact').value = '';
+    document.getElementById('newSupPhone').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('newSupplierModal'));
+    modal.show();
+}
+
+function saveNewSupplier() {
+    const code = document.getElementById('newSupCode').value.trim();
+    const name = document.getElementById('newSupName').value.trim();
+    const contact = document.getElementById('newSupContact').value.trim();
+    const phone = document.getElementById('newSupPhone').value.trim();
+    
+    if (!code || !name) {
+        alert('กรุณาระบุรหัสและชื่อผู้ขาย');
+        return;
+    }
+    
+    // Send AJAX to create supplier
+    fetch('<?= BASE_URL ?>/modules/master/api/supplier_create.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({code, name, contact_person: contact, phone})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Add to dropdown and select
+            const select = document.getElementById('supplierSelect');
+            const option = new Option(`${code} - ${name}`, data.id, true, true);
+            select.add(option);
+            bootstrap.Modal.getInstance(document.getElementById('newSupplierModal')).hide();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    })
+    .catch(err => alert('เกิดข้อผิดพลาด: ' + err));
+}
 </script>
+
+<!-- New Supplier Modal -->
+<div class="modal fade" id="newSupplierModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-building-add me-2"></i>เพิ่มผู้ขายใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">รหัสผู้ขาย <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newSupCode" placeholder="เช่น SUP001">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ชื่อผู้ขาย <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newSupName" placeholder="ชื่อบริษัท/ร้านค้า">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ผู้ติดต่อ</label>
+                    <input type="text" class="form-control" id="newSupContact">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">เบอร์โทร</label>
+                    <input type="text" class="form-control" id="newSupPhone">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewSupplier()">
+                    <i class="bi bi-check me-1"></i>บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
