@@ -120,16 +120,21 @@ define('UPLOAD_PATH', BASE_PATH . '/uploads');
 // URL - auto-detect based on server config
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8888';
-$scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
-$baseDir = '';
 
-// Find the project root from the script path
-if (strpos($scriptDir, '/4erpv2') !== false) {
-    $baseDir = substr($scriptDir, 0, strpos($scriptDir, '/4erpv2') + 7);
-} elseif (strpos($scriptDir, '/modules') !== false) {
-    $baseDir = substr($scriptDir, 0, strpos($scriptDir, '/modules'));
+// For CLI, just use empty base
+if (php_sapi_name() === 'cli') {
+    define('BASE_URL', '');
 } else {
-    $baseDir = $scriptDir;
+    // Detect base URL from script path
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    $baseDir = '';
+    
+    // If running under /4erpv2/ subfolder (Apache/XAMPP)
+    if (strpos($scriptName, '/4erpv2/') !== false) {
+        $baseDir = '/4erpv2';
+    }
+    // If running from project root (PHP built-in server)
+    // No prefix needed
+    
+    define('BASE_URL', rtrim($protocol . $host . $baseDir, '/'));
 }
-
-define('BASE_URL', rtrim($protocol . $host . $baseDir, '/'));

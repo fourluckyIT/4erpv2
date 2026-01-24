@@ -48,16 +48,31 @@ if ($existingPlan) {
     redirect('view.php?id=' . $existingPlan['id']);
 }
 
-// Get available serials
-$serials = $db->query("
-    SELECT s.*, i.name as item_name, i.code as item_code
+// Get available items by type
+$devices = $db->query("
+    SELECT s.*, i.name as item_name, i.code as item_code, i.item_type
     FROM serials s
     JOIN items i ON s.item_id = i.id
-    WHERE s.status = 'Available'
+    WHERE s.status = 'Available' AND i.item_type = 'Device'
     ORDER BY i.name, s.serial_number
 ")->fetchAll();
 
-// Get active people
+$equipment = $db->query("
+    SELECT s.*, i.name as item_name, i.code as item_code, i.item_type
+    FROM serials s
+    JOIN items i ON s.item_id = i.id
+    WHERE s.status = 'Available' AND i.item_type = 'Equipment'
+    ORDER BY i.name, s.serial_number
+")->fetchAll();
+
+$consumables = $db->query("
+    SELECT i.*, COALESCE(i.quantity, 0) as available_qty
+    FROM items i
+    WHERE i.item_type = 'Consumable' AND i.is_active = 1
+    ORDER BY i.name
+")->fetchAll();
+
+// Get active people (Manpower)
 $people = $db->query("
     SELECT * FROM people WHERE is_active = 1 ORDER BY full_name
 ")->fetchAll();
@@ -75,20 +90,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = $planModel->create($jobId, $data);
         
         if ($result['success']) {
-            // Add serial assignments
-            $selectedSerials = post('serials', []);
-            foreach ($selectedSerials as $serialId) {
-                $planModel->addSerial($result['id'], (int)$serialId);
-            }
+            $planId = $result['id'];
             
-            // Add people assignments
+            // Add people (Manpower) assignments
             $selectedPeople = post('people', []);
             foreach ($selectedPeople as $peopleId) {
-                $planModel->addPeople($result['id'], (int)$peopleId);
+                $planModel->addPeople($planId, (int)$peopleId);
             }
             
-            setFlash('success', 'สร้าง Plan สำเร็จ: ' . $result['plan_number']);
-            redirect('view.php?id=' . $result['id']);
+            // Add Device serial assignments
+            $selectedDevices = post('devices', []);
+            foreach ($selectedDevices as $serialId) {
+                $planModel->addSerial($planId, (int)$serialId, 'Device');
+            }
+            
+            // Add Equipment serial assignments
+            $selectedEquipment = post('equipment', []);
+            foreach ($selectedEquipment as $serialId) {
+                $planModel->addSerial($planId, (int)$serialId, 'Equipment');
+            }
+            
+            // Add Consumable assignments
+            $consumables = post('consumables', []);
+            foreach ($consumables as $itemId => $qty) {
+                $qty = (int)$qty;
+                if ($qty > 0) {
+                    $planModel->addConsumable($planId, (int)$itemId, $qty);
+                }
+            }
+            
+            setFlash('success', 'สร้าง Plan สำเร็จ: ' . $result['plan_number'] . ' - กรุณา Confirm Plan แล้วจัด Route รถ');
+            // Redirect to Plan view page (need to confirm before creating routes)
+            redirect(BASE_URL . '/modules/planning/view.php?id=' . $planId);
         } else {
             setFlash('error', $result['error']);
         }
@@ -147,92 +180,256 @@ require_once __DIR__ . '/../../includes/header.php';
 <form method="POST">
     <input type="hidden" name="action" value="create_plan">
     
-    <div class="row">
-        <!-- Plan Info -->
-        <div class="col-md-4">
-            <div class="card mb-4">
+    <!-- Plan Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
                 <div class="card-header">
                     <i class="bi bi-info-circle me-2"></i>ข้อมูล Plan
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">วันที่วางแผน <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" name="plan_date" value="<?= date('Y-m-d') ?>" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">หมายเหตุ</label>
-                        <textarea class="form-control" name="notes" rows="3"></textarea>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Serial Selection -->
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-upc-scan me-2"></i>เลือก Serial Numbers
-                </div>
-                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                    <?php if (empty($serials)): ?>
-                    <p class="text-muted">ไม่มี Serial ที่ว่าง</p>
-                    <?php else: ?>
-                    <?php 
-                    $currentItem = '';
-                    foreach ($serials as $serial): 
-                        if ($currentItem !== $serial['item_name']):
-                            if ($currentItem !== '') echo '</div>';
-                            $currentItem = $serial['item_name'];
-                    ?>
-                    <div class="mb-2"><strong><?= e($serial['item_code']) ?> - <?= e($serial['item_name']) ?></strong></div>
-                    <div class="ms-3">
-                    <?php endif; ?>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="serials[]" value="<?= $serial['id'] ?>" id="serial_<?= $serial['id'] ?>">
-                            <label class="form-check-label" for="serial_<?= $serial['id'] ?>">
-                                <?= e($serial['serial_number']) ?>
-                            </label>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">วันที่วางแผน <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="plan_date" value="<?= date('Y-m-d') ?>" required>
                         </div>
-                    <?php endforeach; ?>
-                    <?php if ($currentItem !== '') echo '</div>'; ?>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">หมายเหตุ</label>
+                            <textarea class="form-control" name="notes" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resource Selection Tabs -->
+    <ul class="nav nav-tabs mb-3" id="resourceTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="manpower-tab" data-bs-toggle="tab" data-bs-target="#manpower" type="button" role="tab">
+                <i class="bi bi-people me-1"></i>Manpower
+                <span class="badge bg-secondary ms-1" id="manpower-count">0</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="device-tab" data-bs-toggle="tab" data-bs-target="#device" type="button" role="tab">
+                <i class="bi bi-cpu me-1"></i>Device
+                <span class="badge bg-secondary ms-1" id="device-count">0</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment" type="button" role="tab">
+                <i class="bi bi-tools me-1"></i>Equipment
+                <span class="badge bg-secondary ms-1" id="equipment-count">0</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="consumable-tab" data-bs-toggle="tab" data-bs-target="#consumable" type="button" role="tab">
+                <i class="bi bi-box me-1"></i>Consumable
+                <span class="badge bg-secondary ms-1" id="consumable-count">0</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="resourceTabsContent">
+        <!-- Manpower Tab -->
+        <div class="tab-pane fade show active" id="manpower" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-people me-2"></i>เลือกบุคลากร (Manpower)</span>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll('people')">เลือกทั้งหมด</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll('people')">ยกเลิกทั้งหมด</button>
+                    </div>
+                </div>
+                <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                    <?php if (empty($people)): ?>
+                    <div class="text-center py-4">
+                        <i class="bi bi-person-x text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">ยังไม่มีบุคลากรในระบบ</p>
+                        <a href="<?= BASE_URL ?>/modules/admin/people.php" class="btn btn-sm btn-outline-primary">เพิ่มบุคลากร</a>
+                    </div>
+                    <?php else: ?>
+                    <div class="row">
+                        <?php foreach ($people as $person): ?>
+                        <div class="col-md-4 col-lg-3 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input resource-check" type="checkbox" name="people[]" 
+                                       value="<?= $person['id'] ?>" id="person_<?= $person['id'] ?>" data-type="manpower">
+                                <label class="form-check-label" for="person_<?= $person['id'] ?>">
+                                    <strong><?= e($person['code'] ?? '') ?></strong> <?= e($person['full_name']) ?>
+                                    <?php if (!empty($person['position'])): ?>
+                                    <br><small class="text-muted"><?= e($person['position']) ?></small>
+                                    <?php endif; ?>
+                                </label>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-        
-        <!-- People Selection -->
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-people me-2"></i>เลือกบุคลากร
-                </div>
-                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                    <?php if (empty($people)): ?>
-                    <p class="text-muted">ไม่มีบุคลากร</p>
-                    <?php else: ?>
-                    <?php foreach ($people as $person): ?>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="people[]" value="<?= $person['id'] ?>" id="person_<?= $person['id'] ?>">
-                        <label class="form-check-label" for="person_<?= $person['id'] ?>">
-                            <strong><?= e($person['code']) ?></strong> - <?= e($person['full_name']) ?>
-                            <?php if ($person['position']): ?>
-                            <small class="text-muted">(<?= e($person['position']) ?>)</small>
-                            <?php endif; ?>
-                        </label>
+
+        <!-- Device Tab -->
+        <div class="tab-pane fade" id="device" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-cpu me-2"></i>เลือกอุปกรณ์ (Device) - ต้องมี Serial</span>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll('devices')">เลือกทั้งหมด</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll('devices')">ยกเลิกทั้งหมด</button>
                     </div>
-                    <?php endforeach; ?>
+                </div>
+                <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                    <?php if (empty($devices)): ?>
+                    <div class="text-center py-4">
+                        <i class="bi bi-cpu text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">ยังไม่มี Device ที่ว่าง</p>
+                        <a href="<?= BASE_URL ?>/modules/admin/items.php" class="btn btn-sm btn-outline-primary">เพิ่มอุปกรณ์</a>
+                    </div>
+                    <?php else: ?>
+                    <div class="row">
+                        <?php foreach ($devices as $d): ?>
+                        <div class="col-md-4 col-lg-3 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input resource-check" type="checkbox" name="devices[]" 
+                                       value="<?= $d['id'] ?>" id="device_<?= $d['id'] ?>" data-type="device">
+                                <label class="form-check-label" for="device_<?= $d['id'] ?>">
+                                    <strong><?= e($d['serial_number']) ?></strong>
+                                    <br><small class="text-muted"><?= e($d['item_name']) ?></small>
+                                </label>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment Tab -->
+        <div class="tab-pane fade" id="equipment" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-tools me-2"></i>เลือกอุปกรณ์ (Equipment) - ต้องมี Serial</span>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll('equipment')">เลือกทั้งหมด</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll('equipment')">ยกเลิกทั้งหมด</button>
+                    </div>
+                </div>
+                <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                    <?php if (empty($equipment)): ?>
+                    <div class="text-center py-4">
+                        <i class="bi bi-tools text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">ยังไม่มี Equipment ที่ว่าง</p>
+                    </div>
+                    <?php else: ?>
+                    <div class="row">
+                        <?php foreach ($equipment as $eq): ?>
+                        <div class="col-md-4 col-lg-3 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input resource-check" type="checkbox" name="equipment[]" 
+                                       value="<?= $eq['id'] ?>" id="equip_<?= $eq['id'] ?>" data-type="equipment">
+                                <label class="form-check-label" for="equip_<?= $eq['id'] ?>">
+                                    <strong><?= e($eq['serial_number']) ?></strong>
+                                    <br><small class="text-muted"><?= e($eq['item_name']) ?></small>
+                                </label>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consumable Tab -->
+        <div class="tab-pane fade" id="consumable" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-box me-2"></i>เลือกวัสดุสิ้นเปลือง (Consumable) - ระบุจำนวน
+                </div>
+                <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                    <?php if (empty($consumables)): ?>
+                    <div class="text-center py-4">
+                        <i class="bi bi-box text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">ยังไม่มีวัสดุสิ้นเปลือง</p>
+                    </div>
+                    <?php else: ?>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>รหัส</th>
+                                <th>ชื่อ</th>
+                                <th>คงเหลือ</th>
+                                <th>จำนวนที่ต้องการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($consumables as $c): ?>
+                            <tr>
+                                <td><?= e($c['code']) ?></td>
+                                <td><?= e($c['name']) ?></td>
+                                <td><?= formatNumber($c['available_qty'], 0) ?> <?= e($c['unit'] ?? '') ?></td>
+                                <td style="width: 120px;">
+                                    <input type="number" class="form-control form-control-sm consumable-qty" 
+                                           name="consumables[<?= $c['id'] ?>]" min="0" max="<?= $c['available_qty'] ?>" 
+                                           value="0" data-type="consumable">
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 mt-4">
         <button type="submit" class="btn btn-success btn-lg">
-            <i class="bi bi-check-circle me-1"></i>สร้าง Plan
+            <i class="bi bi-check-circle me-1"></i>สร้าง Plan และไปจัด Route
         </button>
-        <a href="index.php" class="btn btn-outline-secondary btn-lg">ยกเลิก</a>
+        <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary btn-lg">ยกเลิก</a>
     </div>
 </form>
+
+<script>
+// Update badge counts
+function updateCounts() {
+    document.getElementById('manpower-count').textContent = document.querySelectorAll('input[name="people[]"]:checked').length;
+    document.getElementById('device-count').textContent = document.querySelectorAll('input[name="devices[]"]:checked').length;
+    document.getElementById('equipment-count').textContent = document.querySelectorAll('input[name="equipment[]"]:checked').length;
+    
+    let consumableCount = 0;
+    document.querySelectorAll('.consumable-qty').forEach(input => {
+        if (parseInt(input.value) > 0) consumableCount++;
+    });
+    document.getElementById('consumable-count').textContent = consumableCount;
+}
+
+// Select/Deselect all helpers
+function selectAll(name) {
+    document.querySelectorAll(`input[name="${name}[]"]`).forEach(cb => cb.checked = true);
+    updateCounts();
+}
+
+function deselectAll(name) {
+    document.querySelectorAll(`input[name="${name}[]"]`).forEach(cb => cb.checked = false);
+    updateCounts();
+}
+
+// Event listeners
+document.querySelectorAll('.resource-check').forEach(cb => {
+    cb.addEventListener('change', updateCounts);
+});
+
+document.querySelectorAll('.consumable-qty').forEach(input => {
+    input.addEventListener('change', updateCounts);
+});
+
+updateCounts();
+</script>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>

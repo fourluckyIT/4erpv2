@@ -171,12 +171,19 @@ require_once __DIR__ . '/../../../includes/header.php';
         <div class="card-body">
             <div class="row">
                 <div class="col-md-6">
+                    <?php 
+                    // Auto-select PO type based on PR type
+                    $defaultPoType = 'Goods';
+                    if ($prData && isset($prData['pr_type'])) {
+                        $defaultPoType = ($prData['pr_type'] === 'Manpower') ? 'Manpower' : 'Goods';
+                    }
+                    ?>
                     <div class="mb-3">
                         <label class="form-label">ประเภท <span class="text-danger">*</span></label>
                         <select class="form-select" name="po_type" id="poType" required>
-                            <option value="Goods">สินค้า (Goods)</option>
-                            <option value="Service">บริการ (Service)</option>
-                            <option value="Manpower">แรงงาน (Manpower)</option>
+                            <option value="Goods" <?= $defaultPoType === 'Goods' ? 'selected' : '' ?>>สินค้า (Goods)</option>
+                            <option value="Service" <?= $defaultPoType === 'Service' ? 'selected' : '' ?>>บริการ (Service)</option>
+                            <option value="Manpower" <?= $defaultPoType === 'Manpower' ? 'selected' : '' ?>>แรงงาน (Manpower)</option>
                         </select>
                     </div>
                     <div class="mb-3">

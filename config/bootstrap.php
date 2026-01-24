@@ -6,7 +6,7 @@
 
 // Error reporting
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 ini_set('error_log', dirname(__DIR__) . '/logs/error.log');
 
@@ -30,6 +30,16 @@ require_once dirname(__DIR__) . '/core/Plan.php';
 require_once dirname(__DIR__) . '/core/Dispatch.php';
 require_once dirname(__DIR__) . '/core/Route.php';
 require_once dirname(__DIR__) . '/core/EvidencePhoto.php';
+
+// Phase 1-8 classes
+require_once dirname(__DIR__) . '/core/Timesheet.php';
+require_once dirname(__DIR__) . '/core/Reservation.php';
+require_once dirname(__DIR__) . '/core/Approval.php';
+require_once dirname(__DIR__) . '/core/Notification.php';
+require_once dirname(__DIR__) . '/core/SiteOperation.php';
+require_once dirname(__DIR__) . '/core/Costing.php';
+require_once dirname(__DIR__) . '/core/KPI.php';
+require_once dirname(__DIR__) . '/core/Compliance.php';
 
 // Load helpers
 require_once dirname(__DIR__) . '/includes/functions.php';

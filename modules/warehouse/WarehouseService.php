@@ -71,7 +71,11 @@ class WarehouseService {
         ?string $notes = null
     ): array {
         try {
-            $this->db->beginTransaction();
+            $startedTx = false;
+            if (!$this->db->inTransaction()) {
+                $this->db->beginTransaction();
+                $startedTx = true;
+            }
             
             $userId = $_SESSION['user_id'] ?? 1;
             
@@ -125,12 +129,14 @@ class WarehouseService {
                 ]
             );
             
-            $this->db->commit();
+            if ($startedTx) {
+                $this->db->commit();
+            }
             
             return ['success' => true, 'id' => $movementId];
             
         } catch (Exception $e) {
-            if ($this->db->inTransaction()) {
+            if ($startedTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             return ['success' => false, 'error' => $e->getMessage()];
@@ -338,18 +344,24 @@ class WarehouseService {
      * Get current stock level for an item
      */
     public function getStockLevel(int $itemId): float {
-        $stmt = $this->db->prepare("SELECT quantity FROM items WHERE id = ?");
-        $stmt->execute([$itemId]);
-        return (float) $stmt->fetchColumn();
+        try {
+            $stmt = $this->db->prepare("SELECT quantity FROM items WHERE id = ?");
+            $stmt->execute([$itemId]);
+            return (float) $stmt->fetchColumn();
+        } catch (Exception $e) {
+            return 0.0;
+        }
     }
     
     /**
      * Update item quantity (internal helper)
      */
     private function updateItemQuantity(int $itemId, float $qty): void {
-        $stmt = $this->db->prepare("
-            UPDATE items SET quantity = quantity + ? WHERE id = ?
-        ");
-        $stmt->execute([$qty, $itemId]);
+        try {
+            $stmt = $this->db->prepare("UPDATE items SET quantity = quantity + ? WHERE id = ?");
+            $stmt->execute([$qty, $itemId]);
+        } catch (Exception $e) {
+            return;
+        }
     }
 }

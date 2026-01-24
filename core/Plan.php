@@ -89,8 +89,9 @@ class Plan {
     
     /**
      * Add serial assignment to plan
+     * @param string $assignmentType 'Device' or 'Equipment'
      */
-    public function addSerial(int $planId, int $serialId, ?string $notes = null): array {
+    public function addSerial(int $planId, int $serialId, string $assignmentType = 'Device', ?string $notes = null): array {
         try {
             $plan = $this->getById($planId);
             if (!$plan) {
@@ -116,13 +117,19 @@ class Plan {
                 return ['success' => false, 'error' => 'Serial นี้ถูกจัดสรรใน Plan นี้แล้ว'];
             }
             
+            // Validate assignment type
+            if (!in_array($assignmentType, ['Device', 'Equipment'])) {
+                $assignmentType = 'Device';
+            }
+            
             $stmt = $this->db->prepare("
                 INSERT INTO plan_assignments (plan_id, serial_id, assignment_type, notes)
-                VALUES (:plan_id, :serial_id, 'Device', :notes)
+                VALUES (:plan_id, :serial_id, :assignment_type, :notes)
             ");
             $stmt->execute([
                 'plan_id' => $planId,
                 'serial_id' => $serialId,
+                'assignment_type' => $assignmentType,
                 'notes' => $notes
             ]);
             
@@ -169,6 +176,55 @@ class Plan {
             $stmt->execute([
                 'plan_id' => $planId,
                 'people_id' => $peopleId,
+                'notes' => $notes
+            ]);
+            
+            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Add consumable item to plan (quantity-based, not serial)
+     */
+    public function addConsumable(int $planId, int $itemId, int $quantity, ?string $notes = null): array {
+        try {
+            $plan = $this->getById($planId);
+            if (!$plan) {
+                return ['success' => false, 'error' => 'Plan not found'];
+            }
+            if ($plan['status'] !== 'Draft') {
+                return ['success' => false, 'error' => 'ไม่สามารถเพิ่มวัสดุใน Plan ที่ไม่ใช่ Draft'];
+            }
+            
+            // Check item exists and is consumable
+            $stmt = $this->db->prepare("SELECT * FROM items WHERE id = ? AND item_type = 'Consumable' AND is_active = 1");
+            $stmt->execute([$itemId]);
+            $item = $stmt->fetch();
+            if (!$item) {
+                return ['success' => false, 'error' => 'ไม่พบวัสดุสิ้นเปลืองนี้'];
+            }
+            
+            // Check not already assigned to this plan
+            $stmt = $this->db->prepare("SELECT id FROM plan_assignments WHERE plan_id = ? AND item_id = ?");
+            $stmt->execute([$planId, $itemId]);
+            if ($stmt->fetch()) {
+                // Update existing quantity
+                $stmt = $this->db->prepare("UPDATE plan_assignments SET quantity = ? WHERE plan_id = ? AND item_id = ?");
+                $stmt->execute([$quantity, $planId, $itemId]);
+                return ['success' => true, 'updated' => true];
+            }
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO plan_assignments (plan_id, item_id, assignment_type, quantity, notes)
+                VALUES (:plan_id, :item_id, 'Consumable', :quantity, :notes)
+            ");
+            $stmt->execute([
+                'plan_id' => $planId,
+                'item_id' => $itemId,
+                'quantity' => $quantity,
                 'notes' => $notes
             ]);
             
@@ -493,5 +549,183 @@ class Plan {
         $stmt = $this->db->prepare("SELECT * FROM people WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch() ?: null;
+    }
+    
+    // ==================== CONFLICT DETECTION ====================
+    
+    /**
+     * Check serial conflicts for a date range
+     */
+    public function checkSerialConflicts(int $serialId, string $startDate, string $endDate, ?int $excludePlanId = null): array {
+        $conflicts = [];
+        
+        $sql = "
+            SELECT pa.*, p.plan_number, p.plan_date, p.plan_end_date,
+                   j.job_number, j.scope_short
+            FROM plan_assignments pa
+            JOIN plans p ON pa.plan_id = p.id
+            JOIN jobs j ON p.job_id = j.id
+            WHERE pa.serial_id = ?
+              AND p.status IN ('Draft', 'Confirmed')
+              AND p.plan_date <= ?
+              AND p.plan_end_date >= ?
+        ";
+        $params = [$serialId, $endDate, $startDate];
+        
+        if ($excludePlanId) {
+            $sql .= " AND p.id != ?";
+            $params[] = $excludePlanId;
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll();
+    }
+    
+    /**
+     * Check people conflicts for a date range
+     */
+    public function checkPeopleConflicts(int $peopleId, string $startDate, string $endDate, ?int $excludePlanId = null): array {
+        $sql = "
+            SELECT pa.*, p.plan_number, p.plan_date, p.plan_end_date,
+                   j.job_number, j.scope_short
+            FROM plan_assignments pa
+            JOIN plans p ON pa.plan_id = p.id
+            JOIN jobs j ON p.job_id = j.id
+            WHERE pa.people_id = ?
+              AND p.status IN ('Draft', 'Confirmed')
+              AND p.plan_date <= ?
+              AND p.plan_end_date >= ?
+        ";
+        $params = [$peopleId, $endDate, $startDate];
+        
+        if ($excludePlanId) {
+            $sql .= " AND p.id != ?";
+            $params[] = $excludePlanId;
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll();
+    }
+    
+    /**
+     * Get all conflicts for a plan
+     */
+    public function getPlanConflicts(int $planId): array {
+        $plan = $this->getById($planId);
+        if (!$plan) {
+            return [];
+        }
+        
+        $assignments = $this->getAssignments($planId);
+        $conflicts = [
+            'serials' => [],
+            'people' => []
+        ];
+        
+        foreach ($assignments as $a) {
+            if ($a['serial_id']) {
+                $serialConflicts = $this->checkSerialConflicts(
+                    $a['serial_id'], 
+                    $plan['plan_date'], 
+                    $plan['plan_end_date'],
+                    $planId
+                );
+                if (!empty($serialConflicts)) {
+                    $conflicts['serials'][] = [
+                        'serial_id' => $a['serial_id'],
+                        'serial_number' => $a['serial_number'],
+                        'item_name' => $a['item_name'],
+                        'conflicts' => $serialConflicts
+                    ];
+                }
+            }
+            
+            if ($a['people_id']) {
+                $peopleConflicts = $this->checkPeopleConflicts(
+                    $a['people_id'], 
+                    $plan['plan_date'], 
+                    $plan['plan_end_date'],
+                    $planId
+                );
+                if (!empty($peopleConflicts)) {
+                    $conflicts['people'][] = [
+                        'people_id' => $a['people_id'],
+                        'people_name' => $a['people_name'],
+                        'position' => $a['position'],
+                        'conflicts' => $peopleConflicts
+                    ];
+                }
+            }
+        }
+        
+        return $conflicts;
+    }
+    
+    /**
+     * Get all booking conflicts across all active plans
+     */
+    public function getAllConflicts(): array {
+        $allConflicts = [];
+        
+        // Serial conflicts
+        $stmt = $this->db->query("
+            SELECT 
+                s.id as serial_id, s.serial_number, i.name as item_name,
+                p1.id as plan1_id, p1.plan_number as plan1_number, 
+                j1.job_number as job1_number, p1.plan_date as plan1_start, p1.plan_end_date as plan1_end,
+                p2.id as plan2_id, p2.plan_number as plan2_number, 
+                j2.job_number as job2_number, p2.plan_date as plan2_start, p2.plan_end_date as plan2_end
+            FROM plan_assignments pa1
+            JOIN plan_assignments pa2 ON pa1.serial_id = pa2.serial_id AND pa1.id < pa2.id
+            JOIN plans p1 ON pa1.plan_id = p1.id
+            JOIN plans p2 ON pa2.plan_id = p2.id
+            JOIN jobs j1 ON p1.job_id = j1.id
+            JOIN jobs j2 ON p2.job_id = j2.id
+            JOIN serials s ON pa1.serial_id = s.id
+            JOIN items i ON s.item_id = i.id
+            WHERE p1.status IN ('Draft', 'Confirmed')
+              AND p2.status IN ('Draft', 'Confirmed')
+              AND p1.plan_date <= p2.plan_end_date
+              AND p1.plan_end_date >= p2.plan_date
+            ORDER BY s.serial_number
+        ");
+        $allConflicts['serials'] = $stmt->fetchAll();
+        
+        // People conflicts
+        $stmt = $this->db->query("
+            SELECT 
+                pe.id as people_id, pe.full_name as people_name, pe.position,
+                p1.id as plan1_id, p1.plan_number as plan1_number, 
+                j1.job_number as job1_number, p1.plan_date as plan1_start, p1.plan_end_date as plan1_end,
+                p2.id as plan2_id, p2.plan_number as plan2_number, 
+                j2.job_number as job2_number, p2.plan_date as plan2_start, p2.plan_end_date as plan2_end
+            FROM plan_assignments pa1
+            JOIN plan_assignments pa2 ON pa1.people_id = pa2.people_id AND pa1.id < pa2.id
+            JOIN plans p1 ON pa1.plan_id = p1.id
+            JOIN plans p2 ON pa2.plan_id = p2.id
+            JOIN jobs j1 ON p1.job_id = j1.id
+            JOIN jobs j2 ON p2.job_id = j2.id
+            JOIN people pe ON pa1.people_id = pe.id
+            WHERE p1.status IN ('Draft', 'Confirmed')
+              AND p2.status IN ('Draft', 'Confirmed')
+              AND p1.plan_date <= p2.plan_end_date
+              AND p1.plan_end_date >= p2.plan_date
+            ORDER BY pe.full_name
+        ");
+        $allConflicts['people'] = $stmt->fetchAll();
+        
+        return $allConflicts;
+    }
+    
+    /**
+     * Get conflict count
+     */
+    public function getConflictCount(): int {
+        $conflicts = $this->getAllConflicts();
+        return count($conflicts['serials']) + count($conflicts['people']);
     }
 }

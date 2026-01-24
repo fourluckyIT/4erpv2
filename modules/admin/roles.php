@@ -1,10 +1,10 @@
 <?php
 /**
- * Roles & Permissions View
+ * Roles & Permissions Management
  * ERP v2 - Phase 1
  * 
  * Note: Roles are fixed per agents.md requirements.
- * This page is view-only for role permissions.
+ * But permissions can be customized per role.
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -14,9 +14,36 @@ $auth->requireRole([ROLE_ADMIN, ROLE_MANAGER]);
 
 $rbac = new RBAC();
 $db = getDB();
+$audit = new AuditLog();
 
-$pageTitle = 'Roles & Permissions - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+// Handle permission toggle
+if (isPost() && post('action') === 'toggle_permission') {
+    if (!verifyCsrf(post('csrf_token', ''))) {
+        setFlash('error', 'Invalid request');
+        redirect('roles.php');
+    }
+    
+    $roleId = (int) post('role_id');
+    $permissionId = (int) post('permission_id');
+    $grant = post('grant') === '1';
+    
+    if ($roleId && $permissionId) {
+        try {
+            if ($grant) {
+                $rbac->assignRolePermission($roleId, $permissionId);
+                $audit->log('grant_role_permission', 'ROLE', $roleId, null, ['permission_id' => $permissionId]);
+            } else {
+                $rbac->removeRolePermission($roleId, $permissionId);
+                $audit->log('revoke_role_permission', 'ROLE', $roleId, ['permission_id' => $permissionId], null);
+            }
+            setFlash('success', 'อัปเดต Permission เรียบร้อย');
+        } catch (Exception $e) {
+            setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        }
+    }
+    
+    redirect("roles.php?role_id=$roleId");
+}
 
 // Get all roles with permission counts
 $roles = $db->query("
@@ -31,6 +58,7 @@ $roles = $db->query("
 $selectedRoleId = (int) get('role_id', 0);
 $selectedRole = null;
 $rolePermissions = [];
+$allPermissions = [];
 
 if ($selectedRoleId) {
     $stmt = $db->prepare("SELECT * FROM roles WHERE id = ?");
@@ -39,8 +67,12 @@ if ($selectedRoleId) {
     
     if ($selectedRole) {
         $rolePermissions = $rbac->getRolePermissions($selectedRoleId);
+        $allPermissions = $rbac->getAllPermissionsFromDB();
     }
 }
+
+$pageTitle = 'Roles & Permissions - ERP v2';
+require_once __DIR__ . '/../../includes/header.php';
 ?>
 
 <div class="row mb-4">
@@ -60,7 +92,7 @@ if ($selectedRoleId) {
 <div class="alert alert-info">
     <i class="bi bi-info-circle me-2"></i>
     <strong>Note:</strong> System roles are fixed per agents.md requirements. 
-    You can view permissions here but cannot add or remove roles.
+    You can customize permissions for each role but cannot add or remove roles.
 </div>
 
 <div class="row">
@@ -97,43 +129,60 @@ if ($selectedRoleId) {
                     <i class="bi bi-key me-2"></i>
                     Permissions for: <strong><?= e($selectedRole['code']) ?> - <?= e($selectedRole['name']) ?></strong>
                 </span>
+                <span class="badge bg-primary"><?= count($rolePermissions) ?> / <?= count($allPermissions) ?> permissions</span>
             </div>
             <div class="card-body">
                 <?php if ($selectedRole['description']): ?>
                 <p class="text-muted"><?= e($selectedRole['description']) ?></p>
                 <?php endif; ?>
                 
-                <?php if (empty($rolePermissions)): ?>
-                <p class="text-muted text-center">No permissions assigned</p>
+                <?php
+                // Create lookup for granted permissions
+                $grantedIds = [];
+                foreach ($rolePermissions as $rp) {
+                    $grantedIds[$rp['id']] = true;
+                }
+                
+                // Group all permissions by entity type
+                $grouped = [];
+                foreach ($allPermissions as $perm) {
+                    $grouped[$perm['entity_type']][] = $perm;
+                }
+                ?>
+                
+                <?php if (empty($allPermissions)): ?>
+                <p class="text-muted text-center">No permissions defined in system</p>
                 <?php else: ?>
-                    <?php
-                    // Group by entity type
-                    $grouped = [];
-                    foreach ($rolePermissions as $perm) {
-                        $grouped[$perm['entity_type']][] = $perm;
-                    }
-                    ?>
-                    
                     <?php foreach ($grouped as $entityType => $perms): ?>
-                    <h6 class="mt-3 mb-2"><?= e($entityType) ?></h6>
-                    <div class="row">
-                        <?php foreach ($perms as $perm): ?>
-                        <div class="col-md-6 mb-2">
-                            <div class="d-flex align-items-center">
-                                <?php if ($perm['is_granted']): ?>
-                                    <i class="bi bi-check-circle text-success me-2"></i>
-                                <?php else: ?>
-                                    <i class="bi bi-x-circle text-danger me-2"></i>
-                                <?php endif; ?>
-                                <span>
-                                    <?= e($perm['name']) ?>
-                                    <?php if ($perm['entity_status']): ?>
-                                        <small class="text-muted">(<?= e($perm['entity_status']) ?>)</small>
-                                    <?php endif; ?>
-                                </span>
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-folder me-2"></i><?= e($entityType) ?>
+                            <span class="badge bg-secondary float-end">
+                                <?= count(array_filter($perms, fn($p) => isset($grantedIds[$p['id']]))) ?> / <?= count($perms) ?>
+                            </span>
+                        </h6>
+                        <div class="row">
+                            <?php foreach ($perms as $perm): ?>
+                            <?php $isGranted = isset($grantedIds[$perm['id']]); ?>
+                            <div class="col-md-6 col-lg-4 mb-2">
+                                <form method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                    <input type="hidden" name="action" value="toggle_permission">
+                                    <input type="hidden" name="role_id" value="<?= $selectedRoleId ?>">
+                                    <input type="hidden" name="permission_id" value="<?= $perm['id'] ?>">
+                                    <input type="hidden" name="grant" value="<?= $isGranted ? '0' : '1' ?>">
+                                    <button type="submit" class="btn btn-sm w-100 text-start <?= $isGranted ? 'btn-success' : 'btn-outline-secondary' ?>">
+                                        <?php if ($isGranted): ?>
+                                            <i class="bi bi-check-circle me-1"></i>
+                                        <?php else: ?>
+                                            <i class="bi bi-circle me-1"></i>
+                                        <?php endif; ?>
+                                        <?= e($perm['name']) ?>
+                                    </button>
+                                </form>
                             </div>
+                            <?php endforeach; ?>
                         </div>
-                        <?php endforeach; ?>
                     </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -144,7 +193,7 @@ if ($selectedRoleId) {
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="bi bi-arrow-left-circle text-muted" style="font-size: 3rem;"></i>
-                <p class="text-muted mt-3">Select a role to view its permissions</p>
+                <p class="text-muted mt-3">Select a role to customize its permissions</p>
             </div>
         </div>
         <?php endif; ?>

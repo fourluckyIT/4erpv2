@@ -1,95 +1,104 @@
-# Adaptive 4ERP — agents.md (Pure Requirements, No Platform Assumptions)
+# agents.md
+# 4ERP v2 — Agents & Operating Rules (Pure Requirements)
+Version: 1.0
+Date: 2026-01-24 (UTC+7)
+Owner: JT
 
-## 0) Goal
-Build a Job-centric Service Operations ERP for a small team (multi-hat roles), covering:
-- Job (Lumpsum / Dayrent / Manpower)
-- Planning & booking (anti-double-booking)
-- Site compliance (cert requirements + expiry + training)
-- Procurement & receiving (GR)
-- Stock states (Main / In-transit / Vehicle / Site / Consume) with append-only ledger
-- Packing (Package)
-- Dispatch (Trip/Route) with OWN vs OUTSOURCE
-- Reservation (anti-duplicate allocation by qty & serial)
-- Timesheet/Attendance with Supervisor approval → HR workflow
-- Notifications (In-app + LINE OA) + optional Calendar events
-- Auditability: no-delete after Draft, reversal-only corrections
+## 0) วัตถุประสงค์ของเอกสารนี้
+กำหนด “ตัวละคร/บทบาท (agents)” ที่ใช้งานระบบ + กฎการทำงานระดับระบบที่ต้อง enforce
+- ไม่ผูกกับภาษา/เฟรมเวิร์ก/ERP ใด ๆ
+- ใช้เป็นกรอบสำหรับออกแบบ UI/Service/DB/Workflow
 
-## 1) Non-Negotiable Rules (Hard Constraints)
-### 1.1 Job-centric
-- Every operational record that impacts stock, manpower time, cost, dispatch, or billing must reference a Job.
-- If an exception exists (e.g., replenishment stock), it must be explicit and auditable.
+## 1) หลักการที่ห้ามละเมิด (Non-Negotiables)
+1) **Job-centric**: ทุก record ที่กระทบ คน/ของ/เวลา/เงิน ต้องอ้างถึง Job (หรือประกาศว่าเป็น Non-Job เช่น replenishment และ audit ได้)
+2) **Draft ยืดหยุ่น**: แก้ไขได้อิสระในสถานะ DRAFT เท่านั้น
+3) **หลัง Confirm/Submit = Immutable**: ห้ามแก้ทับ ต้องใช้ “Correction / Reversal / Void” ที่อ้างอิงต้นฉบับ
+4) **Append-only History**: audit logs, status history, stock ledger, financial ledger ต้องเป็น append-only
+5) **No Delete หลัง Draft**: delete allowed เฉพาะ DRAFT และต้องมี audit; หลังจากนั้นใช้ VOID
+6) **Reservation กันซ้ำ**: Qty/Serial ต้องกัน double-allocation แบบ transactional
+7) **Compliance Gate**: ถ้าไม่ผ่าน requirement ของไซต์ ต้อง block หรือให้ override ผ่านการอนุมัติพร้อม audit
+8) **Timezone Rule**: แสดงผลและการอ้างอิงเวลาเป็น UTC+7; การจัดเก็บให้สม่ำเสมอ (แนะนำเก็บ UTC แล้วแปลงแสดง หรือเก็บ UTC+7 แบบ fixed) แต่ต้อง “ชัดเจนทั้งระบบ”
+9) **Traceability**: ทุก movement ของ stock/serial ต้อง trace กลับเอกสารต้นทางได้ (PR/PO/GR/PACK/TRIP/RETURN/ADJUST)
 
-### 1.2 Draft is flexible; after lockpoint is immutable
-- Draft: editable and deletable (within permission).
-- After Confirm/Submit: no direct overwrite of historical truth.
-- Corrections must be done using Void/Reversal/Correction documents with full traceability.
+## 2) Agents (บทบาทผู้ใช้) และความรับผิดชอบ
+### 2.1 Owner / Admin (เจ้าของ/ผู้ดูแล)
+- สร้าง master data, ตั้งค่า numbering, สร้าง roles/permissions
+- ตั้ง approval matrix และ policy override
+- ดู dashboard/KPI และ audit trails
+- จัดการการปิดงวด/การ lock ช่วงเวลา (ถ้ามี)
 
-### 1.3 No-delete after Draft
-- Any entity beyond Draft cannot be deleted.
-- “Deleting” is represented by status changes (Void/Cancelled) plus reversal entries if needed.
+### 2.2 Sales / CS (รับงาน/ประสาน)
+- สร้าง Job (DRAFT) + ใส่ข้อมูลลูกค้า/ไซต์/ช่วงเวลาคาดการณ์
+- ใส่ `quotation_no` (เลขใบเสนอราคาแบบ manual) + แนบไฟล์ (optional)
+- ขอเปลี่ยน scope/งบ/วันเวลา ผ่าน change request (ถ้ากระทบ planning/dispatch)
 
-### 1.4 Append-only ledgers & histories
-- Stock ledger is append-only.
-- Status history is append-only.
-- Audit logs are append-only.
-- Never update/delete rows that represent historical truth.
+### 2.3 Planner (วางแผน)
+- กำหนดช่วงเวลา job + วางแผน manpower/asset/consumable requirement
+- ตรวจ booking conflicts (คน/asset/serial) และแก้ก่อนยืนยัน
+- สร้าง requirement ที่จะไป procurement/warehouse (PR / reservation)
 
-### 1.5 Reservation prevents double allocation
-- Allocation to Packing/Trip must create Reservations.
-- Available = OnHand - Reserved.
-- Serialized items: a serial can exist in only one active allocation/reservation at a time.
-- Reservation operations must be transactional to prevent race conditions.
+### 2.4 Supervisor (หัวหน้างานหน้างาน)
+- ยืนยันการทำงานหน้างาน: attendance (check-in/out), OT, exceptions
+- ยืนยันการรับของ/คืนของ ณ ไซต์ (site receiving/return)
+- อนุมัติ/confirm Timesheet ของทีมรายวัน (ล็อก) แล้วส่ง HR อัตโนมัติ
+- ขอ override ในเคส shortage/compliance พร้อมเหตุผล
 
-### 1.6 Compliance gate
-- Site can require certs with expiry.
-- Manpower assignment and/or Trip confirmation/dispatch must be blocked or require approval if cert is invalid for the job/trip date.
+### 2.5 Warehouse (คลัง)
+- รับ PR/จัดทำ picking/packing
+- รับของเข้า (GR) + ตรวจ qty/quality + บังคับ serial สำหรับอุปกรณ์ที่ต้องมี
+- ทำ stock movements: issue/transfer/return/adjustment ตาม policy
+- ทำ package confirmation และปล่อยของออก trip ตาม gate
 
-### 1.7 Timesheet workflow is enforced
-- Supervisor must verify check-in/check-out for all workers daily.
-- Once confirmed, timesheet auto-queues to HR.
-- After submission to HR, corrections must follow correction/reversal workflow.
+### 2.6 Procurement (จัดซื้อ)
+- สร้าง PR → PO → ติดตาม vendor → สนับสนุน GR
+- กำหนด vendor outsource สำหรับ trip/transport หรือ resource ภายนอก
+- จัดการ backorder/partial delivery
 
-### 1.8 Auditability
-- Every write and every key transition must be logged: who/when/what/from→to/why.
-- Critical actions require reason text.
+### 2.7 Driver / Dispatcher (ขนส่ง/Dispatch)
+- สร้าง Trip/Route (own/outsource) + ผูก package/items
+- ทำ dispatch/arrival confirmations
+- บันทึกเหตุการณ์ระหว่างทาง (delay, damage, partial drop)
 
-## 2) Role Model (Small Team Friendly)
-### 2.1 Roles are permissions, not people
-- One person can hold multiple roles.
-- Each Job/Trip must have explicit assignments (Owner/Supervisor/Planner/etc.) even if same person.
+### 2.8 HR / Payroll
+- รับ Timesheet ที่ supervisor confirm แล้ว
+- ตรวจความผิดปกติ/คืนกลับเพื่อแก้ (returned)
+- ส่งต่อ payroll_ready
+- ดู compliance/cert validity ของพนักงาน
 
-### 2.2 Minimal role set
-- ADMIN: system configuration
-- OPS_APPROVER: approvals, overrides, reversal permissions
-- OFFICE: create/manage jobs, docs, procurement coordination
-- WAREHOUSE: receiving/issuing/stock actions (may be held by Site Supervisor)
-- SITE_SUPERVISOR: site confirmations, evidence, timesheets
-- HR: cert/training, timesheet review
-- FINANCE: invoicing, credit notes, financial corrections (optional early stage)
-- AUDITOR: read-only
+### 2.9 Finance / Accounting
+- ออก invoice/credit note, รับชำระ, ติดตาม AR
+- คุมต้นทุน job, ปิดงวด
+- ตรวจการ override ที่กระทบต้นทุน/รายได้
 
-## 3) Events & Notifications
-### 3.1 In-app notifications are the primary system of record
-### 3.2 LINE OA is push-only (role-bound recipients)
-- Send only actionable or urgent events (approvals, overdue, exceptions, readiness blocks).
-- Must include short summary + link to record (if URL exists).
+### 2.10 Auditor / Read-only
+- เข้าดูข้อมูล + audit trail ได้ แต่แก้ไม่ได้
+- ตรวจการทำ reversal/void และ approval logs
 
-### 3.3 Optional calendar events
-- Job start/end, Trip schedule, Training sessions, Timesheet cutoff.
+## 3) Approval & Override Matrix (ต้องมี)
+ระบบต้องรองรับ rule-based approval อย่างน้อย:
+- Override shortage (dispatch ทั้งที่ reserved ไม่ครบ)
+- Override compliance (assign คนที่ cert ไม่ผ่าน)
+- Purchase/PO ตามวงเงิน
+- Stock adjustment (เสียหาย/สูญหาย)
+- Timesheet exception (OT เกิน threshold, missing check-out)
 
-## 4) Quality Bar (Definition of Done for each feature)
-A feature is “done” only if:
-- Data model exists (entities + relationships).
-- Permissions defined.
-- Server-side rules/validation enforced.
-- Audit + status history recorded.
-- At least one happy-path and one failure-path test scenario documented.
-- Relevant notification routing is defined (if the feature creates actionable work).
+ทุก approval ต้องมี:
+- ผู้ขอ, ผู้อนุมัติ, เวลา, เหตุผล, scope, เอกสารที่เกี่ยวข้อง, ผลกระทบ (cost/stock/time)
 
-## 5) Deliverables expected from implementation agents
-- Data model/schema proposal
-- Screens/flows description (not UI design, but user actions)
-- Validation rules & lockpoints
-- Audit/event logging points
-- Notification routing table
-- Test scenarios (manual + automated outline)
+## 4) Notifications (ขั้นต่ำ)
+- In-app notification สำหรับ event ที่ actionable
+- LINE OA (หรือ channel ภายนอก) เป็น push-only สำหรับ urgent เช่น:
+  - Trip dispatch/arrival, shortage gate, compliance block, timesheet pending confirm, PO overdue
+
+## 5) Data Governance (บังคับใช้)
+- Master data ต้องมี unique keys และ validation (customer/site/item/uom/serial rule/roles)
+- เอกสารทุกประเภทมี numbering scheme ที่สม่ำเสมอ
+- ไฟล์แนบต้องผูกกับ entity และมีสิทธิ์เข้าถึง
+
+## 6) Acceptance Criteria ระดับระบบ (Definition of Done)
+- ไม่มีทาง “แก้ทับ” record ที่ confirm/submit แล้ว
+- ทุกการเปลี่ยนสถานะมี status_history append-only
+- ทุก write มี audit_log (actor, action, before/after summary, correlation id)
+- Reservation กันซ้ำได้จริง (พร้อม concurrent test)
+- Traceability: เปิดจาก stock ledger ย้อนไปเอกสารต้นทางได้
+- Timesheet ดึงรายชื่อ default จาก manpower ที่ถูก plan ไปในวันนั้นได้

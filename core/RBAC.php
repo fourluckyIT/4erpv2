@@ -1,10 +1,13 @@
 <?php
 /**
- * RBAC (Role-Based Access Control) Class
+ * Role-Based Access Control (RBAC) Class
  * ERP v2 - Phase 1
  * 
- * Implements permission checking following the matrix from agents.md.
- * Supports status-based permissions and admin custom overrides.
+ * Implements permission checking based on:
+ * - User roles (from user_roles table)
+ * - Role permissions (from role_permissions table)
+ * - Custom user permissions (from custom_permissions table)
+ * - Status-based restrictions
  */
 
 class RBAC {
@@ -27,13 +30,13 @@ class RBAC {
      */
     private function loadUserRoles(): void {
         $stmt = $this->db->prepare("
-            SELECT r.id, r.code, r.name
+            SELECT r.code, r.name
             FROM user_roles ur
             JOIN roles r ON ur.role_id = r.id
-            WHERE ur.user_id = :user_id
+            WHERE ur.user_id = ?
         ");
-        $stmt->execute(['user_id' => $this->userId]);
-        $this->userRoles = $stmt->fetchAll();
+        $stmt->execute([$this->userId]);
+        $this->userRoles = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
@@ -51,165 +54,164 @@ class RBAC {
     }
     
     /**
-     * Check if user has any of the given roles
-     */
-    public function hasAnyRole(array $roleCodes): bool {
-        return !empty(array_intersect($roleCodes, $this->getUserRoleCodes()));
-    }
-    
-    /**
-     * Check if user can perform action on entity (with optional status)
+     * Check if user can perform action on entity
      * 
-     * @param string $action Action to check (view/create/edit/approve/void/etc)
-     * @param string $entityType Entity type (JOB/PO/PR/etc)
-     * @param string|null $entityStatus Current status of the entity (for status-based checks)
+     * @param string $action Action name (view, create, edit, approve, void, etc.)
+     * @param string $entityType Entity type (JOB, PO, PR, etc.)
+     * @param string|null $entityStatus Optional entity status for status-based checks
      * @return bool
      */
     public function can(string $action, string $entityType, ?string $entityStatus = null): bool {
-        // Admin always has access
-        if ($this->hasRole(ROLE_ADMIN)) {
-            return true;
+        if (!$this->userId) {
+            return false;
         }
         
-        // Manager has broad access (but still check specific restrictions)
-        $isManager = $this->hasRole(ROLE_MANAGER);
-        
-        // Build cache key
-        $cacheKey = "{$action}:{$entityType}:" . ($entityStatus ?? 'ALL');
-        
+        // Cache key
+        $cacheKey = "{$action}:{$entityType}:{$entityStatus}";
         if (isset($this->permissionCache[$cacheKey])) {
             return $this->permissionCache[$cacheKey];
         }
         
-        // Check custom permissions first (override role permissions)
-        $custom = $this->checkCustomPermission($action, $entityType, $entityStatus);
-        if ($custom !== null) {
-            $this->permissionCache[$cacheKey] = $custom;
-            return $custom;
+        // Admin always has access
+        if ($this->hasRole(ROLE_ADMIN)) {
+            $this->permissionCache[$cacheKey] = true;
+            return true;
         }
         
-        // Check role-based permissions
-        $granted = $this->checkRolePermission($action, $entityType, $entityStatus);
+        // Check custom permissions first (user-specific overrides)
+        $customPerm = $this->checkCustomPermission($action, $entityType, $entityStatus);
+        if ($customPerm !== null) {
+            $this->permissionCache[$cacheKey] = $customPerm;
+            return $customPerm;
+        }
         
-        $this->permissionCache[$cacheKey] = $granted;
-        return $granted;
+        // Check role permissions
+        $rolePerm = $this->checkRolePermission($action, $entityType, $entityStatus);
+        $this->permissionCache[$cacheKey] = $rolePerm;
+        
+        return $rolePerm;
     }
     
     /**
-     * Check custom permission for specific user
+     * Check custom user permission
+     * @return bool|null null if no custom permission found
      */
     private function checkCustomPermission(string $action, string $entityType, ?string $entityStatus): ?bool {
         $stmt = $this->db->prepare("
             SELECT cp.is_granted
             FROM custom_permissions cp
             JOIN permissions p ON cp.permission_id = p.id
-            WHERE cp.user_id = :user_id
-            AND p.entity_type = :entity_type
-            AND p.action = :action
-            AND (cp.entity_status IS NULL OR cp.entity_status = :status)
+            WHERE cp.user_id = ?
+            AND p.action = ?
+            AND p.entity_type = ?
+            AND (cp.entity_status IS NULL OR cp.entity_status = ?)
             AND (cp.expires_at IS NULL OR cp.expires_at > NOW())
             ORDER BY cp.entity_status DESC
             LIMIT 1
         ");
-        
-        $stmt->execute([
-            'user_id' => $this->userId,
-            'entity_type' => $entityType,
-            'action' => $action,
-            'status' => $entityStatus
-        ]);
-        
-        $result = $stmt->fetch();
+        $stmt->execute([$this->userId, $action, $entityType, $entityStatus]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result) {
             return (bool) $result['is_granted'];
         }
         
-        return null; // No custom permission found
+        return null;
     }
     
     /**
-     * Check permission based on user's roles
+     * Check role-based permission
      */
     private function checkRolePermission(string $action, string $entityType, ?string $entityStatus): bool {
-        $roleIds = array_column($this->userRoles, 'id');
-        
-        if (empty($roleIds)) {
+        $roleCodes = $this->getUserRoleCodes();
+        if (empty($roleCodes)) {
             return false;
         }
         
-        $placeholders = implode(',', array_fill(0, count($roleIds), '?'));
+        $placeholders = implode(',', array_fill(0, count($roleCodes), '?'));
         
         $sql = "
             SELECT rp.is_granted
             FROM role_permissions rp
+            JOIN roles r ON rp.role_id = r.id
             JOIN permissions p ON rp.permission_id = p.id
-            WHERE rp.role_id IN ($placeholders)
-            AND p.entity_type = ?
+            WHERE r.code IN ($placeholders)
             AND p.action = ?
+            AND p.entity_type = ?
             AND (rp.entity_status IS NULL OR rp.entity_status = ?)
             AND rp.is_granted = 1
             ORDER BY rp.entity_status DESC
             LIMIT 1
         ";
         
-        $params = array_merge($roleIds, [$entityType, $action, $entityStatus]);
-        
+        $params = array_merge($roleCodes, [$action, $entityType, $entityStatus]);
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         
-        return (bool) $stmt->fetch();
+        return (bool) $stmt->fetchColumn();
     }
     
     /**
-     * Get all permissions for a role
-     */
-    public function getRolePermissions(int $roleId): array {
-        $stmt = $this->db->prepare("
-            SELECT p.*, rp.entity_status, rp.is_granted
-            FROM role_permissions rp
-            JOIN permissions p ON rp.permission_id = p.id
-            WHERE rp.role_id = :role_id
-            ORDER BY p.entity_type, p.action
-        ");
-        $stmt->execute(['role_id' => $roleId]);
-        return $stmt->fetchAll();
-    }
-    
-    /**
-     * Get all roles
-     */
-    public function getAllRoles(): array {
-        $stmt = $this->db->query("SELECT * FROM roles ORDER BY id");
-        return $stmt->fetchAll();
-    }
-    
-    /**
-     * Get all permissions
+     * Get all permissions for current user
      */
     public function getAllPermissions(): array {
-        $stmt = $this->db->query("SELECT * FROM permissions ORDER BY entity_type, action");
-        return $stmt->fetchAll();
+        if (!$this->userId) {
+            return [];
+        }
+        
+        $roleCodes = $this->getUserRoleCodes();
+        if (empty($roleCodes)) {
+            return [];
+        }
+        
+        $placeholders = implode(',', array_fill(0, count($roleCodes), '?'));
+        
+        $sql = "
+            SELECT DISTINCT p.code, p.name, p.entity_type, p.action
+            FROM role_permissions rp
+            JOIN roles r ON rp.role_id = r.id
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE r.code IN ($placeholders)
+            AND rp.is_granted = 1
+            ORDER BY p.entity_type, p.action
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($roleCodes);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Require permission or redirect
+     */
+    public function requireOrRedirect(string $action, string $entityType, ?string $entityStatus = null, string $redirectUrl = null): void {
+        if (!$this->can($action, $entityType, $entityStatus)) {
+            $url = $redirectUrl ?? BASE_URL . '/';
+            setFlash('error', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+            redirect($url);
+        }
     }
     
     /**
      * Assign role to user
      */
-    public function assignRole(int $userId, int $roleId, int $assignedBy): bool {
+    public function assignRole(int $userId, string $roleCode, int $assignedBy): bool {
         try {
             $stmt = $this->db->prepare("
-                INSERT INTO user_roles (user_id, role_id, assigned_by, assigned_at)
-                VALUES (:user_id, :role_id, :assigned_by, NOW())
-                ON DUPLICATE KEY UPDATE assigned_by = :assigned_by2, assigned_at = NOW()
+                INSERT INTO user_roles (user_id, role_id, assigned_by)
+                SELECT ?, r.id, ?
+                FROM roles r
+                WHERE r.code = ?
+                ON DUPLICATE KEY UPDATE assigned_by = VALUES(assigned_by)
             ");
+            $stmt->execute([$userId, $assignedBy, $roleCode]);
             
-            return $stmt->execute([
-                'user_id' => $userId,
-                'role_id' => $roleId,
-                'assigned_by' => $assignedBy,
-                'assigned_by2' => $assignedBy
-            ]);
-        } catch (PDOException $e) {
+            $audit = new AuditLog();
+            $audit->log('assign_role', 'USER', $userId, null, ['role' => $roleCode]);
+            
+            return true;
+        } catch (Exception $e) {
             return false;
         }
     }
@@ -217,49 +219,145 @@ class RBAC {
     /**
      * Remove role from user
      */
-    public function removeRole(int $userId, int $roleId): bool {
-        $stmt = $this->db->prepare("
-            DELETE FROM user_roles WHERE user_id = :user_id AND role_id = :role_id
+    public function removeRole(int $userId, string $roleCode): bool {
+        try {
+            $stmt = $this->db->prepare("
+                DELETE ur FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = ? AND r.code = ?
+            ");
+            $stmt->execute([$userId, $roleCode]);
+            
+            $audit = new AuditLog();
+            $audit->log('remove_role', 'USER', $userId, ['role' => $roleCode], null);
+            
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Grant custom permission to user
+     */
+    public function grantPermission(int $userId, string $permissionCode, int $assignedBy, ?string $reason = null, ?string $expiresAt = null): bool {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO custom_permissions (user_id, permission_id, is_granted, reason, assigned_by, expires_at)
+                SELECT ?, p.id, 1, ?, ?, ?
+                FROM permissions p
+                WHERE p.code = ?
+                ON DUPLICATE KEY UPDATE is_granted = 1, reason = VALUES(reason), assigned_by = VALUES(assigned_by), expires_at = VALUES(expires_at)
+            ");
+            $stmt->execute([$userId, $reason, $assignedBy, $expiresAt, $permissionCode]);
+            
+            $audit = new AuditLog();
+            $audit->log('grant_permission', 'USER', $userId, null, ['permission' => $permissionCode], $reason);
+            
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Revoke custom permission from user
+     */
+    public function revokePermission(int $userId, string $permissionCode, int $assignedBy, ?string $reason = null): bool {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO custom_permissions (user_id, permission_id, is_granted, reason, assigned_by)
+                SELECT ?, p.id, 0, ?, ?
+                FROM permissions p
+                WHERE p.code = ?
+                ON DUPLICATE KEY UPDATE is_granted = 0, reason = VALUES(reason), assigned_by = VALUES(assigned_by)
+            ");
+            $stmt->execute([$userId, $reason, $assignedBy, $permissionCode]);
+            
+            $audit = new AuditLog();
+            $audit->log('revoke_permission', 'USER', $userId, ['permission' => $permissionCode], null, $reason);
+            
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Get all roles from database
+     */
+    public function getAllRoles(): array {
+        $stmt = $this->db->query("SELECT * FROM roles ORDER BY code");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Get all users with their roles
+     */
+    public function getAllUsers(): array {
+        $stmt = $this->db->query("
+            SELECT u.*, GROUP_CONCAT(r.code) as role_codes
+            FROM users u
+            LEFT JOIN user_roles ur ON u.id = ur.user_id
+            LEFT JOIN roles r ON ur.role_id = r.id
+            GROUP BY u.id
+            ORDER BY u.username
         ");
-        return $stmt->execute(['user_id' => $userId, 'role_id' => $roleId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Get user roles by user ID
+     */
+    public function getUserRolesById(int $userId): array {
+        $stmt = $this->db->prepare("
+            SELECT r.*
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Get all permissions for a role
+     */
+    public function getRolePermissions(int $roleId): array {
+        $stmt = $this->db->prepare("
+            SELECT p.*, rp.is_granted, rp.entity_status
+            FROM role_permissions rp
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE rp.role_id = ?
+            ORDER BY p.entity_type, p.action
+        ");
+        $stmt->execute([$roleId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Get all permissions from database
+     */
+    public function getAllPermissionsFromDB(): array {
+        $stmt = $this->db->query("SELECT * FROM permissions ORDER BY entity_type, action");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
      * Assign custom permission to user
      */
-    public function assignCustomPermission(
-        int $userId, 
-        int $permissionId, 
-        bool $isGranted,
-        int $assignedBy,
-        ?string $entityStatus = null,
-        ?string $reason = null,
-        ?string $expiresAt = null
-    ): bool {
+    public function assignCustomPermission(int $userId, int $permissionId, int $assignedBy, ?string $reason = null, ?string $entityStatus = null): bool {
         try {
             $stmt = $this->db->prepare("
-                INSERT INTO custom_permissions 
-                (user_id, permission_id, entity_status, is_granted, reason, assigned_by, expires_at, created_at)
-                VALUES 
-                (:user_id, :perm_id, :status, :granted, :reason, :assigned_by, :expires, NOW())
-                ON DUPLICATE KEY UPDATE 
-                is_granted = :granted2, reason = :reason2, assigned_by = :assigned_by2, expires_at = :expires2
+                INSERT INTO custom_permissions (user_id, permission_id, is_granted, reason, assigned_by, entity_status)
+                VALUES (?, ?, 1, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE is_granted = 1, reason = VALUES(reason), assigned_by = VALUES(assigned_by)
             ");
+            $stmt->execute([$userId, $permissionId, $reason, $assignedBy, $entityStatus]);
             
-            return $stmt->execute([
-                'user_id' => $userId,
-                'perm_id' => $permissionId,
-                'status' => $entityStatus,
-                'granted' => $isGranted ? 1 : 0,
-                'reason' => $reason,
-                'assigned_by' => $assignedBy,
-                'expires' => $expiresAt,
-                'granted2' => $isGranted ? 1 : 0,
-                'reason2' => $reason,
-                'assigned_by2' => $assignedBy,
-                'expires2' => $expiresAt
-            ]);
-        } catch (PDOException $e) {
+            $this->audit->log('assign_custom_permission', 'USER', $userId, null, ['permission_id' => $permissionId], $reason);
+            return true;
+        } catch (Exception $e) {
             return false;
         }
     }
@@ -267,17 +365,16 @@ class RBAC {
     /**
      * Remove custom permission from user
      */
-    public function removeCustomPermission(int $userId, int $permissionId, ?string $entityStatus = null): bool {
-        $sql = "DELETE FROM custom_permissions WHERE user_id = :user_id AND permission_id = :perm_id";
-        $params = ['user_id' => $userId, 'perm_id' => $permissionId];
-        
-        if ($entityStatus !== null) {
-            $sql .= " AND entity_status = :status";
-            $params['status'] = $entityStatus;
+    public function removeCustomPermission(int $userId, int $permissionId): bool {
+        try {
+            $stmt = $this->db->prepare("DELETE FROM custom_permissions WHERE user_id = ? AND permission_id = ?");
+            $stmt->execute([$userId, $permissionId]);
+            
+            $this->audit->log('remove_custom_permission', 'USER', $userId, ['permission_id' => $permissionId], null);
+            return true;
+        } catch (Exception $e) {
+            return false;
         }
-        
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute($params);
     }
     
     /**
@@ -285,35 +382,42 @@ class RBAC {
      */
     public function getUserCustomPermissions(int $userId): array {
         $stmt = $this->db->prepare("
-            SELECT cp.*, p.code as permission_code, p.name as permission_name, 
-                   p.entity_type, p.action, u.username as assigned_by_name
+            SELECT cp.*, p.code, p.name, p.entity_type, p.action
             FROM custom_permissions cp
             JOIN permissions p ON cp.permission_id = p.id
-            JOIN users u ON cp.assigned_by = u.id
-            WHERE cp.user_id = :user_id
-            ORDER BY p.entity_type, p.action
+            WHERE cp.user_id = ?
         ");
-        $stmt->execute(['user_id' => $userId]);
-        return $stmt->fetchAll();
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
-     * Require permission - throws exception if not granted
+     * Assign permission to role
      */
-    public function require(string $action, string $entityType, ?string $entityStatus = null): void {
-        if (!$this->can($action, $entityType, $entityStatus)) {
-            throw new Exception("Permission denied: {$action} on {$entityType}");
+    public function assignRolePermission(int $roleId, int $permissionId, ?string $entityStatus = null): bool {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO role_permissions (role_id, permission_id, is_granted, entity_status)
+                VALUES (?, ?, 1, ?)
+                ON DUPLICATE KEY UPDATE is_granted = 1
+            ");
+            $stmt->execute([$roleId, $permissionId, $entityStatus]);
+            return true;
+        } catch (Exception $e) {
+            return false;
         }
     }
     
     /**
-     * Check and redirect if permission denied
+     * Remove permission from role
      */
-    public function requireOrRedirect(string $action, string $entityType, ?string $entityStatus = null): void {
-        if (!$this->can($action, $entityType, $entityStatus)) {
-            setFlash('error', 'คุณไม่มีสิทธิ์ดำเนินการนี้');
-            redirect('/4erpv2/index.php');
-            exit;
+    public function removeRolePermission(int $roleId, int $permissionId): bool {
+        try {
+            $stmt = $this->db->prepare("DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?");
+            $stmt->execute([$roleId, $permissionId]);
+            return true;
+        } catch (Exception $e) {
+            return false;
         }
     }
 }

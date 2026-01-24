@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
+require_once __DIR__ . '/../../warehouse/WarehouseService.php';
 
 $auth = new Auth();
 $auth->requireAuth();
@@ -12,6 +13,7 @@ $auth->requireAuth();
 $db = getDB();
 $audit = new AuditLog();
 $docNum = new DocumentNumber();
+$warehouseService = new WarehouseService();
 
 $poId = (int) get('po_id');
 
@@ -45,6 +47,11 @@ $poItems = $db->prepare("
 ");
 $poItems->execute([$poId]);
 $poItems = $poItems->fetchAll();
+
+$poItemMap = [];
+foreach ($poItems as $row) {
+    $poItemMap[(int)$row['id']] = $row;
+}
 
 if (empty($poItems)) {
     setFlash('info', 'PO นี้รับของครบแล้ว');
@@ -89,6 +96,12 @@ if (isPost()) {
             if ($receivedQty <= 0) continue;
             
             $hasItems = true;
+
+            $poItemId = (int) $poItemId;
+            $poItemRow = $poItemMap[$poItemId] ?? null;
+            if (!$poItemRow) {
+                throw new Exception('ไม่พบรายการ PO Item: ' . $poItemId);
+            }
             
             // Insert GR item
             $stmt = $db->prepare("
@@ -108,6 +121,126 @@ if (isPost()) {
             $db->prepare("
                 UPDATE po_items SET received_qty = received_qty + ? WHERE id = ?
             ")->execute([$receivedQty, $poItemId]);
+
+            $itemId = (int) ($poItemRow['item_id'] ?? 0);
+            $selectedType = trim((string)($item['item_type'] ?? ''));
+            $notes = "GR {$grNumber} / PO {$po['po_number']}" . ($selectedType ? " / {$selectedType}" : '');
+
+            if ($itemId <= 0) {
+                $typeForItem = in_array($selectedType, ['Device', 'Equipment', 'Vehicle', 'Consumable'], true) ? $selectedType : 'Consumable';
+
+                $prefix = match ($typeForItem) {
+                    'Device' => 'DEV',
+                    'Equipment' => 'EQP',
+                    'Vehicle' => 'VEH',
+                    'Consumable' => 'CON',
+                    default => 'ITM'
+                };
+
+                $stmtMax = $db->prepare("SELECT MAX(CAST(SUBSTRING(code, :start) AS UNSIGNED)) FROM items WHERE code LIKE :prefix");
+                $stmtMax->execute([
+                    ':start' => strlen($prefix) + 1,
+                    ':prefix' => $prefix . '%'
+                ]);
+                $next = (int) $stmtMax->fetchColumn();
+                $next = $next + 1;
+                $newCode = $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+
+                $newName = trim((string)($poItemRow['description'] ?? ''));
+                if ($newName === '') {
+                    $newName = $newCode;
+                }
+
+                $serialInput = trim((string)($item['serials'] ?? ''));
+                $isSerializedNew = $serialInput !== '' ? 1 : 0;
+
+                $costPrice = (float)($poItemRow['unit_price'] ?? 0);
+                $stmtNew = $db->prepare("INSERT INTO items (code, name, item_type, unit, is_serialized, cost_price, is_active, created_by) VALUES (?, ?, ?, ?, ?, ?, 1, ?)");
+                $stmtNew->execute([
+                    $newCode,
+                    $newName,
+                    $typeForItem,
+                    (string)($poItemRow['unit'] ?? 'pcs'),
+                    $isSerializedNew,
+                    $costPrice,
+                    $_SESSION['user_id']
+                ]);
+                $itemId = (int) $db->lastInsertId();
+
+                $db->prepare("UPDATE po_items SET item_id = ? WHERE id = ?")->execute([$itemId, $poItemId]);
+                $audit->log('link_item', 'PO_ITEM', $poItemId, null, ['item_id' => $itemId, 'item_code' => $newCode]);
+            }
+
+            if ($itemId > 0) {
+                $isSerialized = (int)($poItemRow['is_serialized'] ?? 0) === 1;
+                if (!$isSerialized) {
+                    try {
+                        $stmtSerFlag = $db->prepare("SELECT is_serialized FROM items WHERE id = ?");
+                        $stmtSerFlag->execute([$itemId]);
+                        $isSerialized = ((int)$stmtSerFlag->fetchColumn()) === 1;
+                    } catch (Exception $e) {
+                        $isSerialized = false;
+                    }
+                }
+
+                if ($isSerialized) {
+                    $expectedCount = (int) round($receivedQty);
+                    if (abs($receivedQty - $expectedCount) > 0.00001) {
+                        throw new Exception('สินค้า Serial ต้องระบุจำนวนเป็นจำนวนเต็ม');
+                    }
+
+                    $serialLines = preg_split("/\r\n|\n|\r/", (string)($item['serials'] ?? ''), -1, PREG_SPLIT_NO_EMPTY);
+                    $serialLines = array_values(array_filter(array_map('trim', $serialLines), fn($s) => $s !== ''));
+
+                    if (count($serialLines) !== $expectedCount) {
+                        throw new Exception('สินค้า Serial ต้องกรอก Serial ให้ครบเท่ากับจำนวนที่รับ');
+                    }
+
+                    foreach ($serialLines as $sn) {
+                        $stmtCheck = $db->prepare("SELECT id FROM serials WHERE item_id = ? AND serial_number = ?");
+                        $stmtCheck->execute([$itemId, $sn]);
+                        if ($stmtCheck->fetchColumn()) {
+                            throw new Exception('Serial ซ้ำในระบบ: ' . $sn);
+                        }
+
+                        $stmtIns = $db->prepare("INSERT INTO serials (item_id, serial_number, status, location, created_by) VALUES (?, ?, 'Available', 'WH', ?)");
+                        $stmtIns->execute([$itemId, $sn, $_SESSION['user_id']]);
+                        $serialId = (int) $db->lastInsertId();
+
+                        $move = $warehouseService->recordMovement(
+                            WarehouseService::MOVE_GR_PO,
+                            $itemId,
+                            1,
+                            WarehouseService::LOC_SUPPLIER,
+                            WarehouseService::LOC_WH,
+                            'goods_receipts',
+                            (int) $grId,
+                            $serialId,
+                            null,
+                            $notes
+                        );
+                        if (empty($move['success'])) {
+                            throw new Exception($move['error'] ?? 'บันทึก stock movement ไม่สำเร็จ');
+                        }
+                    }
+                } else {
+                    $move = $warehouseService->recordMovement(
+                        WarehouseService::MOVE_GR_PO,
+                        $itemId,
+                        $receivedQty,
+                        WarehouseService::LOC_SUPPLIER,
+                        WarehouseService::LOC_WH,
+                        'goods_receipts',
+                        (int) $grId,
+                        null,
+                        null,
+                        $notes
+                    );
+                    if (empty($move['success'])) {
+                        throw new Exception($move['error'] ?? 'บันทึก stock movement ไม่สำเร็จ');
+                    }
+                }
+            }
         }
         
         if (!$hasItems) {
@@ -136,6 +269,22 @@ if (isPost()) {
         setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         redirect("create.php?po_id=$poId");
     }
+}
+
+// Get item types for dropdown
+try {
+    $itemTypes = $db->query("SELECT code, name FROM item_types WHERE is_active = 1 ORDER BY planning_tab_order")->fetchAll();
+} catch (PDOException $e) {
+    // Fallback if item_types table doesn't exist yet
+    $itemTypes = [];
+}
+
+if (empty($itemTypes)) {
+    $itemTypes = [
+        ['code' => 'Device', 'name' => 'อุปกรณ์ (Device)'],
+        ['code' => 'Equipment', 'name' => 'เครื่องมือ (Equipment)'],
+        ['code' => 'Consumable', 'name' => 'วัสดุสิ้นเปลือง (Consumable)'],
+    ];
 }
 
 $pageTitle = 'รับสินค้า - ERP v2';
@@ -201,8 +350,8 @@ require_once __DIR__ . '/../../../includes/header.php';
                             <th class="text-center">สั่ง</th>
                             <th class="text-center">รับแล้ว</th>
                             <th class="text-center">คงเหลือ</th>
-                            <th class="text-center" style="width: 120px;">รับครั้งนี้</th>
-                            <th>หมายเหตุ</th>
+                            <th class="text-center" style="width: 100px;">รับครั้งนี้</th>
+                            <th style="width: 180px;">ประเภท</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -229,18 +378,36 @@ require_once __DIR__ . '/../../../includes/header.php';
                                        min="0" max="<?= $item['remaining_qty'] ?>" step="0.01">
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" 
-                                       name="items[<?= $item['id'] ?>][condition_note]" 
-                                       placeholder="สภาพ...">
+                                <select class="form-select form-select-sm" name="items[<?= $item['id'] ?>][item_type]">
+                                    <?php foreach ($itemTypes as $t): ?>
+                                    <option value="<?= e($t['code']) ?>"><?= e($t['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </td>
                         </tr>
                         <?php if ($item['is_serialized']): ?>
                         <tr>
                             <td colspan="6" class="bg-light">
-                                <small class="text-muted">Serial Numbers (หนึ่ง serial ต่อบรรทัด):</small>
-                                <textarea class="form-control form-control-sm mt-1" 
-                                          name="items[<?= $item['id'] ?>][serials]" 
-                                          rows="2" placeholder="SN001&#10;SN002"></textarea>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <small class="text-muted">Serial Numbers (หนึ่ง serial ต่อบรรทัด):</small>
+                                        <textarea class="form-control form-control-sm mt-1" 
+                                                  name="items[<?= $item['id'] ?>][serials]" 
+                                                  rows="2" placeholder="SN001&#10;SN002"></textarea>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small class="text-muted">หมายเหตุสภาพ:</small>
+                                        <input type="text" class="form-control form-control-sm mt-1" 
+                                               name="items[<?= $item['id'] ?>][condition_note]" 
+                                               placeholder="สภาพ...">
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php else: ?>
+                        <tr class="d-none">
+                            <td colspan="6">
+                                <input type="hidden" name="items[<?= $item['id'] ?>][condition_note]" value="">
                             </td>
                         </tr>
                         <?php endif; ?>

@@ -192,6 +192,13 @@ require_once __DIR__ . '/../../includes/header.php';
             </div>
             <div class="card-body">
                 <?php foreach ($availableActions as $action => $config): ?>
+                <?php if ($action === 'plan'): ?>
+                <!-- Plan action redirects to Planning page -->
+                <a href="<?= BASE_URL ?>/modules/planning/create.php?job_id=<?= $jobId ?>" class="btn btn-primary w-100 mb-2">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    <?= StatusMachine::getActionLabel($action) ?>
+                </a>
+                <?php else: ?>
                 <form method="POST" action="" class="mb-2">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="<?= e($action) ?>">
@@ -209,6 +216,7 @@ require_once __DIR__ . '/../../includes/header.php';
                         <?= StatusMachine::getActionLabel($action) ?>
                     </button>
                 </form>
+                <?php endif; ?>
                 <?php endforeach; ?>
             </div>
         </div>

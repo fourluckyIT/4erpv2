@@ -178,21 +178,31 @@ require_once __DIR__ . '/../../../includes/header.php';
                     </div>
                     <div class="mb-3">
                         <label class="form-label">รถ/ยานพาหนะ</label>
-                        <select class="form-select" name="vehicle_serial_id">
-                            <option value="">-- เลือกรถ --</option>
-                            <?php foreach ($vehicles as $v): ?>
-                            <option value="<?= $v['id'] ?>"><?= e($v['serial_number']) ?> - <?= e($v['item_name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="input-group">
+                            <select class="form-select" name="vehicle_serial_id" id="vehicleSelect">
+                                <option value="">-- เลือกรถ --</option>
+                                <?php foreach ($vehicles as $v): ?>
+                                <option value="<?= $v['id'] ?>"><?= e($v['serial_number']) ?> - <?= e($v['item_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" onclick="showNewVehicleModal()" title="เพิ่มรถใหม่">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Supplier (ถ้าใช้รถภายนอก)</label>
-                        <select class="form-select" name="supplier_id">
-                            <option value="">-- ไม่ระบุ --</option>
-                            <?php foreach ($suppliers as $s): ?>
-                            <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="input-group">
+                            <select class="form-select" name="supplier_id" id="supplierSelect">
+                                <option value="">-- ไม่ระบุ --</option>
+                                <?php foreach ($suppliers as $s): ?>
+                                <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" onclick="showNewSupplierModal()" title="เพิ่ม Supplier ใหม่">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -307,6 +317,152 @@ require_once __DIR__ . '/../../../includes/header.php';
 document.getElementById('selectAllSerials')?.addEventListener('change', function() {
     document.querySelectorAll('.serial-check').forEach(cb => cb.checked = this.checked);
 });
+
+// New Supplier Modal
+function showNewSupplierModal() {
+    document.getElementById('newSupCode').value = '';
+    document.getElementById('newSupName').value = '';
+    document.getElementById('newSupContact').value = '';
+    document.getElementById('newSupPhone').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('newSupplierModal'));
+    modal.show();
+}
+
+function saveNewSupplier() {
+    const code = document.getElementById('newSupCode').value.trim();
+    const name = document.getElementById('newSupName').value.trim();
+    const contact = document.getElementById('newSupContact').value.trim();
+    const phone = document.getElementById('newSupPhone').value.trim();
+    
+    if (!code || !name) {
+        alert('กรุณาระบุรหัสและชื่อผู้ขาย');
+        return;
+    }
+    
+    fetch('<?= BASE_URL ?>/modules/master/api/supplier_create.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({code, name, contact_person: contact, phone})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('supplierSelect');
+            const option = new Option(`${code} - ${name}`, data.id, true, true);
+            select.add(option);
+            bootstrap.Modal.getInstance(document.getElementById('newSupplierModal')).hide();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    })
+    .catch(err => alert('เกิดข้อผิดพลาด: ' + err));
+}
+
+// New Vehicle Modal
+function showNewVehicleModal() {
+    document.getElementById('newVehSerial').value = '';
+    document.getElementById('newVehName').value = '';
+    document.getElementById('newVehPlate').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('newVehicleModal'));
+    modal.show();
+}
+
+function saveNewVehicle() {
+    const serial = document.getElementById('newVehSerial').value.trim();
+    const name = document.getElementById('newVehName').value.trim();
+    const plate = document.getElementById('newVehPlate').value.trim();
+    
+    if (!serial || !name) {
+        alert('กรุณาระบุทะเบียนและชื่อรถ');
+        return;
+    }
+    
+    fetch('<?= BASE_URL ?>/modules/master/api/vehicle_create.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({serial_number: serial, name: name, license_plate: plate})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('vehicleSelect');
+            const option = new Option(`${serial} - ${name}`, data.id, true, true);
+            select.add(option);
+            bootstrap.Modal.getInstance(document.getElementById('newVehicleModal')).hide();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    })
+    .catch(err => alert('เกิดข้อผิดพลาด: ' + err));
+}
 </script>
+
+<!-- New Supplier Modal -->
+<div class="modal fade" id="newSupplierModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-building-add me-2"></i>เพิ่ม Supplier ใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">รหัส <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newSupCode" placeholder="เช่น SUP001">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ชื่อ <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newSupName" placeholder="ชื่อบริษัท/ร้านค้า">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ผู้ติดต่อ</label>
+                    <input type="text" class="form-control" id="newSupContact">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">เบอร์โทร</label>
+                    <input type="text" class="form-control" id="newSupPhone">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewSupplier()">
+                    <i class="bi bi-check me-1"></i>บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Vehicle Modal -->
+<div class="modal fade" id="newVehicleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-truck me-2"></i>เพิ่มรถใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">ทะเบียน/Serial <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newVehSerial" placeholder="เช่น กข-1234">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ชื่อ/รุ่นรถ <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newVehName" placeholder="เช่น รถบรรทุก 6 ล้อ">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ป้ายทะเบียน</label>
+                    <input type="text" class="form-control" id="newVehPlate" placeholder="เช่น 1กก 1234 กทม">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewVehicle()">
+                    <i class="bi bi-check me-1"></i>บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>

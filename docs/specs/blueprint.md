@@ -1,268 +1,260 @@
-# Adaptive 4ERP — blueprint.md (Pure Requirements, No Platform Assumptions)
+# blueprint.md
+# 4ERP v2 — Blueprint (Pure Requirements)
+Version: 1.0
+Date: 2026-01-24 (UTC+7)
+Owner: JT
 
-## 1) System Overview
-A Job-centric service operations system for industrial services with:
-- Three Job types: LUMPSUM, DAYRENT, MANPOWER
-- Stock tracking across multiple states (Main, In-transit, Vehicle, Site, Consume)
-- Packing + multi-trip dispatch, own or outsourced
-- Reservation to prevent double allocation of limited stock
-- Site compliance (certs with expiry + training)
-- Timesheet/attendance with Supervisor approval → HR workflow
-- Strict auditability: no delete after Draft, reversal-only corrections
+## 0) Executive Summary
+4ERP v2 คือ ERP สำหรับธุรกิจงานบริการ/ไซต์งาน ที่ต้องคุม “งาน-คน-ของ-เวลา-เงิน” แบบ Job-centric
+เป้าหมาย: ลด chaos, กันจองซ้ำ, ทำ traceability ได้จริง, ปิดบัญชี/ดู margin ได้, และมี audit ที่เชื่อถือได้
 
-## 2) Key Concepts
-### 2.1 Job-centric linkage
-Every operational object must reference Job:
-- procurement & receiving
-- stock movements
-- packing and trips
-- manpower assignments
-- timesheets
-- invoicing/costing references
+## 1) Scope
+### 1.1 In-Scope (MVP→Scale)
+- Job lifecycle + Planning (manpower/assets/consumables)
+- Booking conflict prevention (double-booking guard)
+- Procurement (PR/PO/GR) + Receiving (serial enforcement)
+- Inventory ledger (multi-location) + Reservation + Packing
+- Dispatch (Trip/Route) own/outsource + gates
+- Site receiving/return + damage/loss handling
+- Timesheet/Attendance workflow (Supervisor→HR→Payroll)
+- Basic Finance: invoice/AR + job costing/margin (minimum viable)
+- Reporting/KPI dashboards
+- Audit logs, status history, append-only ledgers
+- Role-based access + approval matrix
 
-### 2.2 Immutable history after confirmation
-All confirmed data is immutable.
-Corrections are represented by new records (void/reversal/correction) linked to originals.
+### 1.2 Out-of-Scope (initial)
+- Full GL accounting (optional later)
+- Advanced CRM, marketing automation
+- Complex payroll engine (ใช้ export ได้ในช่วงแรก)
 
-### 2.3 Small-team operating model
-A user can hold multiple roles.
-Work ownership is expressed via Job/Trip assignments.
+## 2) Core Concepts & Entities
+### 2.1 Entities (หลัก)
+- Customer, Site, Contract (optional)
+- Job (type: LUMPSUM / DAYRENT / MANPOWER)
+- Planning (time window + requirements)
+- Resource: Employee, Team, Skill, Certification
+- Item: Consumable / Non-Consumable / Device(Serialized)
+- Warehouse/Location: MAIN, IN_TRANSIT, VEHICLE, SITE, CONSUME, QUARANTINE(optional)
+- Documents: PR, PO, GR, StockMove, Reservation, Package, Trip/Route, DeliveryProof, ReturnNote, Timesheet, Invoice, CreditNote, Payment
+- History: audit_logs, status_history, stock_ledger, financial_ledger (minimum), approval_logs
 
-## 3) Core Modules & Requirements
+### 2.2 Universal Fields (ต้องมีเกือบทุก entity)
+- id, doc_no, status
+- created_by/at, updated_by/at (updated_at อาจเป็น last_modified)
+- reference links (job_id/site_id/etc)
+- attachments (0..n)
+- voided_by/at/reason (ถ้า VOID)
+- correlation_id (เชื่อมเหตุการณ์หลายเอกสารใน flow เดียว)
 
-## 3.1 Master Data
-Entities:
-- Customer, Contact, Site
-- Service Types / Scope templates (optional)
-- Items with types: DEVICE(serial), EQUIPMENT(returnable), CONSUMABLE, SERVICE/MANPOWER, OTHER
-- UOM, categories
-- Locations/warehouses with types: MAIN, IN_TRANSIT, VEHICLE, SITE, CONSUME
-- Vehicles (OWN), Vendors (OUTSOURCE), Suppliers
-- Employees/Workers, skills/roles
-- Cert Types, Site Requirements, Training definitions
+## 3) Time & Immutability Rules
+### 3.1 Timezone
+- แสดงผลทั้งหมดใช้ UTC+7
+- storage ต้อง consistent ทั้งระบบ (เลือกแนวทางเดียว)
 
-Global requirements:
-- Naming series for all major documents
-- Attachments supported on all major entities
+### 3.2 Immutability & Reversal
+- DRAFT: edit freely
+- CONFIRMED/SUBMITTED: immutable
+- แก้ไขด้วย:
+  - VOID (ยกเลิกเอกสารทั้งฉบับ)
+  - CORRECTION (เอกสารแก้ไขที่อ้างอิงของเดิม)
+  - REVERSAL (กลับรายการ ledger เช่น stock/financial)
 
-## 3.2 Job Management
-Job fields (minimum):
-- job_no (auto numbering)
-- customer, site
-- job_type: LUMPSUM/DAYRENT/MANPOWER
-- title/description
-- planned_start/end, actual_start/end
-- status workflow
-- assignments: job_owner, site_supervisor, planner, logistics_owner, approver (can be same person)
-- scope lines (services/rates/notes)
-- quotation reference: quotation_no (manual entry only; PDF attachment optional)
+## 4) Job Lifecycle & Workflow
+### 4.1 Job Status (ขั้นต่ำ)
+DRAFT → PLANNED → IN_PROGRESS → DONE → INVOICED → CLOSED
++ CANCELLED/VOID
 
-Job workflow (minimum):
-- DRAFT → PLANNED → IN_PROGRESS → DONE → INVOICED → CLOSED
-- VOID/CANCELLED
+### 4.2 Job Types (rules)
+- LUMPSUM: ราคาคงที่, อาจมี milestones
+- DAYRENT: คิดตามวัน/ช่วงวัน, มีขั้นต่ำ
+- MANPOWER: คิดตามชั่วโมง/วัน/OT ตามเรท
 
-Lockpoints:
-- DRAFT: editable/deletable
-- PLANNED: limited edits per policy
-- IN_PROGRESS+: changes must go through Change Request
-- DONE/INVOICED+: only reversal/correction allowed
+### 4.3 Quotation
+- ไม่ต้อง generate quotation ในระบบ
+- ต้องมีช่อง `quotation_no` + แนบไฟล์ quotation PDF/JPG
 
-## 3.3 Change Requests (CR)
-CR types:
-- EXTEND_DAYS / REDUCE_DAYS
-- CHANGE_SCOPE
-- CHANGE_TRIP/ROUTE
-- OTHER
+## 5) Planning & Booking Conflicts
+### 5.1 Planning
+- กำหนด time window (start/end)
+- วางแผน:
+  - manpower assignment (employee/team)
+  - assets (serialized device)
+  - consumable requirements (qty + UOM)
+- ต้องมี “plan version” หรือ history เพื่อ track การเปลี่ยนแผน
 
-CR must include:
-- job_id
-- requested change details
-- reason
-- impact assessment (manpower, stock, cost, invoice)
-- approval workflow
-- application record (when/how applied)
+### 5.2 Booking Conflict Guard
+- ห้ามจอง resource ซ้ำในช่วงเวลาเดียวกัน (ตาม policy)
+- ต้อง detect conflict ก่อน confirm
+- override ได้เฉพาะ role ที่กำหนด + approval log
 
-Applying CR:
-- updates current plan fields
-- creates history records
-- never erases original history
+## 6) Compliance Gate (Site Requirements)
+- Site/Job สามารถกำหนด requirement:
+  - cert/training type, min level, expiry date
+- เมื่อ assign manpower หรือ confirm dispatch:
+  - ถ้าไม่ผ่าน → BLOCK
+  - หรือ OVERRIDE ผ่าน approval matrix พร้อมเหตุผล
 
-## 3.4 Planning & Booking
-Manpower planning:
-- define required manpower (count/skill) by date range
-- assign individuals to job dates
-- prevent double-booking across jobs
+## 7) Procurement (PR/PO/GR) & Receiving
+### 7.1 PR (Purchase Requisition)
+- สร้างจาก planning requirement หรือ manual
+- ต้องระบุ:
+  - job_id (ถ้าเพื่อ job) หรือ replenishment flag
+  - item/qty/uom/needed_date
+  - reason/notes
 
-Resource booking (optional extension):
-- book vehicles/equipment similarly
+### 7.2 PO (Purchase Order)
+- vendor, price, lead time, terms
+- approval ตามวงเงิน
 
-Compliance gate:
-- site has cert requirements by role/skill and minimum count
-- employee cert has expiry and attachments
-- block assignment or require override approval if not compliant for the job date
+### 7.3 GR (Goods Receipt)
+- รองรับ partial receiving/backorder
+- quality check: accepted/rejected/damaged
+- serialized device:
+  - ต้องกรอก serial list
+  - serial uniqueness enforcement
 
-## 3.5 Procurement & Receiving (GR)
-Procurement documents:
-- request/purchase documents must reference job (or explicit replenishment policy)
+## 8) Inventory & Stock Ledger
+### 8.1 Ledger
+- stock_ledger เป็น append-only
+- on_hand คำนวณจาก ledger หรือมี materialized view ที่ rebuild ได้
+- movement types:
+  - RECEIVE, ISSUE, TRANSFER, RETURN, ADJUST, CONSUME, SCRAP
 
-Receiving:
-- record received items
-- enforce serial capture for DEVICE
-- allow discrepancy handling (short/over/damaged)
-- after confirmation, receiving is immutable; corrections via reversal
+### 8.2 Multi-location
+- MAIN, IN_TRANSIT, VEHICLE, SITE, CONSUME (+QUARANTINE optional)
+- ทุก movement ต้องมี from/to location
 
-Service/Manpower purchasing:
-- recorded as job cost without affecting stock ledger
+### 8.3 Serial Traceability
+- serial ต้อง trace ไป:
+  - GR → package → trip → site receiving → return/consume/scrap
 
-## 3.6 Stock & Ledger
-Stock states:
-- MAIN / IN_TRANSIT / VEHICLE / SITE / CONSUME
+## 9) Reservation & Packing
+### 9.1 Reservation
+- สร้างเมื่อ package/trip allocation
+- สูตร: Available = OnHand - Reserved
+- serial reservation: 1 serial ต่อ 1 allocation เท่านั้น
+- ต้องกัน concurrent allocation (transaction/locking)
 
-Stock ledger:
-- append-only movement entries
-- on-hand derived from ledger (or rebuildable summaries)
-- movements must reference job and source document (trip/package/etc.)
+### 9.2 Package (Packing)
+- package มี status:
+  - DRAFT → PACKED → CONFIRMED → LOADED → DISPATCHED → DELIVERED → RETURNED(optional) → VOID
+- package lines: item/qty/uom + serial list (ถ้ามี)
+- confirmation แล้วแก้ด้วย correction/reversal
 
-Core movements:
-- MAIN → IN_TRANSIT → VEHICLE → SITE
-- Return: SITE/VEHICLE → IN_TRANSIT → MAIN
-- Consumption: SITE → CONSUME
+## 10) Dispatch: Trip/Route
+### 10.1 Trip Types
+- OWN (รถของบริษัท)
+- OUTSOURCE (vendor transport)
 
-Returnable equipment:
-- track overdue returns and discrepancies
+### 10.2 Dispatch Gates (ก่อน confirm)
+- Reservation OK หรือมี shortage approval
+- Compliance OK หรือมี override approval
+- เอกสาร required ครบ (policy-based)
+- package confirmed
 
-## 3.7 Packing (Package)
-Package requirements:
-- package_no (auto numbering, QR optional)
-- job_id, site_id
-- status: DRAFT/SEALED/ALLOCATED/DISPATCHED/RECEIVED/VOID
-- package_lines: item, type, qty, serial list (if required)
-- attachments for packing list / evidence
+### 10.3 Events
+- dispatch, arrival, delivered, return pickup
+- proof of delivery (signature/photo)
 
-Rules:
-- serialized items cannot exist in two active packages/allocations
-- unseal requires permission and audit
+## 11) Site Receiving / Return / Exceptions
+- Site receiving ยืนยันสิ่งที่ได้รับจริง (qty/serial)
+- Return note สำหรับคืนของกลับคลัง/รถ
+- Damage/Loss report:
+  - ระบุเหตุการณ์, ผู้รับผิดชอบ, รูป, action (adjust/scrap/claim)
+- partial delivery/partial return ต้องรองรับ
 
-## 3.8 Dispatch (Trip/Route)
-Trip requirements:
-- trip_no (auto numbering)
-- job_id
-- dispatch_date
-- route definition (simple code or stop list)
-- vehicle_mode: OWN or OUTSOURCE
-- vehicle or vendor reference
-- from_location, to_location
-- status: DRAFT/CONFIRMED/DISPATCHED/ARRIVED/CLOSED/VOID
-- linked packages/items
+## 12) Timesheet & Attendance (Supervisor from Planned Manpower)
+### 12.1 Timesheet Sheet (รายวัน)
+Timesheet เป็นเอกสาร “รายวันต่อ job/site/team” ที่:
+- ดึงรายชื่อ default จาก **manpower assignment ของ job ในวันนั้น**
+- supervisor สามารถ:
+  - mark present/absent
+  - check-in/out time
+  - breaks, total hours
+  - OT hours + reason
+  - exceptions (late, missing checkout, safety incident note)
+  - attachments (ภาพกระดาษ/รูปไซต์)
 
-Confirm gate:
-- reservation satisfied (or approved shortage)
-- compliance satisfied (or approved override)
-- required docs complete (optional checklist)
-
-Dispatch/Arrival actions:
-- dispatch triggers stock movement to IN_TRANSIT/VEHICLE
-- arrival triggers site receiving confirmation
-
-Outsource requirements:
-- vendor, contact, and reference docs (attachment or reference number)
-
-## 3.9 Reservation (Anti-duplicate allocation)
-Reservation requirements:
-- created when allocating stock to package/trip
-- references: job, source location, item, qty, serial (optional), package/trip
-- status: DRAFT/CONFIRMED/FULFILLED/VOID
-
-Rules:
-- Available = OnHand - Reserved
-- block over-allocation
-- serialized exclusivity
-- transactional operations
-- release reservations when draft allocations are changed/cancelled
-- reversals required for confirmed/fulfilled corrections
-
-## 3.10 Site Execution & Evidence
-- site receiving confirmations
-- daily reports (optional)
-- acceptance / service report (document or attachment)
-- photos and files can attach anywhere
-
-## 3.11 Timesheet / Attendance
-Timesheet Sheet:
-- one sheet per job/site/date/team (policy configurable)
-- contains all workers for that day
-- fields: check-in/out, breaks, hours, OT, exceptions, notes
-- attachments: photo of paper (transition), signed documents
-
-Workflow:
-- DRAFT (editable)
-- CONFIRMED_BY_SUPERVISOR (locked)
+### 12.2 Workflow
+- DRAFT (สร้างอัตโนมัติหรือ supervisor สร้าง)
+- CONFIRMED_BY_SUPERVISOR (ล็อก)
 - SUBMITTED_TO_HR (auto)
-- HR_RECEIVED / HR_REVIEWED / PAYROLL_READY
-- RETURNED (with reason) for correction request
-- VOID (reversal/correction linkage)
+- HR_QUEUE:
+  - payroll_ready
+  - returned (ให้แก้ด้วย correction)
+  - void
 
-Rules:
-- supervisor must confirm
-- after HR submission, corrections require correction/reversal workflow
-- timesheet feeds job costing and (optionally) invoicing for dayrent/manpower
+### 12.3 Rules
+- หลัง confirm ห้ามแก้ทับ ต้องใช้ correction sheet
+- anomaly detection:
+  - OT > threshold, missing checkout, times overlap, non-planned worker added (requires reason)
 
-## 3.12 Finance Minimum (Optional Early Stage, Required Eventually)
-- record invoice references per job
-- support credit note/reversal references
-- job costing rollup: materials, labor (timesheets), outsource
+## 13) Finance (Minimum Viable)
+### 13.1 Pricing / Rate Engine (ขั้นต่ำ)
+- rate card ต่อ job type:
+  - lumpsum fixed
+  - dayrent per day/half-day + minimum
+  - manpower per hour/day + OT rules
+- discount/surcharge (policy-based)
+- tax flags (VAT, withholding) ตามการใช้งานจริง
 
-## 4) Notifications & Calendar
-### 4.1 Notification engine
-Must support:
-- event log (append-only)
-- routing rules: by role + by assignment (job owner/site supervisor/etc.)
-- channel: in-app + LINE OA
-- delivery status + retries
-- preferences (mute non-critical)
+### 13.2 Invoicing & AR
+- invoice สร้างจาก job deliverables หรือ manual line items
+- credit note สำหรับแก้ไข invoice
+- payment receipt: partial/full
+- AR aging report (ขั้นต่ำ)
 
-### 4.2 Actionable event categories (minimum)
-- approvals required (CR, shortage, overrides)
-- receiving completed/discrepancy
-- reservation conflict/shortage
-- trip confirm/dispatch/arrival/delay
-- timesheet cutoff overdue / HR queue events
-- cert expiry warnings/blockers
-- job start reminders/overdue
+### 13.3 Job Cost & Margin
+- cost sources:
+  - material consumed/issued
+  - manpower hours (timesheet)
+  - outsource vendor costs
+  - transport cost (optional)
+- ต้องแสดง job margin (estimated vs actual)
 
-### 4.3 Calendar events (optional)
-- job start/end
-- trip schedule
-- training sessions
-- timesheet cutoff
+## 14) Approvals
+- approval_logs append-only
+- policy:
+  - purchase threshold
+  - stock adjust
+  - compliance override
+  - shortage override
+  - timesheet exceptions
 
-## 5) Security & Audit
-- role-based permissions
-- assignment-based ownership checks
-- append-only audit logs for all key actions
-- status history per entity
-- no-delete policy beyond Draft
+## 15) Reporting & KPI (ขั้นต่ำ)
+- Operational:
+  - upcoming dispatch, packing queue, GR pending, PO overdue
+  - booking conflicts count
+  - stockout risk / reserved vs onhand
+- Management:
+  - job profitability, cost breakdown
+  - utilization (manpower/assets)
+  - on-time delivery rate
+  - AR aging
+  - timesheet anomalies rate
 
-## 6) Reporting & Dashboards (Minimum)
-- job pipeline + overdue
-- stock by state + job/site filters
-- reservation conflicts/shortage
-- trip readiness (stock + compliance + docs)
-- timesheet pending submission / pending HR review
-- compliance dashboard (cert expiring)
-- job cost snapshot (especially Lumpsum)
+## 16) Security & Permissions
+- role-based access
+- sensitive data: wage/HR/finance จำกัดสิทธิ์
+- audit on critical view/action
+- attachments access control
 
-## 7) Test Scenarios (Acceptance)
-Minimum manual scenarios:
-1) Job created (3 types) → planned → in progress → done
-2) Receiving stock with serial enforcement and discrepancy handling
-3) Packing + reservation prevents double allocation (qty & serial)
-4) Trip confirm gate blocks without reservation/compliance
-5) Dispatch → arrival → site receive → return/consume
-6) Timesheet daily submit → supervisor confirm → HR queue → return & correction workflow
-7) No-delete after Draft and reversal-only correction verified
+## 17) Non-Functional Requirements
+- Reliability: ledger rebuildable, idempotent operations for critical writes
+- Performance: common pages load within acceptable time on mid hardware
+- Concurrency: reservation/serial allocation safe under concurrent users
+- Backup/Restore: documented runbook + retention policy
+- Data retention: audit/ledger retention policy
 
-Non-functional:
-- works with small team and multi-role users
-- multi-device access with consistent data
-- audit trails complete and searchable
+## 18) Document Numbering
+- JOB-YYYYNNNN, PR-YYYYNNNN, PO-YYYYNNNN, GR-YYYYNNNN
+- PKG-YYYYNNNN, TRIP-YYYYNNNN, TS-YYYYMMDD-NNN, INV-YYYYNNNN, CN-YYYYNNNN, PAY-YYYYNNNN
+(รูปแบบปรับได้ แต่ต้องสม่ำเสมอและไม่ซ้ำ)
+
+## 19) Definition of Done (System-level)
+- Immutable enforcement ทำได้จริง
+- Reservation concurrency test ผ่าน
+- Traceability เปิดย้อน ledger → เอกสารต้นทางได้
+- Timesheet auto-populate จาก planned manpower
+- Approval logs ครบทุก override
+- KPI หน้าหลักอย่างน้อย 8 ตัวใช้งานได้จริง

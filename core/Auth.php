@@ -203,7 +203,7 @@ class Auth {
     public function requireAuth(): void {
         if (!$this->isAuthenticated()) {
             setFlash('error', 'กรุณาเข้าสู่ระบบก่อน');
-            redirect('/4erpv2/modules/auth/login.php');
+            redirect(BASE_URL . '/modules/auth/login.php');
         }
     }
     
@@ -218,7 +218,7 @@ class Auth {
         
         if (!$hasRole) {
             setFlash('error', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
-            redirect('/4erpv2/index.php');
+            redirect(BASE_URL . '/index.php');
         }
     }
 }

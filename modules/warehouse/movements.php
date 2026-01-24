@@ -14,7 +14,7 @@ $auth->requireAuth();
 $rbac = new RBAC();
 if (!$auth->isAdmin() && !$auth->hasRole(ROLE_WAREHOUSE) && !$auth->hasRole(ROLE_MANAGER)) {
     setFlash('error', 'ไม่มีสิทธิ์เข้าถึงหน้านี้');
-    header('Location: /4erpv2/index.php');
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 

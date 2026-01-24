@@ -191,7 +191,7 @@ require_once __DIR__ . '/../../includes/header.php';
                                 <?= e($i['item_type']) ?>
                             </span>
                         </td>
-                        <td><?= e($i['brand']) ?></td>
+                        <td><?= e($i['brand'] ?? '') ?></td>
                         <td>
                             <?php if ($i['is_serialized']): ?>
                             <span class="badge bg-success"><?= $serialCount ?> units</span>
@@ -199,7 +199,7 @@ require_once __DIR__ . '/../../includes/header.php';
                             <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
-                        <td><?= formatNumber($i['rental_price_day']) ?></td>
+                        <td><?= formatNumber($i['rental_price_day'] ?? 0) ?></td>
                         <td>
                             <a href="?action=edit&id=<?= $i['id'] ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-pencil"></i>

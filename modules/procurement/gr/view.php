@@ -51,6 +51,14 @@ $items = $db->prepare("
 $items->execute([$id]);
 $items = $items->fetchAll();
 
+$needsBackfill = false;
+foreach ($items as $it) {
+    if (empty($it['item_code'])) {
+        $needsBackfill = true;
+        break;
+    }
+}
+
 // Handle actions
 if (isPost()) {
     if (!verifyCsrf(post('csrf_token', ''))) {
@@ -113,6 +121,21 @@ require_once __DIR__ . '/../../../includes/header.php';
                 <i class="bi bi-check-circle me-1"></i>ยืนยันการรับ
             </button>
         </form>
+        <?php if ($needsBackfill && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
+            <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary ms-2">
+                <i class="bi bi-tools me-1"></i>Backfill
+            </a>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($gr['status'] !== 'Draft' && $needsBackfill && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
+<div class="card mb-4">
+    <div class="card-body">
+        <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary">
+            <i class="bi bi-tools me-1"></i>Backfill
+        </a>
     </div>
 </div>
 <?php endif; ?>

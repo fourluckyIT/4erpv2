@@ -139,6 +139,9 @@ require_once __DIR__ . '/../../../includes/header.php';
             </nav>
         </div>
         <div>
+            <a href="manpower.php" class="btn btn-outline-primary me-2">
+                <i class="bi bi-people me-1"></i>PR Manpower
+            </a>
             <a href="index.php" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>กลับ
             </a>
@@ -234,10 +237,15 @@ function addItem() {
     const row = document.createElement('tr');
     row.innerHTML = `
         <td>
-            <select class="form-select form-select-sm" name="items[${itemIndex}][item_id]" onchange="selectItem(this, ${itemIndex})">
-                <option value="">-- เลือก --</option>
-                ${catalogItems.map(i => `<option value="${i.id}" data-name="${i.name}" data-unit="${i.unit}">${i.code} - ${i.name}</option>`).join('')}
-            </select>
+            <div class="input-group input-group-sm">
+                <select class="form-select form-select-sm" name="items[${itemIndex}][item_id]" onchange="selectItem(this, ${itemIndex})">
+                    <option value="">-- เลือก --</option>
+                    ${catalogItems.map(i => `<option value="${i.id}" data-name="${i.name}" data-unit="${i.unit}">${i.code} - ${i.name}</option>`).join('')}
+                </select>
+                <button type="button" class="btn btn-outline-secondary" onclick="showNewItemModal(${itemIndex})" title="เพิ่มสินค้าใหม่">
+                    <i class="bi bi-plus"></i>
+                </button>
+            </div>
         </td>
         <td>
             <input type="text" class="form-control form-control-sm" name="items[${itemIndex}][description]" required>
@@ -290,6 +298,64 @@ function calcTotal() {
 
 // Add first item row
 addItem();
+
+// New Item Modal functions
+function showNewItemModal(idx) {
+    document.getElementById('newItemIdx').value = idx;
+    document.getElementById('newItemName').value = '';
+    document.getElementById('newItemUnit').value = 'pcs';
+    const modal = new bootstrap.Modal(document.getElementById('newItemModal'));
+    modal.show();
+}
+
+function saveNewItem() {
+    const idx = document.getElementById('newItemIdx').value;
+    const name = document.getElementById('newItemName').value.trim();
+    const unit = document.getElementById('newItemUnit').value.trim() || 'pcs';
+    
+    if (!name) {
+        alert('กรุณาระบุชื่อสินค้า');
+        return;
+    }
+    
+    // Set description directly (no item_id means new item)
+    document.querySelector(`[name="items[${idx}][item_id]"]`).value = '';
+    document.querySelector(`[name="items[${idx}][description]"]`).value = name;
+    document.querySelector(`[name="items[${idx}][unit]"]`).value = unit;
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('newItemModal')).hide();
+}
 </script>
+
+<!-- New Item Modal -->
+<div class="modal fade" id="newItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>เพิ่มสินค้าใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="newItemIdx">
+                <div class="mb-3">
+                    <label class="form-label">ชื่อสินค้า <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newItemName" placeholder="ระบุชื่อสินค้าที่ต้องการ">
+                    <div class="form-text">สินค้านี้จะถูกบันทึกในรายละเอียด PR (ไม่เพิ่มใน Master)</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">หน่วย</label>
+                    <input type="text" class="form-control" id="newItemUnit" value="pcs">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewItem()">
+                    <i class="bi bi-check me-1"></i>ใช้สินค้านี้
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
