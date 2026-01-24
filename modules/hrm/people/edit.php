@@ -131,14 +131,14 @@ require_once __DIR__ . '/../../../includes/header.php';
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">ตำแหน่ง</label>
-                            <input type="text" class="form-control" name="position" value="<?= e($person['position']) ?>">
+                            <input type="text" class="form-control" name="position" value="<?= e($person['position'] ?? '') ?>">
                         </div>
                     </div>
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">บัตรประชาชน</label>
-                            <input type="text" class="form-control" name="id_card" maxlength="13" value="<?= e($person['id_card']) ?>">
+                            <input type="text" class="form-control" name="id_card" maxlength="13" value="<?= e($person['id_card'] ?? '') ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">วันที่เริ่มงาน</label>
@@ -149,11 +149,11 @@ require_once __DIR__ . '/../../../includes/header.php';
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">โทรศัพท์</label>
-                            <input type="text" class="form-control" name="phone" value="<?= e($person['phone']) ?>">
+                            <input type="text" class="form-control" name="phone" value="<?= e($person['phone'] ?? '') ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">อีเมล</label>
-                            <input type="email" class="form-control" name="email" value="<?= e($person['email']) ?>">
+                            <input type="email" class="form-control" name="email" value="<?= e($person['email'] ?? '') ?>">
                         </div>
                     </div>
                     
@@ -209,14 +209,14 @@ require_once __DIR__ . '/../../../includes/header.php';
 <script>
 // Store original values
 const originalValues = {
-    people_type: '<?= e($person['people_type']) ?>',
+    people_type: '<?= e($person['people_type'] ?? '') ?>',
     is_active: '<?= $person['is_active'] ? '1' : '0' ?>',
-    full_name: '<?= e($person['full_name']) ?>',
-    position: '<?= e($person['position']) ?>',
-    id_card: '<?= e($person['id_card']) ?>',
+    full_name: '<?= e($person['full_name'] ?? '') ?>',
+    position: '<?= e($person['position'] ?? '') ?>',
+    id_card: '<?= e($person['id_card'] ?? '') ?>',
     hire_date: '<?= $person['hire_date'] ?? '' ?>',
-    phone: '<?= e($person['phone']) ?>',
-    email: '<?= e($person['email']) ?>',
+    phone: '<?= e($person['phone'] ?? '') ?>',
+    email: '<?= e($person['email'] ?? '') ?>',
     supplier_id: '<?= $person['supplier_id'] ?? '' ?>'
 };
 
