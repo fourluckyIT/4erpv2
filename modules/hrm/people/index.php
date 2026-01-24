@@ -26,7 +26,7 @@ $sql = "
 ";
 $params = [];
 
-if ($filter === 'Employee') {
+if ($filter === 'internal') {
     $sql .= " AND p.people_type = 'Employee'";
 } elseif ($filter === 'external') {
     $sql .= " AND p.people_type = 'External'";
