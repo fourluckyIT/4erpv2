@@ -28,11 +28,15 @@ if (isPost()) {
     $action = post('action');
     
     if ($action === 'add') {
+        // Get first site_id (or null if sites don't exist)
+        $siteId = $db->query("SELECT id FROM sites LIMIT 1")->fetchColumn() ?: null;
+        
         $stmt = $db->prepare("
-            INSERT INTO compliance_requirements (name, requirement_type, validity_days, is_mandatory, is_active)
-            VALUES (?, ?, ?, ?, 1)
+            INSERT INTO compliance_requirements (site_id, name, requirement_type, validity_days, is_mandatory, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
         ");
         $stmt->execute([
+            $siteId,
             post('name'),
             post('requirement_type'),
             post('validity_days') ?: null,
