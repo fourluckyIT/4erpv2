@@ -101,7 +101,7 @@ require_once __DIR__ . '/../../../includes/header.php';
             <div class="card-body py-3">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h4 class="mb-0"><?= $stats['Employee'] ?></h4>
+                        <h4 class="mb-0"><?= $stats['internal'] ?></h4>
                         <small>พนักงานประจำ</small>
                     </div>
                     <i class="bi bi-person-badge fs-1 opacity-50"></i>
@@ -128,7 +128,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                 <div class="d-flex justify-content-between">
                     <div>
                         <h4 class="mb-0"><?= $stats['active'] ?></h4>
-                        <small>ใช้งานอยู่</small>
+                        <small>พร้อมใช้งาน</small>
                     </div>
                     <i class="bi bi-check-circle fs-1 opacity-50"></i>
                 </div>
@@ -144,7 +144,7 @@ require_once __DIR__ . '/../../../includes/header.php';
             <div class="col-auto">
                 <div class="btn-group" role="group">
                     <a href="?filter=all" class="btn btn-<?= $filter === 'all' ? 'primary' : 'outline-primary' ?> btn-sm">ทั้งหมด</a>
-                    <a href="?filter=internal" class="btn btn-<?= $filter === 'Employee' ? 'success' : 'outline-success' ?> btn-sm">พนักงานประจำ</a>
+                    <a href="?filter=internal" class="btn btn-<?= $filter === 'internal' ? 'success' : 'outline-success' ?> btn-sm">พนักงานประจำ</a>
                     <a href="?filter=external" class="btn btn-<?= $filter === 'external' ? 'warning' : 'outline-warning' ?> btn-sm">แรงงานภายนอก</a>
                     <a href="?filter=active" class="btn btn-<?= $filter === 'active' ? 'info' : 'outline-info' ?> btn-sm">Active</a>
                 </div>

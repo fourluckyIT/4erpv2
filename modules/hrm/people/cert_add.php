@@ -38,10 +38,10 @@ if ($editId) {
     $cert = $stmt->fetch();
 }
 
-// Get compliance requirements for dropdown (include description as default issuer)
+// Get compliance requirements for dropdown (include description as default issuer and validity_days)
 $requirements = [];
 try {
-    $requirements = $db->query("SELECT id, name, description, requirement_type FROM compliance_requirements WHERE is_active = 1 ORDER BY requirement_type, name")->fetchAll();
+    $requirements = $db->query("SELECT id, name, description, requirement_type, validity_days FROM compliance_requirements WHERE is_active = 1 ORDER BY requirement_type, name")->fetchAll();
 } catch (PDOException $e) {
     // Table may not have all columns
 }
@@ -171,7 +171,7 @@ require_once __DIR__ . '/../../../includes/header.php';
                                         echo '<optgroup label="' . e($currentCat) . '">';
                                     }
                                 ?>
-                                <option value="<?= e($r['name']) ?>" data-issuer="<?= e($r['description'] ?? '') ?>" <?= ($cert && $cert['certificate_type'] == $r['name']) ? 'selected' : '' ?>>
+                                <option value="<?= e($r['name']) ?>" data-issuer="<?= e($r['description'] ?? '') ?>" data-validity="<?= (int)($r['validity_days'] ?? 0) ?>" <?= ($cert && $cert['certificate_type'] == $r['name']) ? 'selected' : '' ?>>
                                     <?= e($r['name']) ?>
                                 </option>
                                 <?php endforeach; ?>
@@ -201,13 +201,18 @@ require_once __DIR__ . '/../../../includes/header.php';
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">วันที่ออก</label>
-                            <input type="date" class="form-control" name="issue_date"
+                            <input type="date" class="form-control" name="issue_date" id="issueDate"
                                    value="<?= $cert['issue_date'] ?? '' ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">วันหมดอายุ</label>
-                            <input type="date" class="form-control" name="expiry_date"
-                                   value="<?= $cert['expiry_date'] ?? '' ?>">
+                            <div class="input-group">
+                                <input type="date" class="form-control" name="expiry_date" id="expiryDate"
+                                       value="<?= $cert['expiry_date'] ?? '' ?>">
+                                <button type="button" class="btn btn-outline-warning" id="setReminderBtn" title="ตั้งเตือนใกล้หมดอายุ">
+                                    <i class="bi bi-bell"></i>
+                                </button>
+                            </div>
                             <small class="text-muted">เว้นว่างถ้าไม่มีวันหมดอายุ</small>
                         </div>
                     </div>
@@ -238,15 +243,54 @@ require_once __DIR__ . '/../../../includes/header.php';
 </form>
 
 <script>
+let currentValidityDays = 0;
+
 document.getElementById('requirementSelect').addEventListener('change', function() {
     if (this.value) {
         document.getElementById('certType').value = this.value;
-        // Auto-fill issuer from data attribute
         const selectedOption = this.options[this.selectedIndex];
+        
+        // Auto-fill issuer from data attribute
         const issuer = selectedOption.dataset.issuer;
         if (issuer) {
             document.querySelector('[name="issuer"]').value = issuer;
         }
+        
+        // Store validity days for expiry calculation
+        currentValidityDays = parseInt(selectedOption.dataset.validity) || 0;
+        
+        // Auto-fill expiry date if issue_date is set and validity > 0
+        calculateExpiryDate();
+    }
+});
+
+document.getElementById('issueDate').addEventListener('change', calculateExpiryDate);
+
+function calculateExpiryDate() {
+    const issueDate = document.getElementById('issueDate').value;
+    const expiryInput = document.getElementById('expiryDate');
+    
+    if (issueDate && currentValidityDays > 0 && !expiryInput.value) {
+        const date = new Date(issueDate);
+        date.setDate(date.getDate() + currentValidityDays);
+        expiryInput.value = date.toISOString().split('T')[0];
+    }
+}
+
+document.getElementById('setReminderBtn').addEventListener('click', function() {
+    const expiryDate = document.getElementById('expiryDate').value;
+    if (!expiryDate) {
+        alert('กรุณาระบุวันหมดอายุก่อน');
+        return;
+    }
+    
+    const days = prompt('ต้องการแจ้งเตือนล่วงหน้ากี่วัน?', '30');
+    if (days && !isNaN(days)) {
+        const certType = document.getElementById('certType').value || 'ใบรับรอง';
+        const reminderDate = new Date(expiryDate);
+        reminderDate.setDate(reminderDate.getDate() - parseInt(days));
+        
+        alert(`ตั้งเตือน: ${certType} ใกล้หมดอายุ\nวันแจ้งเตือน: ${reminderDate.toLocaleDateString('th-TH')}\nวันหมดอายุ: ${new Date(expiryDate).toLocaleDateString('th-TH')}\n\n(ฟีเจอร์การแจ้งเตือนจะเพิ่มในเวอร์ชันถัดไป)`);
     }
 });
 </script>
