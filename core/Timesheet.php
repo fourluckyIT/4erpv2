@@ -123,7 +123,6 @@ class Timesheet {
             WHERE pl.job_id = :job_id
               AND pl.status = 'Confirmed'
               AND pa.people_id IS NOT NULL
-              AND pa.assignment_type IN ('Manpower', 'People')
               AND p.is_active = 1
         ");
         $stmt->execute(['job_id' => $jobId]);
