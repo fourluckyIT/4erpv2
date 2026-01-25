@@ -61,6 +61,7 @@ $pendingExtensionCount = 0;
 $pendingExtensionLatest = null;
 $pendingExtensionDetail = null;
 $recentExtensions = [];
+$effectiveEndDate = $job['plan_end_date'] ?? null;
 if ($rbac->hasAnyRole(['ADM', 'MGR'])) {
     $db = getDB();
     $stmt = $db->prepare("SELECT COUNT(*) as cnt, MAX(requested_at) as latest FROM job_extensions WHERE job_id = ? AND status = 'Pending'");
@@ -68,6 +69,14 @@ if ($rbac->hasAnyRole(['ADM', 'MGR'])) {
     $row = $stmt->fetch();
     $pendingExtensionCount = (int)($row['cnt'] ?? 0);
     $pendingExtensionLatest = $row['latest'] ?? null;
+
+    // Latest approved extension end date
+    $stmt = $db->prepare("SELECT new_end_date FROM job_extensions WHERE job_id = ? AND status = 'Approved' AND new_end_date IS NOT NULL ORDER BY approved_at DESC, requested_at DESC LIMIT 1");
+    $stmt->execute([$jobId]);
+    $approvedRow = $stmt->fetch();
+    if (!empty($approvedRow['new_end_date'])) {
+        $effectiveEndDate = $approvedRow['new_end_date'];
+    }
 
     if ($pendingExtensionCount > 0) {
         $stmt = $db->prepare("SELECT * FROM job_extensions WHERE job_id = ? AND status = 'Pending' ORDER BY requested_at DESC LIMIT 1");
@@ -168,7 +177,7 @@ require_once __DIR__ . '/../../includes/header.php';
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label text-muted">วันสิ้นสุด</label>
-                        <div><?= formatDate($job['plan_end_date']) ?></div>
+                        <div><?= formatDate($effectiveEndDate) ?></div>
                     </div>
                 </div>
                 
