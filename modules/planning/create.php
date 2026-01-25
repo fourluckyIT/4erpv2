@@ -203,33 +203,37 @@ require_once __DIR__ . '/../../includes/header.php';
         </div>
     </div>
 
-    <!-- Resource Selection Tabs -->
-    <ul class="nav nav-tabs mb-3" id="resourceTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="manpower-tab" data-bs-toggle="tab" data-bs-target="#manpower" type="button" role="tab">
-                <i class="bi bi-people me-1"></i>Manpower
-                <span class="badge bg-secondary ms-1" id="manpower-count">0</span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="device-tab" data-bs-toggle="tab" data-bs-target="#device" type="button" role="tab">
-                <i class="bi bi-cpu me-1"></i>Device
-                <span class="badge bg-secondary ms-1" id="device-count">0</span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment" type="button" role="tab">
-                <i class="bi bi-tools me-1"></i>Equipment
-                <span class="badge bg-secondary ms-1" id="equipment-count">0</span>
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="consumable-tab" data-bs-toggle="tab" data-bs-target="#consumable" type="button" role="tab">
-                <i class="bi bi-box me-1"></i>Consumable
-                <span class="badge bg-secondary ms-1" id="consumable-count">0</span>
-            </button>
-        </li>
-    </ul>
+    <!-- Two Column Layout: Selection + Selected Panel -->
+    <div class="row">
+        <!-- Left Column: Resource Selection -->
+        <div class="col-lg-8">
+            <!-- Resource Selection Tabs -->
+            <ul class="nav nav-tabs mb-3" id="resourceTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="manpower-tab" data-bs-toggle="tab" data-bs-target="#manpower" type="button" role="tab">
+                        <i class="bi bi-people me-1"></i>Manpower
+                        <span class="badge bg-secondary ms-1" id="manpower-count">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="device-tab" data-bs-toggle="tab" data-bs-target="#device" type="button" role="tab">
+                        <i class="bi bi-cpu me-1"></i>Device
+                        <span class="badge bg-secondary ms-1" id="device-count">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment" type="button" role="tab">
+                        <i class="bi bi-tools me-1"></i>Equipment
+                        <span class="badge bg-secondary ms-1" id="equipment-count">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="consumable-tab" data-bs-toggle="tab" data-bs-target="#consumable" type="button" role="tab">
+                        <i class="bi bi-box me-1"></i>Consumable
+                        <span class="badge bg-secondary ms-1" id="consumable-count">0</span>
+                    </button>
+                </li>
+            </ul>
 
     <div class="tab-content" id="resourceTabsContent">
         <!-- Manpower Tab -->
@@ -386,27 +390,189 @@ require_once __DIR__ . '/../../includes/header.php';
             </div>
         </div>
     </div>
+        </div><!-- End Left Column -->
+        
+        <!-- Right Column: Selected Items Panel -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 70px;">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-check2-square me-2"></i>รายการที่เลือก
+                    <span class="badge bg-light text-dark ms-2" id="total-selected">0</span>
+                </div>
+                <div class="card-body p-0" style="max-height: 500px; overflow-y: auto;">
+                    <!-- Selected Manpower -->
+                    <div class="selected-section" id="selected-manpower-section" style="display:none;">
+                        <div class="bg-light px-3 py-2 border-bottom">
+                            <strong><i class="bi bi-people me-1"></i>บุคลากร</strong>
+                        </div>
+                        <ul class="list-group list-group-flush" id="selected-manpower-list"></ul>
+                    </div>
+                    
+                    <!-- Selected Devices -->
+                    <div class="selected-section" id="selected-device-section" style="display:none;">
+                        <div class="bg-light px-3 py-2 border-bottom">
+                            <strong><i class="bi bi-cpu me-1"></i>Device</strong>
+                        </div>
+                        <ul class="list-group list-group-flush" id="selected-device-list"></ul>
+                    </div>
+                    
+                    <!-- Selected Equipment -->
+                    <div class="selected-section" id="selected-equipment-section" style="display:none;">
+                        <div class="bg-light px-3 py-2 border-bottom">
+                            <strong><i class="bi bi-tools me-1"></i>Equipment</strong>
+                        </div>
+                        <ul class="list-group list-group-flush" id="selected-equipment-list"></ul>
+                    </div>
+                    
+                    <!-- Selected Consumables -->
+                    <div class="selected-section" id="selected-consumable-section" style="display:none;">
+                        <div class="bg-light px-3 py-2 border-bottom">
+                            <strong><i class="bi bi-box me-1"></i>Consumable</strong>
+                        </div>
+                        <ul class="list-group list-group-flush" id="selected-consumable-list"></ul>
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="selected-empty" class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mb-0 mt-2">ยังไม่ได้เลือกรายการ</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check-circle me-1"></i>สร้าง Plan
+                    </button>
+                </div>
+            </div>
+        </div><!-- End Right Column -->
+    </div><!-- End Row -->
     
     <div class="d-flex gap-2 mt-4">
-        <button type="submit" class="btn btn-success btn-lg">
-            <i class="bi bi-check-circle me-1"></i>สร้าง Plan และไปจัด Route
-        </button>
         <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary btn-lg">ยกเลิก</a>
     </div>
 </form>
 
 <script>
-// Update badge counts
+// Update badge counts and selected panel
 function updateCounts() {
-    document.getElementById('manpower-count').textContent = document.querySelectorAll('input[name="people[]"]:checked').length;
-    document.getElementById('device-count').textContent = document.querySelectorAll('input[name="devices[]"]:checked').length;
-    document.getElementById('equipment-count').textContent = document.querySelectorAll('input[name="equipment[]"]:checked').length;
+    const manpowerCount = document.querySelectorAll('input[name="people[]"]:checked').length;
+    const deviceCount = document.querySelectorAll('input[name="devices[]"]:checked').length;
+    const equipmentCount = document.querySelectorAll('input[name="equipment[]"]:checked').length;
     
     let consumableCount = 0;
     document.querySelectorAll('.consumable-qty').forEach(input => {
         if (parseInt(input.value) > 0) consumableCount++;
     });
+    
+    document.getElementById('manpower-count').textContent = manpowerCount;
+    document.getElementById('device-count').textContent = deviceCount;
+    document.getElementById('equipment-count').textContent = equipmentCount;
     document.getElementById('consumable-count').textContent = consumableCount;
+    
+    const totalCount = manpowerCount + deviceCount + equipmentCount + consumableCount;
+    document.getElementById('total-selected').textContent = totalCount;
+    
+    // Update selected panel
+    updateSelectedPanel();
+}
+
+function updateSelectedPanel() {
+    // Clear all lists
+    ['manpower', 'device', 'equipment', 'consumable'].forEach(type => {
+        document.getElementById(`selected-${type}-list`).innerHTML = '';
+        document.getElementById(`selected-${type}-section`).style.display = 'none';
+    });
+    
+    let hasSelection = false;
+    
+    // Manpower
+    document.querySelectorAll('input[name="people[]"]:checked').forEach(cb => {
+        hasSelection = true;
+        const label = cb.nextElementSibling;
+        const name = label.textContent.trim().split('\n')[0];
+        addSelectedItem('manpower', cb.value, name, 'people');
+    });
+    
+    // Devices
+    document.querySelectorAll('input[name="devices[]"]:checked').forEach(cb => {
+        hasSelection = true;
+        const label = cb.nextElementSibling;
+        const name = label.querySelector('strong').textContent;
+        addSelectedItem('device', cb.value, name, 'devices');
+    });
+    
+    // Equipment
+    document.querySelectorAll('input[name="equipment[]"]:checked').forEach(cb => {
+        hasSelection = true;
+        const label = cb.nextElementSibling;
+        const name = label.querySelector('strong').textContent;
+        addSelectedItem('equipment', cb.value, name, 'equipment');
+    });
+    
+    // Consumables
+    document.querySelectorAll('.consumable-qty').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        if (qty > 0) {
+            hasSelection = true;
+            const row = input.closest('tr');
+            const code = row.cells[0].textContent;
+            const name = row.cells[1].textContent;
+            addSelectedConsumable(input.name.match(/\d+/)[0], `${code} - ${name}`, qty);
+        }
+    });
+    
+    document.getElementById('selected-empty').style.display = hasSelection ? 'none' : 'block';
+}
+
+function addSelectedItem(type, id, name, inputName) {
+    const section = document.getElementById(`selected-${type}-section`);
+    const list = document.getElementById(`selected-${type}-list`);
+    section.style.display = 'block';
+    
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+    li.innerHTML = `
+        <small>${name}</small>
+        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeSelection('${inputName}', '${id}')">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    list.appendChild(li);
+}
+
+function addSelectedConsumable(id, name, qty) {
+    const section = document.getElementById('selected-consumable-section');
+    const list = document.getElementById('selected-consumable-list');
+    section.style.display = 'block';
+    
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+    li.innerHTML = `
+        <small>${name}</small>
+        <div>
+            <span class="badge bg-primary me-1">${qty}</span>
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeConsumable('${id}')">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    `;
+    list.appendChild(li);
+}
+
+function removeSelection(inputName, id) {
+    const cb = document.querySelector(`input[name="${inputName}[]"][value="${id}"]`);
+    if (cb) {
+        cb.checked = false;
+        updateCounts();
+    }
+}
+
+function removeConsumable(id) {
+    const input = document.querySelector(`input[name="consumables[${id}]"]`);
+    if (input) {
+        input.value = 0;
+        updateCounts();
+    }
 }
 
 // Select/Deselect all helpers
@@ -427,6 +593,7 @@ document.querySelectorAll('.resource-check').forEach(cb => {
 
 document.querySelectorAll('.consumable-qty').forEach(input => {
     input.addEventListener('change', updateCounts);
+    input.addEventListener('input', updateCounts);
 });
 
 updateCounts();
