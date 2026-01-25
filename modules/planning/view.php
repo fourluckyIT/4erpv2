@@ -285,12 +285,16 @@ require_once __DIR__ . '/../../includes/header.php';
                         <td>
                             <?php if ($a['serial_id']): ?>
                             <span class="badge bg-info">Serial</span>
+                            <?php elseif ($a['item_id'] && $a['assignment_type'] === 'Consumable'): ?>
+                            <span class="badge bg-secondary">Consumable</span>
                             <?php else: ?>
                             <span class="badge bg-warning text-dark">บุคลากร</span>
                             <?php endif; ?>
                         </td>
                         <td>
                             <?php if ($a['serial_id']): ?>
+                            <?= e($a['item_code']) ?>
+                            <?php elseif ($a['item_id'] && $a['assignment_type'] === 'Consumable'): ?>
                             <?= e($a['item_code']) ?>
                             <?php else: ?>
                             <?= e($a['people_code']) ?>
@@ -300,6 +304,9 @@ require_once __DIR__ . '/../../includes/header.php';
                             <?php if ($a['serial_id']): ?>
                             <strong><?= e($a['serial_number']) ?></strong>
                             <small class="text-muted">(<?= e($a['item_name']) ?>)</small>
+                            <?php elseif ($a['item_id'] && $a['assignment_type'] === 'Consumable'): ?>
+                            <strong><?= e($a['item_name']) ?></strong>
+                            <span class="badge bg-primary ms-2"><?= (int)$a['quantity'] ?> <?= e($a['consumable_unit'] ?? '') ?></span>
                             <?php else: ?>
                             <strong><?= e($a['people_name']) ?></strong>
                             <?php if ($a['position']): ?>
@@ -310,6 +317,8 @@ require_once __DIR__ . '/../../includes/header.php';
                         <td>
                             <?php if ($a['serial_id']): ?>
                             <span class="badge bg-<?= $a['serial_status'] === 'Available' ? 'success' : 'secondary' ?>"><?= e($a['serial_status']) ?></span>
+                            <?php elseif ($a['item_id'] && $a['assignment_type'] === 'Consumable'): ?>
+                            <span class="badge bg-success">พร้อมใช้</span>
                             <?php else: ?>
                             <span class="badge bg-success">Active</span>
                             <?php endif; ?>

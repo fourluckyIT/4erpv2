@@ -466,14 +466,17 @@ class Plan {
         $stmt = $this->db->prepare("
             SELECT pa.*,
                    s.serial_number, s.status as serial_status,
-                   i.name as item_name, i.code as item_code,
+                   COALESCE(i.name, ci.name) as item_name, 
+                   COALESCE(i.code, ci.code) as item_code,
+                   ci.unit as consumable_unit,
                    pe.full_name as people_name, pe.code as people_code, pe.position
             FROM plan_assignments pa
             LEFT JOIN serials s ON pa.serial_id = s.id
             LEFT JOIN items i ON s.item_id = i.id
+            LEFT JOIN items ci ON pa.item_id = ci.id
             LEFT JOIN people pe ON pa.people_id = pe.id
             WHERE pa.plan_id = ?
-            ORDER BY pa.id
+            ORDER BY pa.assignment_type, pa.id
         ");
         $stmt->execute([$planId]);
         return $stmt->fetchAll();
