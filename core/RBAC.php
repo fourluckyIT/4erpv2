@@ -54,6 +54,13 @@ class RBAC {
     }
     
     /**
+     * Check if user has any of the specified roles
+     */
+    public function hasAnyRole(array $roleCodes): bool {
+        return !empty(array_intersect($roleCodes, $this->getUserRoleCodes()));
+    }
+    
+    /**
      * Check if user can perform action on entity
      * 
      * @param string $action Action name (view, create, edit, approve, void, etc.)
