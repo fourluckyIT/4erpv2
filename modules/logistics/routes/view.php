@@ -47,12 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = $routeModel->startProgress($id);
             break;
             
-        case 'return':
-            $itemConditions = post('item_conditions', []);
-            $consumableUsed = post('consumable_used', []);
-            $result = $routeModel->markReturned($id, $itemConditions, $consumableUsed);
-            break;
-            
         case 'wh_receive':
             $result = $routeModel->whReceive($id);
             break;
@@ -165,13 +159,9 @@ require_once __DIR__ . '/../../../includes/header.php';
             <?php endif; ?>
             
             <?php if (in_array($route['status'], ['Dispatched', 'InProgress'])): ?>
-            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#returnModal"
-                    <?= !$photoStatus['Return']['complete'] ? 'disabled' : '' ?>>
-                <i class="bi bi-box-arrow-in-left me-1"></i>รับคืน
-                <?php if (!$photoStatus['Return']['complete']): ?>
-                <small>(ต้องอัพโหลดรูป)</small>
-                <?php endif; ?>
-            </button>
+            <a href="return.php?id=<?= $id ?>" class="btn btn-info">
+                <i class="bi bi-box-arrow-in-left me-1"></i>รับคืน (WH)
+            </a>
             <?php endif; ?>
             
             <?php if ($route['status'] === 'Returned'): ?>
@@ -434,81 +424,6 @@ require_once __DIR__ . '/../../../includes/header.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
                     <button type="submit" class="btn btn-danger">ยืนยันยกเลิก</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Return Modal -->
-<div class="modal fade" id="returnModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="POST">
-                <input type="hidden" name="action" value="return">
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title">รับคืนของ</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>กรุณาระบุสภาพของแต่ละรายการ:</p>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>รายการ</th>
-                                <th>ส่งออก</th>
-                                <th>สภาพ/จำนวนคืน</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($items as $item): ?>
-                            <?php if ($item['serial_id']): ?>
-                            <tr>
-                                <td>
-                                    <strong><?= e($item['serial_number']) ?></strong><br>
-                                    <small><?= e($item['item_name']) ?></small>
-                                </td>
-                                <td>
-                                    <span class="badge bg-<?= match($item['condition_out']) {
-                                        'Good' => 'success', 'Fair' => 'warning', 'Damaged' => 'danger', default => 'secondary'
-                                    } ?>"><?= e($item['condition_out']) ?></span>
-                                </td>
-                                <td>
-                                    <select class="form-select form-select-sm" name="item_conditions[<?= $item['id'] ?>]">
-                                        <option value="Good">ดี</option>
-                                        <option value="Fair">พอใช้</option>
-                                        <option value="Damaged">เสียหาย</option>
-                                        <option value="Lost">สูญหาย</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <?php elseif ($item['item_type'] === 'Consumable'): ?>
-                            <tr>
-                                <td>
-                                    <strong><?= e($item['item_name']) ?></strong><br>
-                                    <small class="text-muted">Consumable</small>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary"><?= formatNumber($item['qty_out']) ?> <?= e($item['unit']) ?></span>
-                                </td>
-                                <td>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" class="form-control" name="consumable_used[<?= $item['id'] ?>]" 
-                                               min="0" max="<?= $item['qty_out'] ?>" step="0.01" 
-                                               placeholder="ใช้ไป" value="<?= $item['qty_out'] ?>">
-                                        <span class="input-group-text"><?= e($item['unit']) ?></span>
-                                    </div>
-                                    <small class="text-muted">คงเหลือจะถูกคืนคลัง</small>
-                                </td>
-                            </tr>
-                            <?php endif; ?>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
-                    <button type="submit" class="btn btn-info">ยืนยันรับคืน</button>
                 </div>
             </form>
         </div>
