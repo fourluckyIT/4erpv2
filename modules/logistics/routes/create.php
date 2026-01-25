@@ -446,6 +446,12 @@ require_once __DIR__ . '/../../../includes/header.php';
                             <strong><?= e($item['item_code']) ?></strong>
                             <small class="text-muted"><?= e($item['item_name']) ?></small>
                             <span class="badge bg-primary ms-1"><?= (int)$item['quantity'] ?></span>
+                            <?php if ($route['status'] === 'Draft'): ?>
+                            <button type="button" class="btn btn-sm btn-link py-0 px-1" 
+                                    onclick="editConsumableQty(<?= $route['id'] ?>, <?= $item['id'] ?>, <?= (int)$item['quantity'] ?>, 999)" title="แก้ไขจำนวน">
+                                <i class="bi bi-pencil-square text-primary"></i>
+                            </button>
+                            <?php endif; ?>
                             <?php else: ?>
                             <span class="badge bg-warning text-dark me-1">บุคลากร</span>
                             <strong><?= e($item['people_code']) ?></strong>
@@ -520,7 +526,7 @@ document.querySelectorAll('.item-check').forEach(cb => {
 function removeFromRoute(routeId, itemId) {
     if (!confirm('ลบรายการนี้ออกจาก Route?')) return;
     
-    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/remove_item.php', {
+    fetch('api/remove_item.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({route_id: routeId, item_id: itemId})
@@ -532,14 +538,15 @@ function removeFromRoute(routeId, itemId) {
         } else {
             alert(data.error || 'เกิดข้อผิดพลาด');
         }
-    });
+    })
+    .catch(err => alert('Error: ' + err.message));
 }
 
 // Confirm Route
 function confirmRoute(routeId) {
     if (!confirm('ยืนยัน Route นี้? (หลังจากยืนยันจะสามารถ Dispatch ได้)')) return;
     
-    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+    fetch('api/update_status.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({route_id: routeId, action: 'confirm'})
@@ -551,14 +558,15 @@ function confirmRoute(routeId) {
         } else {
             alert(data.error || 'เกิดข้อผิดพลาด');
         }
-    });
+    })
+    .catch(err => alert('Error: ' + err.message));
 }
 
 // Dispatch Route
 function dispatchRoute(routeId) {
     if (!confirm('ส่งรถออก? (หลังจากนี้จะเข้าสถานะรอรับหน้างาน)')) return;
     
-    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+    fetch('api/update_status.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({route_id: routeId, action: 'dispatch'})
@@ -570,14 +578,15 @@ function dispatchRoute(routeId) {
         } else {
             alert(data.error || 'เกิดข้อผิดพลาด');
         }
-    });
+    })
+    .catch(err => alert('Error: ' + err.message));
 }
 
 // Edit Route (back to Draft)
 function editRoute(routeId) {
     if (!confirm('แก้ไข Route? (สถานะจะกลับเป็น Draft)')) return;
     
-    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+    fetch('api/update_status.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({route_id: routeId, action: 'edit'})
@@ -589,7 +598,8 @@ function editRoute(routeId) {
         } else {
             alert(data.error || 'เกิดข้อผิดพลาด');
         }
-    });
+    })
+    .catch(err => alert('Error: ' + err.message));
 }
 
 // Cancel Route
@@ -597,7 +607,7 @@ function cancelRoute(routeId) {
     const reason = prompt('เหตุผลในการยกเลิก:');
     if (reason === null) return;
     
-    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+    fetch('api/update_status.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({route_id: routeId, action: 'cancel', reason: reason})
@@ -609,7 +619,34 @@ function cancelRoute(routeId) {
         } else {
             alert(data.error || 'เกิดข้อผิดพลาด');
         }
-    });
+    })
+    .catch(err => alert('Error: ' + err.message));
+}
+
+// Edit Consumable Quantity
+function editConsumableQty(routeId, itemId, currentQty, maxQty) {
+    const newQty = prompt(`จำนวนใหม่ (สูงสุด ${maxQty}):`, currentQty);
+    if (newQty === null) return;
+    const qty = parseInt(newQty);
+    if (isNaN(qty) || qty < 0 || qty > maxQty) {
+        alert('จำนวนไม่ถูกต้อง');
+        return;
+    }
+    
+    fetch('api/update_item.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({route_id: routeId, item_id: itemId, quantity: qty})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    })
+    .catch(err => alert('Error: ' + err.message));
 }
 
 updateSelectedCount();
