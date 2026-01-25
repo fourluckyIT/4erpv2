@@ -3,10 +3,20 @@
  * API: Remove item from route
  */
 
-require_once __DIR__ . '/../../../../config/bootstrap.php';
-require_once __DIR__ . '/../../../../core/Route.php';
-
+// Disable HTML errors for API
+ini_set('html_errors', 0);
 header('Content-Type: application/json');
+
+set_error_handler(function($severity, $message, $file, $line) {
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+try {
+    require_once __DIR__ . '/../../../../config/bootstrap.php';
+} catch (Throwable $e) {
+    echo json_encode(['success' => false, 'error' => 'Bootstrap error: ' . $e->getMessage()]);
+    exit;
+}
 
 $auth = new Auth();
 if (!$auth->check()) {
