@@ -328,7 +328,23 @@ require_once __DIR__ . '/../../includes/header.php';
                             } ?>"><?= e($ext['status']) ?></span>
                         </div>
                         <small class="text-muted"><?= formatDateTime($ext['requested_at']) ?></small>
+                        <?php if (!empty($ext['original_end_date']) || !empty($ext['new_end_date'])): ?>
+                        <div class="small mt-1">
+                            <span class="text-muted">วันที่:</span>
+                            <strong><?= $ext['original_end_date'] ? formatDate($ext['original_end_date']) : '-' ?></strong>
+                            <i class="bi bi-arrow-right mx-1"></i>
+                            <strong><?= $ext['new_end_date'] ? formatDate($ext['new_end_date']) : '-' ?></strong>
+                            <?php if (isset($ext['days_changed']) && $ext['days_changed'] !== null): ?>
+                                <span class="badge bg-light text-dark ms-1"><?= (int)$ext['days_changed'] ?> วัน</span>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
                         <p class="small mb-0 mt-1"><?= e(mb_substr($ext['reason'], 0, 100)) ?>...</p>
+                        <?php if (($ext['status'] ?? '') === 'Rejected' && !empty($ext['rejection_reason'])): ?>
+                        <div class="small text-danger mt-1">
+                            เหตุผลที่ปฏิเสธ: <?= e($ext['rejection_reason']) ?>
+                        </div>
+                        <?php endif; ?>
                         <?php if (($ext['status'] ?? '') === 'Pending' && $canApproveExtension): ?>
                         <div class="mt-2">
                             <form method="POST" class="d-inline">
@@ -358,5 +374,30 @@ require_once __DIR__ . '/../../includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    const form = document.querySelector('form[method="POST"] input[name="action"][value="create"]')?.closest('form');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        const originalEnd = <?= json_encode($job['plan_end_date'] ?? '') ?>;
+        const newEnd = form.querySelector('input[name="new_end_date"]')?.value || '';
+        const type = form.querySelector('select[name="extension_type"]')?.value || '';
+
+        let msg = 'ยืนยันส่งคำขอ Extension?';
+        if (type) msg += "\nประเภท: " + type;
+
+        if (originalEnd || newEnd) {
+            msg += "\n\nExtend จากวันที่: " + (originalEnd || '-');
+            msg += "\nไปวันที่: " + (newEnd || '-');
+        }
+
+        if (!confirm(msg)) {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>

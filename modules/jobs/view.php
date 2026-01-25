@@ -59,6 +59,8 @@ $statusHistory = $jobModel->getStatusHistory($jobId);
 // Pending extensions (for ADM/MGR approval)
 $pendingExtensionCount = 0;
 $pendingExtensionLatest = null;
+$pendingExtensionDetail = null;
+$recentExtensions = [];
 if ($rbac->hasAnyRole(['ADM', 'MGR'])) {
     $db = getDB();
     $stmt = $db->prepare("SELECT COUNT(*) as cnt, MAX(requested_at) as latest FROM job_extensions WHERE job_id = ? AND status = 'Pending'");
@@ -66,6 +68,16 @@ if ($rbac->hasAnyRole(['ADM', 'MGR'])) {
     $row = $stmt->fetch();
     $pendingExtensionCount = (int)($row['cnt'] ?? 0);
     $pendingExtensionLatest = $row['latest'] ?? null;
+
+    if ($pendingExtensionCount > 0) {
+        $stmt = $db->prepare("SELECT * FROM job_extensions WHERE job_id = ? AND status = 'Pending' ORDER BY requested_at DESC LIMIT 1");
+        $stmt->execute([$jobId]);
+        $pendingExtensionDetail = $stmt->fetch() ?: null;
+    }
+
+    $stmt = $db->prepare("SELECT * FROM job_extensions WHERE job_id = ? ORDER BY requested_at DESC LIMIT 5");
+    $stmt->execute([$jobId]);
+    $recentExtensions = $stmt->fetchAll();
 }
 
 // Get routes for this job (via plans)
@@ -325,12 +337,64 @@ require_once __DIR__ . '/../../includes/header.php';
                     <span class="text-muted">จำนวนคำขอ Pending</span>
                     <span class="badge bg-danger"><?= $pendingExtensionCount ?></span>
                 </div>
+                <?php if (!empty($pendingExtensionDetail)): ?>
+                <div class="small mb-2">
+                    <div class="text-muted">ประเภท: <strong><?= e($pendingExtensionDetail['extension_type'] ?? '-') ?></strong></div>
+                    <div class="text-muted">วันที่:</div>
+                    <div>
+                        <strong><?= !empty($pendingExtensionDetail['original_end_date']) ? formatDate($pendingExtensionDetail['original_end_date']) : '-' ?></strong>
+                        <i class="bi bi-arrow-right mx-1"></i>
+                        <strong><?= !empty($pendingExtensionDetail['new_end_date']) ? formatDate($pendingExtensionDetail['new_end_date']) : '-' ?></strong>
+                        <?php if (isset($pendingExtensionDetail['days_changed']) && $pendingExtensionDetail['days_changed'] !== null): ?>
+                        <span class="badge bg-light text-dark ms-1"><?= (int)$pendingExtensionDetail['days_changed'] ?> วัน</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <?php if ($pendingExtensionLatest): ?>
                 <div class="small text-muted mb-3">ล่าสุด: <?= formatDateTime($pendingExtensionLatest) ?></div>
                 <?php endif; ?>
                 <a href="<?= BASE_URL ?>/modules/jobs/extension.php?job_id=<?= $jobId ?>" class="btn btn-light border w-100">
                     <i class="bi bi-check2-square me-1"></i>เข้าไปอนุมัติ/ปฏิเสธ
                 </a>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($recentExtensions) && $rbac->hasAnyRole(['ADM', 'MGR'])): ?>
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-2"></i>ประวัติ Extension
+            </div>
+            <div class="list-group list-group-flush">
+                <?php foreach ($recentExtensions as $ext): ?>
+                <a href="<?= BASE_URL ?>/modules/jobs/extension.php?job_id=<?= $jobId ?>" class="list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong><?= e($ext['extension_type'] ?? '-') ?></strong>
+                        <span class="badge bg-<?= match($ext['status'] ?? '') {
+                            'Pending' => 'warning',
+                            'Approved' => 'success',
+                            'Rejected' => 'danger',
+                            default => 'secondary'
+                        } ?>"><?= e($ext['status'] ?? '-') ?></span>
+                    </div>
+                    <div class="small text-muted mt-1"><?= !empty($ext['requested_at']) ? formatDateTime($ext['requested_at']) : '' ?></div>
+                    <?php if (!empty($ext['original_end_date']) || !empty($ext['new_end_date'])): ?>
+                    <div class="small mt-1">
+                        <span class="text-muted">วันที่:</span>
+                        <strong><?= !empty($ext['original_end_date']) ? formatDate($ext['original_end_date']) : '-' ?></strong>
+                        <i class="bi bi-arrow-right mx-1"></i>
+                        <strong><?= !empty($ext['new_end_date']) ? formatDate($ext['new_end_date']) : '-' ?></strong>
+                        <?php if (isset($ext['days_changed']) && $ext['days_changed'] !== null): ?>
+                        <span class="badge bg-light text-dark ms-1"><?= (int)$ext['days_changed'] ?> วัน</span>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (($ext['status'] ?? '') === 'Rejected' && !empty($ext['rejection_reason'])): ?>
+                    <div class="small text-danger mt-1">เหตุผล: <?= e($ext['rejection_reason']) ?></div>
+                    <?php endif; ?>
+                </a>
+                <?php endforeach; ?>
             </div>
         </div>
         <?php endif; ?>
