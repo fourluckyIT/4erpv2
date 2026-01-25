@@ -7,6 +7,8 @@
 require_once __DIR__ . '/../../config/bootstrap.php';
 require_once __DIR__ . '/../../core/StatusMachine.php';
 require_once __DIR__ . '/../../core/Job.php';
+require_once __DIR__ . '/../../core/Plan.php';
+require_once __DIR__ . '/../../core/Route.php';
 
 $auth = new Auth();
 $auth->requireAuth();
@@ -52,6 +54,19 @@ $availableActions = StatusMachine::getAvailableActions($job['status'], $userRole
 
 // Get status history
 $statusHistory = $jobModel->getStatusHistory($jobId);
+
+// Get routes for this job (via plans)
+$planModel = new Plan();
+$routeModel = new Route();
+$jobRoutes = [];
+$plans = $planModel->getByJobId($jobId);
+foreach ($plans as $plan) {
+    $routes = $routeModel->getByPlanId($plan['id']);
+    foreach ($routes as $route) {
+        $route['plan_number'] = $plan['plan_number'];
+        $jobRoutes[] = $route;
+    }
+}
 
 $pageTitle = $job['job_number'] . ' - ERP v2';
 require_once __DIR__ . '/../../includes/header.php';
@@ -181,6 +196,65 @@ require_once __DIR__ . '/../../includes/header.php';
                 <?php endif; ?>
             </div>
         </div>
+        
+        <!-- Routes Section -->
+        <?php if (!empty($jobRoutes)): ?>
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-truck me-2"></i>Routes (<?= count($jobRoutes) ?>)</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Route</th>
+                            <th>วันที่</th>
+                            <th>ปลายทาง</th>
+                            <th>สถานะ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($jobRoutes as $route): ?>
+                        <tr>
+                            <td>
+                                <strong><?= e($route['route_number']) ?></strong>
+                                <?php if ($route['supplier_name']): ?>
+                                <br><small class="text-muted"><i class="bi bi-building"></i> <?= e($route['supplier_name']) ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= formatDate($route['route_date']) ?></td>
+                            <td><?= e($route['destination'] ?? '-') ?></td>
+                            <td>
+                                <span class="badge bg-<?= match($route['status']) {
+                                    'Draft' => 'secondary',
+                                    'Confirmed' => 'info',
+                                    'Dispatched' => 'warning',
+                                    'Received' => 'success',
+                                    'Delivered' => 'success',
+                                    'Cancelled' => 'danger',
+                                    default => 'secondary'
+                                } ?>"><?= e($route['status']) ?></span>
+                            </td>
+                            <td>
+                                <a href="<?= BASE_URL ?>/modules/logistics/routes/view.php?id=<?= $route['id'] ?>" 
+                                   class="btn btn-sm btn-outline-primary" title="ดูรายละเอียด">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <?php if ($route['status'] === 'Dispatched'): ?>
+                                <a href="<?= BASE_URL ?>/modules/logistics/routes/receive.php?id=<?= $route['id'] ?>" 
+                                   class="btn btn-sm btn-success" title="รับของหน้างาน">
+                                    <i class="bi bi-box-arrow-in-down"></i> รับ
+                                </a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
     
     <div class="col-lg-4">

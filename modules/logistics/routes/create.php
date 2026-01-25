@@ -489,8 +489,17 @@ require_once __DIR__ . '/../../../includes/header.php';
                         </button>
                     </div>
                     <?php elseif ($route['status'] === 'Dispatched'): ?>
+                    <div class="d-flex gap-2">
+                        <a href="receive.php?id=<?= $route['id'] ?>" class="btn btn-success btn-sm flex-grow-1">
+                            <i class="bi bi-box-arrow-in-down me-1"></i>รับของหน้างาน
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyReceiveLink(<?= $route['id'] ?>)" title="คัดลอกลิงก์">
+                            <i class="bi bi-link-45deg"></i>
+                        </button>
+                    </div>
+                    <?php elseif ($route['status'] === 'Received'): ?>
                     <div class="text-center">
-                        <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>รอรับหน้างาน</span>
+                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>รับแล้ว</span>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -621,6 +630,16 @@ function cancelRoute(routeId) {
         }
     })
     .catch(err => alert('Error: ' + err.message));
+}
+
+// Copy receive link
+function copyReceiveLink(routeId) {
+    const url = window.location.origin + '/modules/logistics/routes/receive.php?id=' + routeId;
+    navigator.clipboard.writeText(url).then(() => {
+        alert('คัดลอกลิงก์แล้ว!');
+    }).catch(() => {
+        prompt('คัดลอกลิงก์:', url);
+    });
 }
 
 // Edit Consumable Quantity
