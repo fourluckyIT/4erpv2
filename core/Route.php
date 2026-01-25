@@ -763,10 +763,12 @@ class Route {
         $stmt = $this->db->prepare("
             SELECT r.*, 
                    vs.serial_number as vehicle_serial,
-                   vi.name as vehicle_name
+                   vi.name as vehicle_name,
+                   sup.name as supplier_name, sup.code as supplier_code
             FROM routes r
             LEFT JOIN serials vs ON r.vehicle_serial_id = vs.id
             LEFT JOIN items vi ON vs.item_id = vi.id
+            LEFT JOIN suppliers sup ON r.supplier_id = sup.id
             WHERE r.plan_id = ?
             ORDER BY r.route_date, r.id
         ");

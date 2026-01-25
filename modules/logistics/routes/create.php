@@ -429,6 +429,9 @@ require_once __DIR__ . '/../../../includes/header.php';
                     <?php if ($route['vehicle_serial']): ?>
                     <small class="text-muted ms-2"><i class="bi bi-truck me-1"></i><?= e($route['vehicle_serial']) ?></small>
                     <?php endif; ?>
+                    <?php if ($route['supplier_name']): ?>
+                    <small class="text-primary ms-2"><i class="bi bi-building me-1"></i><?= e($route['supplier_name']) ?></small>
+                    <?php endif; ?>
                 </div>
                 <ul class="list-group list-group-flush">
                     <?php foreach ($route['items'] as $item): ?>
