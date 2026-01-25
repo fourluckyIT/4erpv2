@@ -464,6 +464,30 @@ require_once __DIR__ . '/../../../includes/header.php';
                     <li class="list-group-item text-muted text-center py-3">ยังไม่มีของ</li>
                     <?php endif; ?>
                 </ul>
+                <!-- Action Buttons based on status -->
+                <div class="card-footer">
+                    <?php if ($route['status'] === 'Draft'): ?>
+                    <button type="button" class="btn btn-info btn-sm w-100" onclick="confirmRoute(<?= $route['id'] ?>)">
+                        <i class="bi bi-check-circle me-1"></i>Confirm Route
+                    </button>
+                    <?php elseif ($route['status'] === 'Confirmed'): ?>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-warning btn-sm flex-grow-1" onclick="dispatchRoute(<?= $route['id'] ?>)">
+                            <i class="bi bi-truck me-1"></i>Dispatch
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="editRoute(<?= $route['id'] ?>)" title="แก้ไข">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="cancelRoute(<?= $route['id'] ?>)" title="ยกเลิก">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                    <?php elseif ($route['status'] === 'Dispatched'): ?>
+                    <div class="text-center">
+                        <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>รอรับหน้างาน</span>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
             <?php endforeach; ?>
             <?php endif; ?>
@@ -500,6 +524,83 @@ function removeFromRoute(routeId, itemId) {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({route_id: routeId, item_id: itemId})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    });
+}
+
+// Confirm Route
+function confirmRoute(routeId) {
+    if (!confirm('ยืนยัน Route นี้? (หลังจากยืนยันจะสามารถ Dispatch ได้)')) return;
+    
+    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({route_id: routeId, action: 'confirm'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    });
+}
+
+// Dispatch Route
+function dispatchRoute(routeId) {
+    if (!confirm('ส่งรถออก? (หลังจากนี้จะเข้าสถานะรอรับหน้างาน)')) return;
+    
+    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({route_id: routeId, action: 'dispatch'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    });
+}
+
+// Edit Route (back to Draft)
+function editRoute(routeId) {
+    if (!confirm('แก้ไข Route? (สถานะจะกลับเป็น Draft)')) return;
+    
+    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({route_id: routeId, action: 'edit'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'เกิดข้อผิดพลาด');
+        }
+    });
+}
+
+// Cancel Route
+function cancelRoute(routeId) {
+    const reason = prompt('เหตุผลในการยกเลิก:');
+    if (reason === null) return;
+    
+    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/update_status.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({route_id: routeId, action: 'cancel', reason: reason})
     })
     .then(r => r.json())
     .then(data => {
