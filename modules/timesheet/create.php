@@ -11,7 +11,8 @@ $auth->requireAuth();
 
 $rbac = new RBAC();
 if (!$rbac->can('create', 'TIMESHEET')) {
-    redirect('/4erpv2/modules/timesheet/', 'คุณไม่มีสิทธิ์สร้าง Timesheet', 'danger');
+    setFlash('error', 'คุณไม่มีสิทธิ์สร้าง Timesheet');
+    redirect(BASE_URL . '/modules/timesheet/');
 }
 
 $db = getDB();
@@ -52,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result['entries_added'] > 0) {
                 $msg .= " (เพิ่มคนอัตโนมัติจาก Plan: {$result['entries_added']} คน)";
             }
-            redirect('/4erpv2/modules/timesheet/edit.php?id=' . $result['id'], $msg, 'success');
+            setFlash('success', $msg);
+            redirect(BASE_URL . '/modules/timesheet/edit.php?id=' . $result['id']);
         } else {
             $errors[] = $result['error'];
         }
@@ -67,7 +69,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="col-12">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/4erpv2/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">Dashboard</a></li>
                 <li class="breadcrumb-item"><a href="index.php">Timesheet</a></li>
                 <li class="breadcrumb-item active">สร้างใหม่</li>
             </ol>

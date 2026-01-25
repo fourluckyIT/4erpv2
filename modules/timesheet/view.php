@@ -11,19 +11,22 @@ $auth->requireAuth();
 
 $rbac = new RBAC();
 if (!$rbac->can('view', 'TIMESHEET')) {
-    redirect('/4erpv2/', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'danger');
+    setFlash('error', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+    redirect(BASE_URL);
 }
 
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) {
-    redirect('/4erpv2/modules/timesheet/', 'ไม่พบ Timesheet', 'danger');
+    setFlash('error', 'ไม่พบ Timesheet');
+    redirect(BASE_URL . '/modules/timesheet/');
 }
 
 $timesheetModel = new Timesheet();
 $ts = $timesheetModel->getById($id);
 
 if (!$ts) {
-    redirect('/4erpv2/modules/timesheet/', 'ไม่พบ Timesheet', 'danger');
+    setFlash('error', 'ไม่พบ Timesheet');
+    redirect(BASE_URL . '/modules/timesheet/');
 }
 
 $entries = $timesheetModel->getEntries($id);
@@ -42,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($result['anomalies'])) {
                 $msg .= ' (พบความผิดปกติ ' . count($result['anomalies']) . ' รายการ)';
             }
-            redirect('/4erpv2/modules/timesheet/view.php?id=' . $id, $msg, 'success');
+            setFlash('success', $msg);
+            redirect(BASE_URL . '/modules/timesheet/view.php?id=' . $id);
         } else {
             $error = $result['error'];
         }
@@ -51,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'payroll_ready' && $rbac->can('approve', 'TIMESHEET')) {
         $result = $timesheetModel->markPayrollReady($id);
         if ($result['success']) {
-            redirect('/4erpv2/modules/timesheet/view.php?id=' . $id, 'ทำเครื่องหมาย Payroll Ready สำเร็จ', 'success');
+            setFlash('success', 'ทำเครื่องหมาย Payroll Ready สำเร็จ');
+                redirect(BASE_URL . '/modules/timesheet/view.php?id=' . $id);
         } else {
             $error = $result['error'];
         }
@@ -64,7 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $result = $timesheetModel->returnForCorrection($id, $reason);
             if ($result['success']) {
-                redirect('/4erpv2/modules/timesheet/view.php?id=' . $id, 'ส่งคืนเพื่อแก้ไขสำเร็จ', 'warning');
+                setFlash('warning', 'ส่งคืนเพื่อแก้ไขสำเร็จ');
+                redirect(BASE_URL . '/modules/timesheet/view.php?id=' . $id);
             } else {
                 $error = $result['error'];
             }
@@ -85,7 +91,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="col-md-8">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/4erpv2/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">Dashboard</a></li>
                 <li class="breadcrumb-item"><a href="index.php">Timesheet</a></li>
                 <li class="breadcrumb-item active"><?= e($ts['ts_number']) ?></li>
             </ol>
@@ -176,7 +182,7 @@ require_once __DIR__ . '/../../includes/header.php';
                     <tr>
                         <th>Job:</th>
                         <td>
-                            <a href="/4erpv2/modules/jobs/view.php?id=<?= $ts['job_id'] ?>">
+                            <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $ts['job_id'] ?>">
                                 <?= e($ts['job_number']) ?>
                             </a>
                             <br><small class="text-muted"><?= e($ts['job_scope']) ?></small>

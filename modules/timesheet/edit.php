@@ -11,23 +11,27 @@ $auth->requireAuth();
 
 $rbac = new RBAC();
 if (!$rbac->can('edit', 'TIMESHEET')) {
-    redirect('/4erpv2/modules/timesheet/', 'คุณไม่มีสิทธิ์แก้ไข Timesheet', 'danger');
+    setFlash('error', 'คุณไม่มีสิทธิ์แก้ไข Timesheet');
+    redirect(BASE_URL . '/modules/timesheet/');
 }
 
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) {
-    redirect('/4erpv2/modules/timesheet/', 'ไม่พบ Timesheet', 'danger');
+    setFlash('error', 'ไม่พบ Timesheet');
+    redirect(BASE_URL . '/modules/timesheet/');
 }
 
 $timesheetModel = new Timesheet();
 $ts = $timesheetModel->getById($id);
 
 if (!$ts) {
-    redirect('/4erpv2/modules/timesheet/', 'ไม่พบ Timesheet', 'danger');
+    setFlash('error', 'ไม่พบ Timesheet');
+    redirect(BASE_URL . '/modules/timesheet/');
 }
 
 if ($ts['status'] !== 'Draft') {
-    redirect('/4erpv2/modules/timesheet/view.php?id=' . $id, 'ไม่สามารถแก้ไข Timesheet ที่ไม่ใช่ Draft ได้', 'warning');
+    setFlash('warning', 'ไม่สามารถแก้ไข Timesheet ที่ไม่ใช่ Draft ได้');
+    redirect(BASE_URL . '/modules/timesheet/view.php?id=' . $id);
 }
 
 $db = getDB();
@@ -124,7 +128,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="col-md-8">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/4erpv2/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">Dashboard</a></li>
                 <li class="breadcrumb-item"><a href="index.php">Timesheet</a></li>
                 <li class="breadcrumb-item"><a href="view.php?id=<?= $id ?>"><?= e($ts['ts_number']) ?></a></li>
                 <li class="breadcrumb-item active">แก้ไข</li>
