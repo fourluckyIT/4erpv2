@@ -447,6 +447,19 @@ class Plan {
     }
     
     /**
+     * Get all plans for a job
+     */
+    public function getByJobId(int $jobId): array {
+        $stmt = $this->db->prepare("
+            SELECT * FROM plans 
+            WHERE job_id = ?
+            ORDER BY id DESC
+        ");
+        $stmt->execute([$jobId]);
+        return $stmt->fetchAll();
+    }
+    
+    /**
      * Get active plan for a job
      */
     public function getActiveByJobId(int $jobId): ?array {
