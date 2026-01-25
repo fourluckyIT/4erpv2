@@ -282,10 +282,15 @@ require_once __DIR__ . '/../../../includes/header.php';
                                 <?php if ($item['serial_id']): ?>
                                 <strong><?= e($item['serial_number']) ?></strong><br>
                                 <small class="text-muted"><?= e($item['item_code']) ?> - <?= e($item['item_name']) ?></small>
-                                <?php else: ?>
+                                <?php elseif ($item['people_id']): ?>
                                 <strong><?= e($item['people_code']) ?></strong> - <?= e($item['people_name']) ?>
                                 <?php if ($item['position']): ?>
                                 <small class="text-muted">(<?= e($item['position']) ?>)</small>
+                                <?php endif; ?>
+                                <?php else: ?>
+                                <strong><?= e($item['item_code'] ?? '') ?></strong> - <?= e($item['item_name'] ?? '') ?>
+                                <?php if ($item['quantity']): ?>
+                                <small class="text-muted">(จำนวน: <?= e($item['quantity']) ?>)</small>
                                 <?php endif; ?>
                                 <?php endif; ?>
                             </td>

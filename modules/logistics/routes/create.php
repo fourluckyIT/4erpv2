@@ -497,9 +497,11 @@ require_once __DIR__ . '/../../../includes/header.php';
                             <i class="bi bi-link-45deg"></i>
                         </button>
                     </div>
-                    <?php elseif ($route['status'] === 'Received'): ?>
-                    <div class="text-center">
-                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>รับแล้ว</span>
+                    <?php elseif (in_array($route['status'], ['Received', 'InProgress'])): ?>
+                    <div class="d-flex gap-2">
+                        <a href="return.php?id=<?= $route['id'] ?>" class="btn btn-info btn-sm flex-grow-1">
+                            <i class="bi bi-box-arrow-in-down me-1"></i>รับคืน (WH)
+                        </a>
                     </div>
                     <?php endif; ?>
                 </div>
