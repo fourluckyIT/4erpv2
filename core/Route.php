@@ -261,6 +261,49 @@ class Route {
     }
     
     /**
+     * Add consumable to route
+     */
+    public function addConsumable(int $routeId, int $itemId, int $quantity, ?string $notes = null): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if ($route['status'] !== 'Draft') {
+                return ['success' => false, 'error' => 'ไม่สามารถเพิ่ม Consumable ใน Route ที่ไม่ใช่ Draft'];
+            }
+            
+            // Check if already exists - update quantity
+            $stmt = $this->db->prepare("SELECT id, quantity FROM route_items WHERE route_id = ? AND item_id = ? AND item_type = 'Consumable'");
+            $stmt->execute([$routeId, $itemId]);
+            $existing = $stmt->fetch();
+            
+            if ($existing) {
+                // Update quantity
+                $stmt = $this->db->prepare("UPDATE route_items SET quantity = ? WHERE id = ?");
+                $stmt->execute([$quantity, $existing['id']]);
+                return ['success' => true, 'id' => $existing['id']];
+            }
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO route_items (route_id, item_id, item_type, quantity, notes)
+                VALUES (:route_id, :item_id, 'Consumable', :quantity, :notes)
+            ");
+            $stmt->execute([
+                'route_id' => $routeId,
+                'item_id' => $itemId,
+                'quantity' => $quantity,
+                'notes' => $notes
+            ]);
+            
+            return ['success' => true, 'id' => (int) $this->db->lastInsertId()];
+            
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
      * Remove item from route
      */
     public function removeItem(int $itemId): array {
@@ -738,11 +781,14 @@ class Route {
         $stmt = $this->db->prepare("
             SELECT ri.*,
                    s.serial_number, s.status as serial_status,
-                   i.name as item_name, i.code as item_code, i.item_type as item_category,
+                   COALESCE(i.name, ci.name) as item_name, 
+                   COALESCE(i.code, ci.code) as item_code, 
+                   COALESCE(i.item_type, ci.item_type) as item_category,
                    pe.full_name as people_name, pe.code as people_code, pe.position
             FROM route_items ri
             LEFT JOIN serials s ON ri.serial_id = s.id
             LEFT JOIN items i ON s.item_id = i.id
+            LEFT JOIN items ci ON ri.item_id = ci.id
             LEFT JOIN people pe ON ri.people_id = pe.id
             WHERE ri.route_id = ?
             ORDER BY ri.item_type, ri.id

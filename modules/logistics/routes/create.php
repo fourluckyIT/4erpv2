@@ -122,6 +122,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $routeModel->addPeople($result['id'], (int)$peopleId);
             }
             
+            // Add consumables
+            $consumables = post('consumables', []);
+            foreach ($consumables as $itemId => $qty) {
+                $qty = (int)$qty;
+                if ($qty > 0) {
+                    $routeModel->addConsumable($result['id'], (int)$itemId, $qty);
+                }
+            }
+            
             setFlash('success', 'สร้าง Route สำเร็จ: ' . $result['route_number']);
             redirect('create.php?plan_id=' . $planId);
         } else {
@@ -256,6 +265,12 @@ require_once __DIR__ . '/../../../includes/header.php';
                                 <span class="badge bg-secondary" id="people-badge"><?= count(array_filter($peopleAssignments, fn($a) => !$a['is_assigned'])) ?></span>
                             </button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-consumables" type="button">
+                                <i class="bi bi-box me-1"></i>Consumable
+                                <span class="badge bg-secondary" id="consumable-badge"><?= count($consumableAssignments) ?></span>
+                            </button>
+                        </li>
                     </ul>
                     
                     <div class="tab-content">
@@ -329,6 +344,41 @@ require_once __DIR__ . '/../../../includes/header.php';
                             <?php endforeach; ?>
                             <?php endif; ?>
                         </div>
+                        
+                        <!-- Consumables Tab -->
+                        <div class="tab-pane fade p-3" id="tab-consumables" style="max-height: 300px; overflow-y: auto;">
+                            <?php if (empty($consumableAssignments)): ?>
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-box" style="font-size: 2rem;"></i>
+                                <p class="mb-0">ไม่มี Consumable ใน Plan นี้</p>
+                            </div>
+                            <?php else: ?>
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>รหัส</th>
+                                        <th>รายการ</th>
+                                        <th width="100">จำนวน</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($consumableAssignments as $a): ?>
+                                    <tr>
+                                        <td><strong><?= e($a['item_code']) ?></strong></td>
+                                        <td><?= e($a['item_name']) ?></td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm consumable-qty" 
+                                                   name="consumables[<?= $a['item_id'] ?>]" 
+                                                   value="0" min="0" max="<?= (int)$a['quantity'] ?>" 
+                                                   data-max="<?= (int)$a['quantity'] ?>" style="width: 80px;">
+                                            <small class="text-muted">/ <?= (int)$a['quantity'] ?></small>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -388,6 +438,11 @@ require_once __DIR__ . '/../../../includes/header.php';
                             <span class="badge bg-info me-1"><?= e($item['item_type']) ?></span>
                             <strong><?= e($item['serial_number']) ?></strong>
                             <small class="text-muted"><?= e($item['item_name']) ?></small>
+                            <?php elseif ($item['item_id'] && $item['item_type'] === 'Consumable'): ?>
+                            <span class="badge bg-secondary me-1">Consumable</span>
+                            <strong><?= e($item['item_code']) ?></strong>
+                            <small class="text-muted"><?= e($item['item_name']) ?></small>
+                            <span class="badge bg-primary ms-1"><?= (int)$item['quantity'] ?></span>
                             <?php else: ?>
                             <span class="badge bg-warning text-dark me-1">บุคลากร</span>
                             <strong><?= e($item['people_code']) ?></strong>
