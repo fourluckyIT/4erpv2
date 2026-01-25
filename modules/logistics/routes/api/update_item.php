@@ -19,7 +19,7 @@ try {
 }
 
 $auth = new Auth();
-if (!$auth->check()) {
+if (!$auth->isAuthenticated()) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
