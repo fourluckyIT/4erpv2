@@ -51,6 +51,7 @@ if (isPost()) {
 // Get available actions for current user
 $userRoles = $auth->getCurrentRoles();
 $availableActions = StatusMachine::getAvailableActions($job['status'], $userRoles);
+$rbac = new RBAC();
 
 // Get status history
 $statusHistory = $jobModel->getStatusHistory($jobId);
@@ -292,6 +293,27 @@ require_once __DIR__ . '/../../includes/header.php';
                 </form>
                 <?php endif; ?>
                 <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Request Extension (available after Planned status) -->
+        <?php 
+        $extensionStatuses = ['Planned', 'Dispatched', 'In Progress'];
+        $canRequestExtension = in_array($job['status'], $extensionStatuses) && $rbac->hasAnyRole(['ADM', 'PLN', 'MGR']);
+        ?>
+        <?php if ($canRequestExtension): ?>
+        <div class="card mb-4 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-calendar-plus me-2"></i>ขอขยายงาน (Extension)
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    หลังจากสถานะ Planned แล้ว หากต้องการเปลี่ยนแปลงรายละเอียดงาน ต้องขอ Extension
+                </p>
+                <a href="<?= BASE_URL ?>/modules/jobs/extension.php?job_id=<?= $jobId ?>" class="btn btn-warning w-100">
+                    <i class="bi bi-plus-circle me-1"></i>ขอ Extension
+                </a>
             </div>
         </div>
         <?php endif; ?>
