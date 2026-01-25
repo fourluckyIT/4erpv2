@@ -106,8 +106,8 @@ if (isPost()) {
 
 // Get existing extensions for this job
 $stmt = $db->prepare("
-    SELECT e.*, u.fullname as requested_by_name, 
-           ua.fullname as approved_by_name
+    SELECT e.*, u.full_name as requested_by_name, 
+           ua.full_name as approved_by_name
     FROM job_extensions e
     LEFT JOIN users u ON e.requested_by = u.id
     LEFT JOIN users ua ON e.approved_by = ua.id

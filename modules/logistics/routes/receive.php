@@ -81,15 +81,18 @@ if (isPost()) {
         // Handle photo uploads
         $photoModel = new EvidencePhoto();
         if (!empty($_FILES['photos']['name'][0])) {
+            $photoSeq = 1;
             foreach ($_FILES['photos']['tmp_name'] as $i => $tmpName) {
-                if ($_FILES['photos']['error'][$i] === UPLOAD_ERR_OK) {
-                    $photoModel->upload(
-                        'route_receive',
-                        $routeId,
-                        $tmpName,
-                        $_FILES['photos']['name'][$i],
-                        'Receive at site'
-                    );
+                if ($_FILES['photos']['error'][$i] === UPLOAD_ERR_OK && $photoSeq <= 4) {
+                    $file = [
+                        'tmp_name' => $tmpName,
+                        'name' => $_FILES['photos']['name'][$i],
+                        'size' => $_FILES['photos']['size'][$i],
+                        'type' => $_FILES['photos']['type'][$i],
+                        'error' => $_FILES['photos']['error'][$i]
+                    ];
+                    $photoModel->upload($routeId, 'Receive', $photoSeq, $file);
+                    $photoSeq++;
                 }
             }
         }
