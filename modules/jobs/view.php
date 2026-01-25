@@ -56,6 +56,18 @@ $rbac = new RBAC();
 // Get status history
 $statusHistory = $jobModel->getStatusHistory($jobId);
 
+// Pending extensions (for ADM/MGR approval)
+$pendingExtensionCount = 0;
+$pendingExtensionLatest = null;
+if ($rbac->hasAnyRole(['ADM', 'MGR'])) {
+    $db = getDB();
+    $stmt = $db->prepare("SELECT COUNT(*) as cnt, MAX(requested_at) as latest FROM job_extensions WHERE job_id = ? AND status = 'Pending'");
+    $stmt->execute([$jobId]);
+    $row = $stmt->fetch();
+    $pendingExtensionCount = (int)($row['cnt'] ?? 0);
+    $pendingExtensionLatest = $row['latest'] ?? null;
+}
+
 // Get routes for this job (via plans)
 $planModel = new Plan();
 $routeModel = new Route();
@@ -302,6 +314,27 @@ require_once __DIR__ . '/../../includes/header.php';
         $extensionStatuses = ['Planned', 'Dispatched', 'In Progress'];
         $canRequestExtension = in_array($job['status'], $extensionStatuses) && $rbac->hasAnyRole(['ADM', 'PLN', 'MGR']);
         ?>
+
+        <?php if ($pendingExtensionCount > 0 && $rbac->hasAnyRole(['ADM', 'MGR'])): ?>
+        <div class="card mb-4 border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-exclamation-triangle me-2"></i>Extension รออนุมัติ
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">จำนวนคำขอ Pending</span>
+                    <span class="badge bg-danger"><?= $pendingExtensionCount ?></span>
+                </div>
+                <?php if ($pendingExtensionLatest): ?>
+                <div class="small text-muted mb-3">ล่าสุด: <?= formatDateTime($pendingExtensionLatest) ?></div>
+                <?php endif; ?>
+                <a href="<?= BASE_URL ?>/modules/jobs/extension.php?job_id=<?= $jobId ?>" class="btn btn-light border w-100">
+                    <i class="bi bi-check2-square me-1"></i>เข้าไปอนุมัติ/ปฏิเสธ
+                </a>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <?php if ($canRequestExtension): ?>
         <div class="card mb-4 border-warning">
             <div class="card-header bg-warning text-dark">

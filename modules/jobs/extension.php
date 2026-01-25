@@ -41,8 +41,88 @@ if (!in_array($job['status'], $extensionStatuses)) {
 
 $db = getDB();
 
+$canApproveExtension = $rbac->hasAnyRole(['ADM', 'MGR']);
+
+if (isPost() && in_array(post('action', ''), ['approve_extension', 'reject_extension'], true)) {
+    if (!verifyCsrf(post('csrf_token', ''))) {
+        setFlash('error', 'Invalid request');
+        redirect("extension.php?job_id=$jobId");
+    }
+
+    if (!$canApproveExtension) {
+        setFlash('error', 'คุณไม่มีสิทธิ์อนุมัติ Extension');
+        redirect("extension.php?job_id=$jobId");
+    }
+
+    $action = post('action', '');
+    $extensionId = (int) post('extension_id', 0);
+    $approvalNote = sanitize(post('approval_note', ''));
+    $rejectionReason = sanitize(post('rejection_reason', ''));
+
+    if (!$extensionId) {
+        setFlash('error', 'Invalid extension ID');
+        redirect("extension.php?job_id=$jobId");
+    }
+
+    $stmt = $db->prepare("SELECT * FROM job_extensions WHERE id = ? AND job_id = ?");
+    $stmt->execute([$extensionId, $jobId]);
+    $ext = $stmt->fetch();
+
+    if (!$ext) {
+        setFlash('error', 'ไม่พบ Extension');
+        redirect("extension.php?job_id=$jobId");
+    }
+
+    if (($ext['status'] ?? '') !== 'Pending') {
+        setFlash('warning', 'Extension นี้ไม่ได้อยู่ในสถานะ Pending แล้ว');
+        redirect("extension.php?job_id=$jobId");
+    }
+
+    if ($action === 'reject_extension' && empty($rejectionReason)) {
+        setFlash('error', 'กรุณาระบุเหตุผลที่ปฏิเสธ');
+        redirect("extension.php?job_id=$jobId");
+    }
+
+    try {
+        $db->beginTransaction();
+
+        if ($action === 'approve_extension') {
+            $stmt = $db->prepare("UPDATE job_extensions SET status = 'Approved', approved_by = ?, approved_at = NOW(), rejection_reason = NULL WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id'], $extensionId]);
+        } else {
+            $stmt = $db->prepare("UPDATE job_extensions SET status = 'Rejected', approved_by = ?, approved_at = NOW(), rejection_reason = ? WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id'], $rejectionReason, $extensionId]);
+        }
+
+        $audit = new AuditLog();
+        $audit->log(
+            $action === 'approve_extension' ? 'extension_approve' : 'extension_reject',
+            'JOB',
+            $jobId,
+            ['extension' => $ext],
+            [
+                'extension_id' => $extensionId,
+                'status' => $action === 'approve_extension' ? 'Approved' : 'Rejected',
+                'approval_note' => $approvalNote,
+                'rejection_reason' => $rejectionReason
+            ],
+            $action === 'approve_extension' ? $approvalNote : $rejectionReason
+        );
+
+        $db->commit();
+        setFlash('success', $action === 'approve_extension' ? 'อนุมัติ Extension สำเร็จ' : 'ปฏิเสธ Extension สำเร็จ');
+        redirect("extension.php?job_id=$jobId");
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        redirect("extension.php?job_id=$jobId");
+    }
+}
+
 // Handle form submission
-if (isPost()) {
+if (isPost() && post('action', 'create') === 'create') {
     if (!verifyCsrf(post('csrf_token', ''))) {
         setFlash('error', 'Invalid request');
         redirect("extension.php?job_id=$jobId");
@@ -162,6 +242,7 @@ require_once __DIR__ . '/../../includes/header.php';
                     
                     <form method="POST">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="create">
                         
                         <div class="mb-3">
                             <label class="form-label">ประเภท Extension <span class="text-danger">*</span></label>
@@ -248,6 +329,27 @@ require_once __DIR__ . '/../../includes/header.php';
                         </div>
                         <small class="text-muted"><?= formatDateTime($ext['requested_at']) ?></small>
                         <p class="small mb-0 mt-1"><?= e(mb_substr($ext['reason'], 0, 100)) ?>...</p>
+                        <?php if (($ext['status'] ?? '') === 'Pending' && $canApproveExtension): ?>
+                        <div class="mt-2">
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <input type="hidden" name="action" value="approve_extension">
+                                <input type="hidden" name="extension_id" value="<?= (int)$ext['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('อนุมัติ Extension นี้?')">
+                                    <i class="bi bi-check-circle me-1"></i>Approve
+                                </button>
+                            </form>
+                            <form method="POST" class="d-inline ms-1">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <input type="hidden" name="action" value="reject_extension">
+                                <input type="hidden" name="extension_id" value="<?= (int)$ext['id'] ?>">
+                                <input type="text" name="rejection_reason" class="form-control form-control-sm d-inline-block" style="width: 180px;" placeholder="เหตุผลปฏิเสธ" required>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('ปฏิเสธ Extension นี้?')">
+                                    <i class="bi bi-x-circle me-1"></i>Reject
+                                </button>
+                            </form>
+                        </div>
+                        <?php endif; ?>
                     </li>
                     <?php endforeach; ?>
                 </ul>
