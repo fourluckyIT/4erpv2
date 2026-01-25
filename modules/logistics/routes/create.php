@@ -1,7 +1,7 @@
 <?php
 /**
- * Create Route
- * ERP v2 - Phase 5 v2
+ * Create/Manage Routes
+ * ERP v2 - Phase 5 v2 - Redesigned
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -35,7 +35,25 @@ if ($plan['status'] !== 'Confirmed') {
     redirect('../../planning/view.php?id=' . $planId);
 }
 
-// Get available vehicles (serials with item_type = Vehicle and status = Available or Allocated to this plan)
+// Get existing routes for this plan
+$existingRoutes = $routeModel->getByPlanId($planId);
+$routesWithItems = [];
+foreach ($existingRoutes as $route) {
+    $route['items'] = $routeModel->getItems($route['id']);
+    $routesWithItems[] = $route;
+}
+
+// Get all assigned serials/people in existing routes
+$assignedSerialIds = [];
+$assignedPeopleIds = [];
+foreach ($routesWithItems as $route) {
+    foreach ($route['items'] as $item) {
+        if ($item['serial_id']) $assignedSerialIds[] = $item['serial_id'];
+        if ($item['people_id']) $assignedPeopleIds[] = $item['people_id'];
+    }
+}
+
+// Get available vehicles
 $vehicles = $db->query("
     SELECT s.*, i.name as item_name, i.code as item_code
     FROM serials s
@@ -50,419 +68,392 @@ $suppliers = $db->query("
     SELECT * FROM suppliers WHERE is_active = 1 ORDER BY name
 ")->fetchAll();
 
-// Get plan assignments for this plan
+// Get plan assignments
 $planAssignments = $planModel->getAssignments($planId);
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = [
-        'route_date' => post('route_date', date('Y-m-d')),
-        'vehicle_serial_id' => post('vehicle_serial_id') ?: null,
-        'supplier_id' => post('supplier_id') ?: null,
-        'driver_name' => post('driver_name', ''),
-        'driver_phone' => post('driver_phone', ''),
-        'destination' => post('destination', ''),
-        'notes' => post('notes', '')
-    ];
-    
-    $result = $routeModel->create($planId, $data);
-    
-    if ($result['success']) {
-        // Add selected serials
-        $selectedSerials = post('serials', []);
-        foreach ($selectedSerials as $serialId) {
-            // Find item type for this serial
-            $stmt = $db->prepare("
-                SELECT i.item_type FROM serials s 
-                JOIN items i ON s.item_id = i.id 
-                WHERE s.id = ?
-            ");
-            $stmt->execute([$serialId]);
-            $itemType = $stmt->fetchColumn();
-            
-            $condition = post('condition_' . $serialId, 'Good');
-            $routeModel->addSerial($result['id'], (int)$serialId, $itemType, $condition);
-        }
-        
-        // Add selected people
-        $selectedPeople = post('people', []);
-        foreach ($selectedPeople as $peopleId) {
-            $routeModel->addPeople($result['id'], (int)$peopleId);
-        }
-        
-        setFlash('success', 'สร้าง Route สำเร็จ: ' . $result['route_number']);
-        redirect('view.php?id=' . $result['id']);
-    } else {
-        setFlash('error', $result['error']);
+// Separate into serials, people, consumables - and mark which are already assigned
+$serialAssignments = [];
+$peopleAssignments = [];
+$consumableAssignments = [];
+
+foreach ($planAssignments as $a) {
+    if ($a['serial_id']) {
+        $a['is_assigned'] = in_array($a['serial_id'], $assignedSerialIds);
+        $serialAssignments[] = $a;
+    } elseif ($a['people_id']) {
+        $a['is_assigned'] = in_array($a['people_id'], $assignedPeopleIds);
+        $peopleAssignments[] = $a;
+    } elseif ($a['item_id'] && $a['assignment_type'] === 'Consumable') {
+        $consumableAssignments[] = $a;
     }
 }
 
-$pageTitle = 'สร้าง Route - ERP v2';
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = post('action', 'create');
+    
+    if ($action === 'create') {
+        $data = [
+            'route_date' => post('route_date', date('Y-m-d')),
+            'vehicle_serial_id' => post('vehicle_serial_id') ?: null,
+            'supplier_id' => post('supplier_id') ?: null,
+            'driver_name' => post('driver_name', ''),
+            'driver_phone' => post('driver_phone', ''),
+            'destination' => post('destination', ''),
+            'notes' => post('notes', '')
+        ];
+        
+        $result = $routeModel->create($planId, $data);
+        
+        if ($result['success']) {
+            // Add selected serials
+            $selectedSerials = post('serials', []);
+            foreach ($selectedSerials as $serialId) {
+                $stmt = $db->prepare("SELECT i.item_type FROM serials s JOIN items i ON s.item_id = i.id WHERE s.id = ?");
+                $stmt->execute([$serialId]);
+                $itemType = $stmt->fetchColumn();
+                $condition = post('condition_' . $serialId, 'Good');
+                $routeModel->addSerial($result['id'], (int)$serialId, $itemType, $condition);
+            }
+            
+            // Add selected people
+            $selectedPeople = post('people', []);
+            foreach ($selectedPeople as $peopleId) {
+                $routeModel->addPeople($result['id'], (int)$peopleId);
+            }
+            
+            setFlash('success', 'สร้าง Route สำเร็จ: ' . $result['route_number']);
+            redirect('create.php?plan_id=' . $planId);
+        } else {
+            setFlash('error', $result['error']);
+        }
+    } elseif ($action === 'update_route') {
+        $routeId = (int) post('route_id');
+        // Handle route item updates via AJAX instead
+        setFlash('success', 'อัพเดท Route สำเร็จ');
+        redirect('create.php?plan_id=' . $planId);
+    }
+}
+
+$pageTitle = 'จัดการ Routes - ' . $plan['plan_number'];
 require_once __DIR__ . '/../../../includes/header.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0"><i class="bi bi-plus-circle me-2"></i>สร้าง Route</h2>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="index.php">Routes</a></li>
-                <li class="breadcrumb-item active">สร้างใหม่</li>
-            </ol>
-        </nav>
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-truck me-2"></i>จัดการ Routes</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="index.php">Routes</a></li>
+                    <li class="breadcrumb-item"><a href="../../planning/view.php?id=<?= $planId ?>"><?= e($plan['plan_number']) ?></a></li>
+                    <li class="breadcrumb-item active">จัดการ Routes</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="../../planning/view.php?id=<?= $planId ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับ
+        </a>
     </div>
 </div>
 
-<!-- Plan & Job Info -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <i class="bi bi-calendar-check me-2"></i>ข้อมูล Plan
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless mb-0">
-                    <tr>
-                        <th width="35%">Plan Number:</th>
-                        <td><a href="../../planning/view.php?id=<?= $plan['id'] ?>"><?= e($plan['plan_number']) ?></a></td>
-                    </tr>
-                    <tr>
-                        <th>วันที่วางแผน:</th>
-                        <td><?= formatDate($plan['plan_date']) ?></td>
-                    </tr>
-                </table>
-            </div>
+<!-- Job Info Bar -->
+<div class="alert alert-info mb-4">
+    <div class="row align-items-center">
+        <div class="col-md-3">
+            <strong><i class="bi bi-briefcase me-1"></i>Job:</strong>
+            <a href="../../jobs/view.php?id=<?= $plan['job_id'] ?>"><?= e($plan['job_number']) ?></a>
         </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <i class="bi bi-briefcase me-2"></i>ข้อมูล Job
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless mb-0">
-                    <tr>
-                        <th width="35%">Job Number:</th>
-                        <td><a href="../../jobs/view.php?id=<?= $plan['job_id'] ?>"><?= e($plan['job_number']) ?></a></td>
-                    </tr>
-                    <tr>
-                        <th>ลูกค้า:</th>
-                        <td><?= e($plan['customer_name']) ?></td>
-                    </tr>
-                    <tr>
-                        <th>รายละเอียด:</th>
-                        <td><?= e($plan['scope_short']) ?></td>
-                    </tr>
-                </table>
-            </div>
+        <div class="col-md-3">
+            <strong>ลูกค้า:</strong> <?= e($plan['customer_name']) ?>
+        </div>
+        <div class="col-md-4">
+            <strong>รายละเอียด:</strong> <?= e($plan['scope_short']) ?>
+        </div>
+        <div class="col-md-2 text-end">
+            <span class="badge bg-success fs-6"><?= count($existingRoutes) ?> Routes</span>
         </div>
     </div>
 </div>
 
-<form method="POST">
-    <div class="row">
-        <!-- Route Info -->
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-truck me-2"></i>ข้อมูลเส้นทาง
+<div class="row">
+    <!-- Left Column: Create New Route -->
+    <div class="col-lg-6">
+        <form method="POST" id="routeForm">
+            <input type="hidden" name="action" value="create">
+            
+            <!-- Route Details -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-plus-circle me-2"></i>สร้าง Route ใหม่
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">วันที่ส่ง <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" name="route_date" value="<?= date('Y-m-d') ?>" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">วันที่ส่ง <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="route_date" value="<?= date('Y-m-d') ?>" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">ปลายทาง</label>
+                            <input type="text" class="form-control" name="destination" placeholder="สถานที่ส่งของ">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">ปลายทาง</label>
-                        <input type="text" class="form-control" name="destination" placeholder="สถานที่ส่งของ">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">รถ/ยานพาหนะ</label>
-                        <div class="input-group">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">รถ/ยานพาหนะ</label>
                             <select class="form-select" name="vehicle_serial_id" id="vehicleSelect">
-                                <option value="">-- เลือกรถ --</option>
+                                <option value="">-- รถตัวเอง/เลือกรถ --</option>
                                 <?php foreach ($vehicles as $v): ?>
                                 <option value="<?= $v['id'] ?>"><?= e($v['serial_number']) ?> - <?= e($v['item_name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <button type="button" class="btn btn-outline-secondary" onclick="showNewVehicleModal()" title="เพิ่มรถใหม่">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Supplier (ถ้าใช้รถภายนอก)</label>
-                        <div class="input-group">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Supplier (ถ้าใช้รถภายนอก)</label>
                             <select class="form-select" name="supplier_id" id="supplierSelect">
                                 <option value="">-- ไม่ระบุ --</option>
                                 <?php foreach ($suppliers as $s): ?>
                                 <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <button type="button" class="btn btn-outline-secondary" onclick="showNewSupplierModal()" title="เพิ่ม Supplier ใหม่">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">ชื่อคนขับ</label>
-                                <input type="text" class="form-control" name="driver_name">
-                            </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">ชื่อคนขับ</label>
+                            <input type="text" class="form-control" name="driver_name">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">เบอร์โทร</label>
-                                <input type="text" class="form-control" name="driver_phone">
-                            </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">เบอร์โทร</label>
+                            <input type="text" class="form-control" name="driver_phone">
                         </div>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-0">
                         <label class="form-label">หมายเหตุ</label>
                         <textarea class="form-control" name="notes" rows="2"></textarea>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Assign Items -->
-        <div class="col-md-6">
-            <!-- Serials -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-upc-scan me-2"></i>เลือก Serial Numbers
-                </div>
-                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-                    <?php 
-                    $serialAssignments = array_filter($planAssignments, fn($a) => $a['serial_id'] !== null);
-                    if (empty($serialAssignments)): 
-                    ?>
-                    <p class="text-muted">ไม่มี Serial ใน Plan นี้</p>
-                    <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="selectAllSerials" class="form-check-input"></th>
-                                    <th>Serial</th>
-                                    <th>Item</th>
-                                    <th>สภาพ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($serialAssignments as $a): ?>
-                                <tr>
-                                    <td>
-                                        <input type="checkbox" class="form-check-input serial-check" 
-                                               name="serials[]" value="<?= $a['serial_id'] ?>" checked>
-                                    </td>
-                                    <td><strong><?= e($a['serial_number']) ?></strong></td>
-                                    <td><?= e($a['item_code']) ?> - <?= e($a['item_name']) ?></td>
-                                    <td>
-                                        <select class="form-select form-select-sm" name="condition_<?= $a['serial_id'] ?>">
-                                            <option value="Good">ดี</option>
-                                            <option value="Fair">พอใช้</option>
-                                            <option value="Damaged">เสียหาย</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
             
-            <!-- People -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="bi bi-people me-2"></i>เลือกบุคลากร
+            <!-- Items to Assign -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-box-seam me-2"></i>เลือกของที่จะส่ง</span>
+                    <small class="text-muted">เลือกแล้ว: <span id="selectedCount">0</span> รายการ</small>
                 </div>
-                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
-                    <?php 
-                    $peopleAssignments = array_filter($planAssignments, fn($a) => $a['people_id'] !== null);
-                    if (empty($peopleAssignments)): 
-                    ?>
-                    <p class="text-muted">ไม่มีบุคลากรใน Plan นี้</p>
-                    <?php else: ?>
-                    <?php foreach ($peopleAssignments as $a): ?>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" name="people[]" 
-                               value="<?= $a['people_id'] ?>" id="person_<?= $a['people_id'] ?>" checked>
-                        <label class="form-check-label" for="person_<?= $a['people_id'] ?>">
-                            <strong><?= e($a['people_code']) ?></strong> - <?= e($a['people_name']) ?>
-                            <?php if ($a['position']): ?>
-                            <small class="text-muted">(<?= e($a['position']) ?>)</small>
+                <div class="card-body p-0">
+                    <!-- Tabs for item types -->
+                    <ul class="nav nav-tabs nav-fill" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-serials" type="button">
+                                <i class="bi bi-upc-scan me-1"></i>Serial
+                                <span class="badge bg-secondary" id="serial-badge"><?= count(array_filter($serialAssignments, fn($a) => !$a['is_assigned'])) ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-people" type="button">
+                                <i class="bi bi-people me-1"></i>บุคลากร
+                                <span class="badge bg-secondary" id="people-badge"><?= count(array_filter($peopleAssignments, fn($a) => !$a['is_assigned'])) ?></span>
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content">
+                        <!-- Serials Tab -->
+                        <div class="tab-pane fade show active p-3" id="tab-serials" style="max-height: 300px; overflow-y: auto;">
+                            <?php 
+                            $unassignedSerials = array_filter($serialAssignments, fn($a) => !$a['is_assigned']);
+                            if (empty($unassignedSerials)): 
+                            ?>
+                            <div class="text-center text-success py-3">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-0">จัดส่งครบแล้ว!</p>
+                            </div>
+                            <?php else: ?>
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="40"><input type="checkbox" class="form-check-input" id="selectAllSerials"></th>
+                                        <th>Serial</th>
+                                        <th>รายการ</th>
+                                        <th>สภาพ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($unassignedSerials as $a): ?>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input item-check" 
+                                                   name="serials[]" value="<?= $a['serial_id'] ?>" data-type="serial">
+                                        </td>
+                                        <td><strong><?= e($a['serial_number']) ?></strong></td>
+                                        <td>
+                                            <small><?= e($a['item_code']) ?></small> - <?= e($a['item_name']) ?>
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" name="condition_<?= $a['serial_id'] ?>" style="width: 80px;">
+                                                <option value="Good">ดี</option>
+                                                <option value="Fair">พอใช้</option>
+                                                <option value="Damaged">ชำรุด</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                             <?php endif; ?>
-                        </label>
+                        </div>
+                        
+                        <!-- People Tab -->
+                        <div class="tab-pane fade p-3" id="tab-people" style="max-height: 300px; overflow-y: auto;">
+                            <?php 
+                            $unassignedPeople = array_filter($peopleAssignments, fn($a) => !$a['is_assigned']);
+                            if (empty($unassignedPeople)): 
+                            ?>
+                            <div class="text-center text-success py-3">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-0">จัดส่งบุคลากรครบแล้ว!</p>
+                            </div>
+                            <?php else: ?>
+                            <?php foreach ($unassignedPeople as $a): ?>
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input item-check" 
+                                       name="people[]" value="<?= $a['people_id'] ?>" id="person_<?= $a['people_id'] ?>" data-type="people">
+                                <label class="form-check-label" for="person_<?= $a['people_id'] ?>">
+                                    <strong><?= e($a['people_code']) ?></strong> - <?= e($a['people_name']) ?>
+                                    <?php if ($a['position']): ?>
+                                    <small class="text-muted">(<?= e($a['position']) ?>)</small>
+                                    <?php endif; ?>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-success w-100" id="createRouteBtn">
+                        <i class="bi bi-plus-circle me-1"></i>สร้าง Route
+                    </button>
                 </div>
             </div>
-        </div>
+        </form>
     </div>
     
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-success btn-lg">
-            <i class="bi bi-check-circle me-1"></i>สร้าง Route
-        </button>
-        <a href="../../planning/view.php?id=<?= $planId ?>" class="btn btn-outline-secondary btn-lg">ยกเลิก</a>
+    <!-- Right Column: Existing Routes -->
+    <div class="col-lg-6">
+        <div class="sticky-top" style="top: 70px;">
+            <?php if (empty($routesWithItems)): ?>
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-truck text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="text-muted mt-3">ยังไม่มี Route</h5>
+                    <p class="text-muted">เลือกของจากฝั่งซ้ายและสร้าง Route ใหม่</p>
+                </div>
+            </div>
+            <?php else: ?>
+            <?php foreach ($routesWithItems as $route): ?>
+            <div class="card mb-3 route-card" data-route-id="<?= $route['id'] ?>">
+                <div class="card-header bg-<?= match($route['status']) {
+                    'Draft' => 'secondary',
+                    'Confirmed' => 'info',
+                    'Dispatched' => 'warning',
+                    'Delivered' => 'success',
+                    'Cancelled' => 'danger',
+                    default => 'secondary'
+                } ?> text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong><?= e($route['route_number']) ?></strong>
+                        <small class="ms-2"><?= formatDate($route['route_date']) ?></small>
+                    </div>
+                    <div>
+                        <a href="view.php?id=<?= $route['id'] ?>" class="btn btn-sm btn-light">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body py-2">
+                    <?php if ($route['destination']): ?>
+                    <small class="text-muted"><i class="bi bi-geo-alt me-1"></i><?= e($route['destination']) ?></small>
+                    <?php endif; ?>
+                    <?php if ($route['vehicle_serial']): ?>
+                    <small class="text-muted ms-2"><i class="bi bi-truck me-1"></i><?= e($route['vehicle_serial']) ?></small>
+                    <?php endif; ?>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($route['items'] as $item): ?>
+                    <li class="list-group-item py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <?php if ($item['serial_id']): ?>
+                            <span class="badge bg-info me-1"><?= e($item['item_type']) ?></span>
+                            <strong><?= e($item['serial_number']) ?></strong>
+                            <small class="text-muted"><?= e($item['item_name']) ?></small>
+                            <?php else: ?>
+                            <span class="badge bg-warning text-dark me-1">บุคลากร</span>
+                            <strong><?= e($item['people_code']) ?></strong>
+                            <small class="text-muted"><?= e($item['people_name']) ?></small>
+                            <?php endif; ?>
+                        </div>
+                        <?php if ($route['status'] === 'Draft'): ?>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-0" 
+                                onclick="removeFromRoute(<?= $route['id'] ?>, <?= $item['id'] ?>)">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        <?php endif; ?>
+                    </li>
+                    <?php endforeach; ?>
+                    <?php if (empty($route['items'])): ?>
+                    <li class="list-group-item text-muted text-center py-3">ยังไม่มีของ</li>
+                    <?php endif; ?>
+                </ul>
+            </div>
+            <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
     </div>
-</form>
+</div>
 
 <script>
+// Update selected count
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.item-check:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('createRouteBtn').disabled = count === 0;
+}
+
+// Select all serials
 document.getElementById('selectAllSerials')?.addEventListener('change', function() {
-    document.querySelectorAll('.serial-check').forEach(cb => cb.checked = this.checked);
+    document.querySelectorAll('#tab-serials .item-check').forEach(cb => {
+        cb.checked = this.checked;
+    });
+    updateSelectedCount();
 });
 
-// New Supplier Modal
-function showNewSupplierModal() {
-    document.getElementById('newSupCode').value = '';
-    document.getElementById('newSupName').value = '';
-    document.getElementById('newSupContact').value = '';
-    document.getElementById('newSupPhone').value = '';
-    const modal = new bootstrap.Modal(document.getElementById('newSupplierModal'));
-    modal.show();
-}
+// Item check listeners
+document.querySelectorAll('.item-check').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
 
-function saveNewSupplier() {
-    const code = document.getElementById('newSupCode').value.trim();
-    const name = document.getElementById('newSupName').value.trim();
-    const contact = document.getElementById('newSupContact').value.trim();
-    const phone = document.getElementById('newSupPhone').value.trim();
+// Remove item from route
+function removeFromRoute(routeId, itemId) {
+    if (!confirm('ลบรายการนี้ออกจาก Route?')) return;
     
-    if (!code || !name) {
-        alert('กรุณาระบุรหัสและชื่อผู้ขาย');
-        return;
-    }
-    
-    fetch('<?= BASE_URL ?>/modules/master/api/supplier_create.php', {
+    fetch('<?= BASE_URL ?>/modules/logistics/routes/api/remove_item.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({code, name, contact_person: contact, phone})
+        body: JSON.stringify({route_id: routeId, item_id: itemId})
     })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            const select = document.getElementById('supplierSelect');
-            const option = new Option(`${code} - ${name}`, data.id, true, true);
-            select.add(option);
-            bootstrap.Modal.getInstance(document.getElementById('newSupplierModal')).hide();
+            location.reload();
         } else {
             alert(data.error || 'เกิดข้อผิดพลาด');
         }
-    })
-    .catch(err => alert('เกิดข้อผิดพลาด: ' + err));
+    });
 }
 
-// New Vehicle Modal
-function showNewVehicleModal() {
-    document.getElementById('newVehSerial').value = '';
-    document.getElementById('newVehName').value = '';
-    document.getElementById('newVehPlate').value = '';
-    const modal = new bootstrap.Modal(document.getElementById('newVehicleModal'));
-    modal.show();
-}
-
-function saveNewVehicle() {
-    const serial = document.getElementById('newVehSerial').value.trim();
-    const name = document.getElementById('newVehName').value.trim();
-    const plate = document.getElementById('newVehPlate').value.trim();
-    
-    if (!serial || !name) {
-        alert('กรุณาระบุทะเบียนและชื่อรถ');
-        return;
-    }
-    
-    fetch('<?= BASE_URL ?>/modules/master/api/vehicle_create.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({serial_number: serial, name: name, license_plate: plate})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const select = document.getElementById('vehicleSelect');
-            const option = new Option(`${serial} - ${name}`, data.id, true, true);
-            select.add(option);
-            bootstrap.Modal.getInstance(document.getElementById('newVehicleModal')).hide();
-        } else {
-            alert(data.error || 'เกิดข้อผิดพลาด');
-        }
-    })
-    .catch(err => alert('เกิดข้อผิดพลาด: ' + err));
-}
+updateSelectedCount();
 </script>
-
-<!-- New Supplier Modal -->
-<div class="modal fade" id="newSupplierModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-building-add me-2"></i>เพิ่ม Supplier ใหม่</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">รหัส <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="newSupCode" placeholder="เช่น SUP001">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">ชื่อ <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="newSupName" placeholder="ชื่อบริษัท/ร้านค้า">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">ผู้ติดต่อ</label>
-                    <input type="text" class="form-control" id="newSupContact">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">เบอร์โทร</label>
-                    <input type="text" class="form-control" id="newSupPhone">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="button" class="btn btn-primary" onclick="saveNewSupplier()">
-                    <i class="bi bi-check me-1"></i>บันทึก
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- New Vehicle Modal -->
-<div class="modal fade" id="newVehicleModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-truck me-2"></i>เพิ่มรถใหม่</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">ทะเบียน/Serial <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="newVehSerial" placeholder="เช่น กข-1234">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">ชื่อ/รุ่นรถ <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="newVehName" placeholder="เช่น รถบรรทุก 6 ล้อ">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">ป้ายทะเบียน</label>
-                    <input type="text" class="form-control" id="newVehPlate" placeholder="เช่น 1กก 1234 กทม">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="button" class="btn btn-primary" onclick="saveNewVehicle()">
-                    <i class="bi bi-check me-1"></i>บันทึก
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
