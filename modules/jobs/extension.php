@@ -62,21 +62,31 @@ if (isPost()) {
     try {
         $db->beginTransaction();
         
+        // Calculate days changed
+        $originalEndDate = $job['plan_end_date'];
+        $daysChanged = 0;
+        if ($newEndDate && $originalEndDate) {
+            $d1 = new DateTime($originalEndDate);
+            $d2 = new DateTime($newEndDate);
+            $daysChanged = (int) $d1->diff($d2)->format('%r%a');
+        }
+        
         // Create extension request
         $stmt = $db->prepare("
             INSERT INTO job_extensions (
-                job_id, extension_type, reason, requested_changes, 
-                new_end_date, additional_budget, status, 
-                requested_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, NOW())
+                job_id, extension_type, reason, details, 
+                original_end_date, new_end_date, days_changed, 
+                status, requested_by, requested_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?, NOW())
         ");
         $stmt->execute([
             $jobId, 
             $extensionType, 
             $reason, 
             $requestedChanges,
+            $originalEndDate,
             $newEndDate ?: null,
-            $additionalBudget,
+            $daysChanged,
             $_SESSION['user_id']
         ]);
         
@@ -112,7 +122,7 @@ $stmt = $db->prepare("
     LEFT JOIN users u ON e.requested_by = u.id
     LEFT JOIN users ua ON e.approved_by = ua.id
     WHERE e.job_id = ?
-    ORDER BY e.created_at DESC
+    ORDER BY e.requested_at DESC
 ");
 $stmt->execute([$jobId]);
 $extensions = $stmt->fetchAll();
@@ -157,10 +167,13 @@ require_once __DIR__ . '/../../includes/header.php';
                             <label class="form-label">ประเภท Extension <span class="text-danger">*</span></label>
                             <select class="form-select" name="extension_type" required>
                                 <option value="">-- เลือกประเภท --</option>
-                                <option value="date_extension">ขยายระยะเวลา</option>
-                                <option value="scope_change">เปลี่ยนแปลงขอบเขตงาน</option>
-                                <option value="budget_increase">เพิ่มงบประมาณ</option>
-                                <option value="resource_change">เปลี่ยนแปลงทรัพยากร (อุปกรณ์/บุคลากร)</option>
+                                <option value="extend_days">ขยายระยะเวลา</option>
+                                <option value="reduce_days">ลดระยะเวลา</option>
+                                <option value="change_dates">เปลี่ยนวันที่</option>
+                                <option value="add_equipment">เพิ่มอุปกรณ์</option>
+                                <option value="remove_equipment">ลดอุปกรณ์</option>
+                                <option value="add_manpower">เพิ่มบุคลากร</option>
+                                <option value="remove_manpower">ลดบุคลากร</option>
                                 <option value="other">อื่นๆ</option>
                             </select>
                         </div>
@@ -177,18 +190,11 @@ require_once __DIR__ . '/../../includes/header.php';
                                       placeholder="ระบุรายละเอียดสิ่งที่ต้องการเปลี่ยนแปลง"></textarea>
                         </div>
                         
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">วันสิ้นสุดใหม่ (ถ้ามี)</label>
-                                <input type="date" class="form-control" name="new_end_date" 
-                                       value="<?= e($job['plan_end_date']) ?>">
-                                <small class="text-muted">ปัจจุบัน: <?= formatDate($job['plan_end_date']) ?></small>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">งบประมาณเพิ่มเติม (บาท)</label>
-                                <input type="number" class="form-control" name="additional_budget" 
-                                       value="0" min="0" step="0.01">
-                            </div>
+                        <div class="mb-3">
+                            <label class="form-label">วันสิ้นสุดใหม่ (ถ้ามี)</label>
+                            <input type="date" class="form-control" name="new_end_date" 
+                                   value="<?= e($job['plan_end_date']) ?>">
+                            <small class="text-muted">ปัจจุบัน: <?= formatDate($job['plan_end_date']) ?></small>
                         </div>
                         
                         <hr>
@@ -240,7 +246,7 @@ require_once __DIR__ . '/../../includes/header.php';
                                 default => 'secondary'
                             } ?>"><?= e($ext['status']) ?></span>
                         </div>
-                        <small class="text-muted"><?= formatDateTime($ext['created_at']) ?></small>
+                        <small class="text-muted"><?= formatDateTime($ext['requested_at']) ?></small>
                         <p class="small mb-0 mt-1"><?= e(mb_substr($ext['reason'], 0, 100)) ?>...</p>
                     </li>
                     <?php endforeach; ?>
