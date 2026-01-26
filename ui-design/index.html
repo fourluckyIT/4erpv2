@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - UI Design Preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/main.css" rel="stylesheet">
+    <style>
+        .preview-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .preview-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        .preview-header h1 {
+            font-size: 2.5rem;
+            color: var(--gray-900);
+            margin-bottom: 12px;
+        }
+        .preview-header p {
+            color: var(--gray-500);
+            font-size: 1.1rem;
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        .preview-card {
+            background: var(--white);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .preview-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        .preview-card-image {
+            height: 180px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 3rem;
+        }
+        .preview-card-body {
+            padding: 20px;
+        }
+        .preview-card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .preview-card-desc {
+            color: var(--gray-500);
+            font-size: 0.9rem;
+        }
+        .role-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 40px;
+        }
+        .role-card {
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+        .role-card:hover {
+            transform: scale(1.05);
+        }
+        .role-card i {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        .role-card span {
+            display: block;
+            font-weight: 500;
+        }
+        .role-card.adm { background: #EDE9FE; color: var(--role-adm); }
+        .role-card.sal { background: #FCE7F3; color: var(--role-sal); }
+        .role-card.pln { background: #CCFBF1; color: var(--role-pln); }
+        .role-card.pur { background: #FFEDD5; color: var(--role-pur); }
+        .role-card.hr { background: #EDE9FE; color: var(--role-hr); }
+        .role-card.wh { background: #CFFAFE; color: var(--role-wh); }
+        .role-card.acc { background: #D1FAE5; color: var(--role-acc); }
+        .role-card.mgr { background: #FEE2E2; color: var(--role-mgr); }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 60px 0 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--gray-200);
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <div class="preview-header">
+            <h1><i class="bi bi-boxes"></i> ERP v2 UI Design</h1>
+            <p>Modern UI/UX Design System สำหรับระบบ ERP</p>
+        </div>
+
+        <h2 class="section-title"><i class="bi bi-person-badge"></i> Role-Based Dashboards</h2>
+        <p style="color: var(--gray-500); margin-bottom: 24px;">แต่ละ Role มี Dashboard ที่ปรับแต่งได้ตามความต้องการ Admin สามารถควบคุม visibility ได้</p>
+        
+        <div class="role-cards">
+            <a href="pages/dashboard/admin.html" class="role-card adm">
+                <i class="bi bi-shield-lock"></i>
+                <span>Admin (ADM)</span>
+            </a>
+            <a href="pages/dashboard/sale.html" class="role-card sal">
+                <i class="bi bi-graph-up"></i>
+                <span>Sale (SAL)</span>
+            </a>
+            <a href="pages/dashboard/planner.html" class="role-card pln">
+                <i class="bi bi-calendar-check"></i>
+                <span>Planner (PLN)</span>
+            </a>
+            <a href="pages/dashboard/purchase.html" class="role-card pur">
+                <i class="bi bi-cart-check"></i>
+                <span>Purchase (PUR)</span>
+            </a>
+            <a href="pages/dashboard/hr.html" class="role-card hr">
+                <i class="bi bi-people"></i>
+                <span>HR (HR)</span>
+            </a>
+            <a href="pages/dashboard/warehouse.html" class="role-card wh">
+                <i class="bi bi-box-seam"></i>
+                <span>Warehouse (WH)</span>
+            </a>
+            <a href="pages/dashboard/accountant.html" class="role-card acc">
+                <i class="bi bi-calculator"></i>
+                <span>Accountant (ACC)</span>
+            </a>
+            <a href="pages/dashboard/manager.html" class="role-card mgr">
+                <i class="bi bi-briefcase"></i>
+                <span>Manager (MGR)</span>
+            </a>
+        </div>
+
+        <h2 class="section-title"><i class="bi bi-grid-1x2"></i> Module Pages</h2>
+        
+        <div class="preview-grid">
+            <a href="pages/jobs/list.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #4F46E5, #7C3AED);">
+                    <i class="bi bi-briefcase"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Jobs Management</h3>
+                    <p class="preview-card-desc">จัดการงาน Job ทุกประเภท - Lumpsum, Dayrent, Manpower</p>
+                </div>
+            </a>
+            
+            <a href="pages/planning/index.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #14B8A6, #0D9488);">
+                    <i class="bi bi-calendar3"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Planning</h3>
+                    <p class="preview-card-desc">วางแผนทรัพยากร อุปกรณ์ บุคลากร สำหรับแต่ละ Job</p>
+                </div>
+            </a>
+            
+            <a href="pages/procurement/index.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #F97316, #EA580C);">
+                    <i class="bi bi-cart4"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Procurement</h3>
+                    <p class="preview-card-desc">PR / PO / GR - ระบบจัดซื้อจัดจ้าง</p>
+                </div>
+            </a>
+            
+            <a href="pages/warehouse/index.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #06B6D4, #0891B2);">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Warehouse</h3>
+                    <p class="preview-card-desc">คลังสินค้า Stock Movement และ Serial Tracking</p>
+                </div>
+            </a>
+            
+            <a href="pages/logistics/index.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #8B5CF6, #7C3AED);">
+                    <i class="bi bi-truck"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Logistics</h3>
+                    <p class="preview-card-desc">Dispatch / Routes - จัดส่งและเส้นทาง</p>
+                </div>
+            </a>
+            
+            <a href="pages/accounting/index.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #10B981, #059669);">
+                    <i class="bi bi-receipt"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Accounting</h3>
+                    <p class="preview-card-desc">Invoice / Payments / AR - ระบบบัญชี</p>
+                </div>
+            </a>
+            
+            <a href="pages/hrm/index.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #EC4899, #DB2777);">
+                    <i class="bi bi-person-badge"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">HRM</h3>
+                    <p class="preview-card-desc">People / Salary / Overtime - จัดการบุคลากร</p>
+                </div>
+            </a>
+            
+            <a href="pages/admin/visibility.html" class="preview-card">
+                <div class="preview-card-image" style="background: linear-gradient(135deg, #EF4444, #DC2626);">
+                    <i class="bi bi-sliders"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Admin - Visibility Control</h3>
+                    <p class="preview-card-desc">ควบคุมการแสดงผล Dashboard Widgets ตาม Role</p>
+                </div>
+            </a>
+        </div>
+
+        <h2 class="section-title"><i class="bi bi-palette"></i> Design Components</h2>
+        
+        <div class="preview-grid">
+            <a href="components/buttons.html" class="preview-card">
+                <div class="preview-card-image" style="background: var(--gray-700);">
+                    <i class="bi bi-hand-index"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Buttons & Actions</h3>
+                    <p class="preview-card-desc">ปุ่มและ Action components ทั้งหมด</p>
+                </div>
+            </a>
+            
+            <a href="components/forms.html" class="preview-card">
+                <div class="preview-card-image" style="background: var(--gray-700);">
+                    <i class="bi bi-input-cursor-text"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Forms & Inputs</h3>
+                    <p class="preview-card-desc">Form elements และ Input fields</p>
+                </div>
+            </a>
+            
+            <a href="components/tables.html" class="preview-card">
+                <div class="preview-card-image" style="background: var(--gray-700);">
+                    <i class="bi bi-table"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Tables & Data</h3>
+                    <p class="preview-card-desc">ตารางข้อมูลและ Data display</p>
+                </div>
+            </a>
+            
+            <a href="components/cards.html" class="preview-card">
+                <div class="preview-card-image" style="background: var(--gray-700);">
+                    <i class="bi bi-card-heading"></i>
+                </div>
+                <div class="preview-card-body">
+                    <h3 class="preview-card-title">Cards & Widgets</h3>
+                    <p class="preview-card-desc">Card layouts และ Widget components</p>
+                </div>
+            </a>
+        </div>
+
+        <div style="text-align: center; margin-top: 60px; padding: 40px; background: var(--gray-100); border-radius: var(--border-radius-lg);">
+            <p style="color: var(--gray-500);">
+                <i class="bi bi-info-circle"></i> 
+                UI Design Preview - ไม่เกี่ยวข้องกับโค้ดระบบจริง
+            </p>
+            <p style="color: var(--gray-400); font-size: 0.85rem; margin-top: 8px;">
+                สร้างเพื่อออกแบบและทดสอบ UX/UI ก่อนนำไปใช้จริง
+            </p>
+        </div>
+    </div>
+</body>
+</html>

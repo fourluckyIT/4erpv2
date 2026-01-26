@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Procurement</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/purchase.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Procurement</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-file-text nav-icon"></i>
+                        <span class="nav-text">PR - ใบขอซื้อ</span>
+                        <span class="nav-badge">8</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cart-check nav-icon"></i>
+                        <span class="nav-text">PO - ใบสั่งซื้อ</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-arrow-in-down nav-icon"></i>
+                        <span class="nav-text">GR - รับเข้า</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Procurement</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #FFEDD5; color: #F97316;">PU</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">วิไล จัดซื้อ</div>
+                            <div class="header-user-role"><span class="role-badge role-pur">PUR</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title"><i class="bi bi-file-text" style="color: var(--role-pur);"></i> Purchase Requests (PR)</h1>
+                        <p class="page-subtitle">จัดการใบขอซื้อ</p>
+                    </div>
+                    <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> สร้าง PR</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div style="display: flex; gap: 12px;">
+                            <select class="form-control form-select" style="width: 140px;">
+                                <option>All Status</option>
+                                <option>Draft</option>
+                                <option>Submitted</option>
+                                <option>Approved</option>
+                            </select>
+                            <select class="form-control form-select" style="width: 140px;">
+                                <option>All Types</option>
+                                <option>Item</option>
+                                <option>Manpower</option>
+                            </select>
+                            <input type="text" class="form-control" placeholder="ค้นหา..." style="width: 200px;">
+                        </div>
+                        <span>แสดง 8 รายการ</span>
+                    </div>
+                    <div class="card-body" style="padding: 0;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>PR No.</th>
+                                    <th>Job</th>
+                                    <th>Type</th>
+                                    <th>Requester</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>PR-2026-0158</code></td>
+                                    <td>JOB-2026-0043</td>
+                                    <td><span class="badge" style="background: #DDD6FE; color: #7C3AED;">Item</span></td>
+                                    <td>ประภา แพลน</td>
+                                    <td>฿ 85,000</td>
+                                    <td><span class="badge badge-approved">Approved</span></td>
+                                    <td>26 ม.ค.</td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-primary"><i class="bi bi-cart-plus"></i></button>
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>PR-2026-0157</code></td>
+                                    <td>JOB-2026-0042</td>
+                                    <td><span class="badge" style="background: #D1FAE5; color: #059669;">Manpower</span></td>
+                                    <td>ประภา แพลน</td>
+                                    <td>฿ 120,000</td>
+                                    <td><span class="badge badge-approved">Approved</span></td>
+                                    <td>25 ม.ค.</td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-primary"><i class="bi bi-cart-plus"></i></button>
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>PR-2026-0156</code></td>
+                                    <td>JOB-2026-0044</td>
+                                    <td><span class="badge" style="background: #DDD6FE; color: #7C3AED;">Item</span></td>
+                                    <td>สมชาย ใจดี</td>
+                                    <td>฿ 45,000</td>
+                                    <td><span class="badge badge-submitted">Submitted</span></td>
+                                    <td>25 ม.ค.</td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

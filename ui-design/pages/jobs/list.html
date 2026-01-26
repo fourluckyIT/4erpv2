@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Jobs Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+    <style>
+        .filters-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-label {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+        .status-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        .status-tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            border: 1px solid var(--gray-300);
+            background: var(--white);
+            color: var(--gray-600);
+            transition: all 0.2s;
+        }
+        .status-tab:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .status-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--white);
+        }
+        .status-tab .count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-left: 6px;
+        }
+        .status-tab.active .count {
+            background: rgba(255,255,255,0.3);
+        }
+        .status-tab:not(.active) .count {
+            background: var(--gray-200);
+        }
+        
+        .job-row {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-100);
+            transition: background 0.2s;
+        }
+        .job-row:hover {
+            background: var(--gray-50);
+        }
+        .job-checkbox {
+            margin-right: 16px;
+        }
+        .job-info {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 140px 1fr 120px 100px 120px 100px;
+            gap: 16px;
+            align-items: center;
+        }
+        .job-number {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .job-customer {
+            font-weight: 500;
+        }
+        .job-customer-site {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+        }
+        .job-type {
+            font-size: 0.8rem;
+        }
+        .job-dates {
+            font-size: 0.8rem;
+            color: var(--gray-600);
+        }
+        .job-value {
+            font-weight: 600;
+            text-align: right;
+        }
+        .job-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 16px;
+        }
+        
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+        }
+        .pagination-info {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+        }
+        .pagination-buttons {
+            display: flex;
+            gap: 4px;
+        }
+        .page-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--gray-300);
+            background: var(--white);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .page-btn:hover {
+            background: var(--gray-100);
+        }
+        .page-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--white);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/admin.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Operations</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-briefcase nav-icon"></i>
+                        <span class="nav-text">Jobs</span>
+                        <span class="nav-badge">24</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-calendar3 nav-icon"></i>
+                        <span class="nav-text">Planning</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-truck nav-icon"></i>
+                        <span class="nav-text">Logistics</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Procurement</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-file-text nav-icon"></i>
+                        <span class="nav-text">PR</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cart-check nav-icon"></i>
+                        <span class="nav-text">PO</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Jobs</span>
+                    </nav>
+                </div>
+                
+                <div class="header-right">
+                    <div class="header-search">
+                        <i class="bi bi-search"></i>
+                        <input type="text" placeholder="ค้นหา Job...">
+                    </div>
+                    
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #EDE9FE; color: #7C3AED;">AD</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">Admin User</div>
+                            <div class="header-user-role">
+                                <span class="role-badge role-adm">ADM</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-briefcase" style="color: var(--primary);"></i> 
+                            Jobs Management
+                        </h1>
+                        <p class="page-subtitle">จัดการงาน Job ทุกประเภท</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline">
+                            <i class="bi bi-download"></i> Export
+                        </button>
+                        <button class="btn btn-primary">
+                            <i class="bi bi-plus-lg"></i> สร้าง Job ใหม่
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status Tabs -->
+                <div class="status-tabs">
+                    <div class="status-tab active">
+                        All <span class="count">156</span>
+                    </div>
+                    <div class="status-tab">
+                        Draft <span class="count">8</span>
+                    </div>
+                    <div class="status-tab">
+                        Submitted <span class="count">5</span>
+                    </div>
+                    <div class="status-tab">
+                        Approved <span class="count">12</span>
+                    </div>
+                    <div class="status-tab">
+                        Planned <span class="count">15</span>
+                    </div>
+                    <div class="status-tab">
+                        Dispatched <span class="count">8</span>
+                    </div>
+                    <div class="status-tab">
+                        In Progress <span class="count">22</span>
+                    </div>
+                    <div class="status-tab">
+                        Returned <span class="count">6</span>
+                    </div>
+                    <div class="status-tab">
+                        WH Received <span class="count">4</span>
+                    </div>
+                    <div class="status-tab">
+                        Invoiced <span class="count">35</span>
+                    </div>
+                    <div class="status-tab">
+                        Paid <span class="count">38</span>
+                    </div>
+                    <div class="status-tab">
+                        Closed <span class="count">3</span>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters-bar">
+                    <div class="filter-group">
+                        <span class="filter-label">Job Type:</span>
+                        <select class="form-control form-select" style="width: 140px;">
+                            <option>ทั้งหมด</option>
+                            <option>Lumpsum</option>
+                            <option>Dayrent</option>
+                            <option>Manpower</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Customer:</span>
+                        <select class="form-control form-select" style="width: 180px;">
+                            <option>ทั้งหมด</option>
+                            <option>บริษัท ABC จำกัด</option>
+                            <option>บริษัท XYZ จำกัด</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Date Range:</span>
+                        <input type="date" class="form-control" style="width: 140px;">
+                        <span>-</span>
+                        <input type="date" class="form-control" style="width: 140px;">
+                    </div>
+                    <button class="btn btn-outline btn-sm">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <button class="btn btn-outline btn-sm">
+                        <i class="bi bi-x"></i> Clear
+                    </button>
+                </div>
+
+                <!-- Jobs List -->
+                <div class="card">
+                    <div class="card-header" style="background: var(--gray-50);">
+                        <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+                            <input type="checkbox" style="margin-right: 8px;">
+                            <div class="job-info" style="font-size: 0.8rem; font-weight: 600; color: var(--gray-600); text-transform: uppercase;">
+                                <div>Job No.</div>
+                                <div>Customer / Site</div>
+                                <div>Type</div>
+                                <div>Status</div>
+                                <div>Dates</div>
+                                <div style="text-align: right;">Value</div>
+                            </div>
+                        </div>
+                        <div style="width: 120px; text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--gray-600);">Actions</div>
+                    </div>
+                    
+                    <div class="card-body" style="padding: 0;">
+                        <!-- Job Row 1 -->
+                        <div class="job-row">
+                            <input type="checkbox" class="job-checkbox">
+                            <div class="job-info">
+                                <div class="job-number">JOB-2026-0043</div>
+                                <div>
+                                    <div class="job-customer">บริษัท ABC จำกัด</div>
+                                    <div class="job-customer-site"><i class="bi bi-geo-alt"></i> Site กรุงเทพ</div>
+                                </div>
+                                <div class="job-type">
+                                    <span class="badge" style="background: #DDD6FE; color: #7C3AED;">Lumpsum</span>
+                                </div>
+                                <div><span class="badge badge-submitted">Submitted</span></div>
+                                <div class="job-dates">
+                                    <div>28 - 30 ม.ค.</div>
+                                    <div style="color: var(--gray-400);">3 วัน</div>
+                                </div>
+                                <div class="job-value">฿ 150,000</div>
+                            </div>
+                            <div class="job-actions">
+                                <button class="btn btn-sm btn-icon btn-outline" title="View"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-sm btn-icon btn-outline" title="Edit"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-icon btn-success" title="Approve"><i class="bi bi-check"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Job Row 2 -->
+                        <div class="job-row">
+                            <input type="checkbox" class="job-checkbox">
+                            <div class="job-info">
+                                <div class="job-number">JOB-2026-0042</div>
+                                <div>
+                                    <div class="job-customer">บริษัท XYZ จำกัด</div>
+                                    <div class="job-customer-site"><i class="bi bi-geo-alt"></i> Site ชลบุรี</div>
+                                </div>
+                                <div class="job-type">
+                                    <span class="badge" style="background: #CFFAFE; color: #0891B2;">Dayrent</span>
+                                </div>
+                                <div><span class="badge badge-approved">Approved</span></div>
+                                <div class="job-dates">
+                                    <div>27 ม.ค. - 5 ก.พ.</div>
+                                    <div style="color: var(--gray-400);">10 วัน</div>
+                                </div>
+                                <div class="job-value">฿ 85,000</div>
+                            </div>
+                            <div class="job-actions">
+                                <button class="btn btn-sm btn-icon btn-outline" title="View"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-sm btn-icon btn-primary" title="Plan"><i class="bi bi-calendar-plus"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Job Row 3 -->
+                        <div class="job-row">
+                            <input type="checkbox" class="job-checkbox">
+                            <div class="job-info">
+                                <div class="job-number">JOB-2026-0041</div>
+                                <div>
+                                    <div class="job-customer">ห้างหุ้นส่วน DEF</div>
+                                    <div class="job-customer-site"><i class="bi bi-geo-alt"></i> Site ระยอง</div>
+                                </div>
+                                <div class="job-type">
+                                    <span class="badge" style="background: #D1FAE5; color: #059669;">Manpower</span>
+                                </div>
+                                <div><span class="badge badge-planned">Planned</span></div>
+                                <div class="job-dates">
+                                    <div>26 - 28 ม.ค.</div>
+                                    <div style="color: var(--gray-400);">3 วัน</div>
+                                </div>
+                                <div class="job-value">฿ 45,000</div>
+                            </div>
+                            <div class="job-actions">
+                                <button class="btn btn-sm btn-icon btn-outline" title="View"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-sm btn-icon btn-warning" title="Dispatch"><i class="bi bi-truck"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Job Row 4 -->
+                        <div class="job-row">
+                            <input type="checkbox" class="job-checkbox">
+                            <div class="job-info">
+                                <div class="job-number">JOB-2026-0040</div>
+                                <div>
+                                    <div class="job-customer">บริษัท GHI จำกัด</div>
+                                    <div class="job-customer-site"><i class="bi bi-geo-alt"></i> Site สมุทรปราการ</div>
+                                </div>
+                                <div class="job-type">
+                                    <span class="badge" style="background: #DDD6FE; color: #7C3AED;">Lumpsum</span>
+                                </div>
+                                <div><span class="badge badge-in-progress">In Progress</span></div>
+                                <div class="job-dates">
+                                    <div>20 - 26 ม.ค.</div>
+                                    <div style="color: var(--success);">วันสุดท้าย</div>
+                                </div>
+                                <div class="job-value">฿ 220,000</div>
+                            </div>
+                            <div class="job-actions">
+                                <button class="btn btn-sm btn-icon btn-outline" title="View"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-sm btn-icon btn-outline" title="Track"><i class="bi bi-geo-alt"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Job Row 5 -->
+                        <div class="job-row">
+                            <input type="checkbox" class="job-checkbox">
+                            <div class="job-info">
+                                <div class="job-number">JOB-2026-0039</div>
+                                <div>
+                                    <div class="job-customer">บริษัท JKL จำกัด</div>
+                                    <div class="job-customer-site"><i class="bi bi-geo-alt"></i> Site อยุธยา</div>
+                                </div>
+                                <div class="job-type">
+                                    <span class="badge" style="background: #CFFAFE; color: #0891B2;">Dayrent</span>
+                                </div>
+                                <div><span class="badge badge-invoiced">Invoiced</span></div>
+                                <div class="job-dates">
+                                    <div>15 - 20 ม.ค.</div>
+                                    <div style="color: var(--gray-400);">เสร็จสิ้น</div>
+                                </div>
+                                <div class="job-value">฿ 180,000</div>
+                            </div>
+                            <div class="job-actions">
+                                <button class="btn btn-sm btn-icon btn-outline" title="View"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-sm btn-icon btn-outline" title="Invoice"><i class="bi bi-receipt"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Job Row 6 -->
+                        <div class="job-row">
+                            <input type="checkbox" class="job-checkbox">
+                            <div class="job-info">
+                                <div class="job-number">JOB-2026-0038</div>
+                                <div>
+                                    <div class="job-customer">บริษัท MNO จำกัด</div>
+                                    <div class="job-customer-site"><i class="bi bi-geo-alt"></i> Site นครปฐม</div>
+                                </div>
+                                <div class="job-type">
+                                    <span class="badge" style="background: #D1FAE5; color: #059669;">Manpower</span>
+                                </div>
+                                <div><span class="badge badge-paid">Paid</span></div>
+                                <div class="job-dates">
+                                    <div>10 - 14 ม.ค.</div>
+                                    <div style="color: var(--gray-400);">เสร็จสิ้น</div>
+                                </div>
+                                <div class="job-value">฿ 95,000</div>
+                            </div>
+                            <div class="job-actions">
+                                <button class="btn btn-sm btn-icon btn-outline" title="View"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-sm btn-icon btn-outline" title="Close"><i class="bi bi-check-circle"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="card-footer">
+                        <div class="pagination">
+                            <div class="pagination-info">
+                                แสดง 1-6 จาก 156 รายการ
+                            </div>
+                            <div class="pagination-buttons">
+                                <button class="page-btn"><i class="bi bi-chevron-left"></i></button>
+                                <button class="page-btn active">1</button>
+                                <button class="page-btn">2</button>
+                                <button class="page-btn">3</button>
+                                <button class="page-btn">...</button>
+                                <button class="page-btn">26</button>
+                                <button class="page-btn"><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Status tab toggle
+        document.querySelectorAll('.status-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

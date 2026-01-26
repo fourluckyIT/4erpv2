@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Dashboard Visibility Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+    <style>
+        .visibility-grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 24px;
+        }
+        .role-selector {
+            background: var(--white);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            position: sticky;
+            top: 88px;
+            height: fit-content;
+        }
+        .role-selector-title {
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--gray-700);
+        }
+        .role-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+        .role-option:hover {
+            background: var(--gray-100);
+        }
+        .role-option.active {
+            background: var(--primary-light);
+            border: 2px solid var(--primary);
+        }
+        .role-option-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        .role-option-info {
+            flex: 1;
+        }
+        .role-option-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .role-option-desc {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+        
+        .widget-config {
+            background: var(--white);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow);
+        }
+        .widget-config-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .widget-config-body {
+            padding: 20px;
+        }
+        
+        .widget-category {
+            margin-bottom: 32px;
+        }
+        .widget-category-title {
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .widget-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .widget-item {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+        .widget-item:hover {
+            border-color: var(--primary);
+            background: var(--gray-50);
+        }
+        .widget-item.disabled {
+            opacity: 0.5;
+            background: var(--gray-100);
+        }
+        .widget-item-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+        .widget-item-content {
+            flex: 1;
+        }
+        .widget-item-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        .widget-item-desc {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+        }
+        .widget-item-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        
+        .size-selector {
+            display: flex;
+            gap: 4px;
+        }
+        .size-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--gray-300);
+            background: var(--white);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .size-btn.active {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+        
+        .preview-section {
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--gray-200);
+        }
+        .preview-title {
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .preview-dashboard {
+            background: var(--gray-100);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            min-height: 300px;
+        }
+        .preview-widget {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .preview-widget.col-4 { width: 32%; display: inline-flex; }
+        .preview-widget.col-6 { width: 48%; display: inline-flex; }
+        .preview-widget.col-12 { width: 100%; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/admin.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Admin</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-person-gear nav-icon"></i>
+                        <span class="nav-text">Users</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-shield-lock nav-icon"></i>
+                        <span class="nav-text">Roles & Permissions</span>
+                    </a>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-sliders nav-icon"></i>
+                        <span class="nav-text">Dashboard Config</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-journal-text nav-icon"></i>
+                        <span class="nav-text">Audit Logs</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <a href="../dashboard/admin.html">Admin</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Dashboard Visibility</span>
+                    </nav>
+                </div>
+                
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #EDE9FE; color: #7C3AED;">AD</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">Admin User</div>
+                            <div class="header-user-role">
+                                <span class="role-badge role-adm">ADM</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-sliders" style="color: var(--primary);"></i> 
+                            Dashboard Visibility Control
+                        </h1>
+                        <p class="page-subtitle">ควบคุมการแสดงผล Widgets บน Dashboard ของแต่ละ Role</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset to Default
+                        </button>
+                        <button class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+
+                <div class="visibility-grid">
+                    <!-- Role Selector -->
+                    <div class="role-selector">
+                        <div class="role-selector-title">
+                            <i class="bi bi-people"></i> Select Role
+                        </div>
+                        
+                        <div class="role-option active" onclick="selectRole(this, 'adm')">
+                            <div class="role-option-icon" style="background: #EDE9FE; color: var(--role-adm);">
+                                <i class="bi bi-shield-lock"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Admin (ADM)</div>
+                                <div class="role-option-desc">Full system access</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'sal')">
+                            <div class="role-option-icon" style="background: #FCE7F3; color: var(--role-sal);">
+                                <i class="bi bi-graph-up"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Sale (SAL)</div>
+                                <div class="role-option-desc">Sales & Jobs</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'pln')">
+                            <div class="role-option-icon" style="background: #CCFBF1; color: var(--role-pln);">
+                                <i class="bi bi-calendar-check"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Planner (PLN)</div>
+                                <div class="role-option-desc">Planning & Resources</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'pur')">
+                            <div class="role-option-icon" style="background: #FFEDD5; color: var(--role-pur);">
+                                <i class="bi bi-cart-check"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Purchase (PUR)</div>
+                                <div class="role-option-desc">Procurement</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'hr')">
+                            <div class="role-option-icon" style="background: #EDE9FE; color: var(--role-hr);">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">HR (HR)</div>
+                                <div class="role-option-desc">Human Resources</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'wh')">
+                            <div class="role-option-icon" style="background: #CFFAFE; color: var(--role-wh);">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Warehouse (WH)</div>
+                                <div class="role-option-desc">Stock & Serials</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'acc')">
+                            <div class="role-option-icon" style="background: #D1FAE5; color: var(--role-acc);">
+                                <i class="bi bi-calculator"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Accountant (ACC)</div>
+                                <div class="role-option-desc">Finance & Invoices</div>
+                            </div>
+                        </div>
+                        
+                        <div class="role-option" onclick="selectRole(this, 'mgr')">
+                            <div class="role-option-icon" style="background: #FEE2E2; color: var(--role-mgr);">
+                                <i class="bi bi-briefcase"></i>
+                            </div>
+                            <div class="role-option-info">
+                                <div class="role-option-name">Manager (MGR)</div>
+                                <div class="role-option-desc">Approvals & Reports</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Widget Configuration -->
+                    <div class="widget-config">
+                        <div class="widget-config-header">
+                            <h2 style="font-size: 1.1rem; font-weight: 600;">
+                                <i class="bi bi-grid-3x3-gap"></i> 
+                                Configure Widgets for <span id="selected-role" class="role-badge role-adm">ADM</span>
+                            </h2>
+                            <div style="display: flex; gap: 12px;">
+                                <button class="btn btn-sm btn-outline">
+                                    <i class="bi bi-check-all"></i> Enable All
+                                </button>
+                                <button class="btn btn-sm btn-outline">
+                                    <i class="bi bi-x-lg"></i> Disable All
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="widget-config-body">
+                            <!-- Stats Widgets -->
+                            <div class="widget-category">
+                                <div class="widget-category-title">
+                                    <i class="bi bi-bar-chart"></i> Statistics Widgets
+                                </div>
+                                <div class="widget-list">
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: var(--primary-light); color: var(--primary);">
+                                            <i class="bi bi-briefcase"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Total Jobs</div>
+                                            <div class="widget-item-desc">แสดงจำนวน Jobs ทั้งหมด</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn active" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: var(--success-light); color: var(--success);">
+                                            <i class="bi bi-currency-dollar"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Revenue</div>
+                                            <div class="widget-item-desc">ยอดรายได้เดือนนี้</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn active" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: var(--warning-light); color: var(--warning);">
+                                            <i class="bi bi-hourglass-split"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Pending Approvals</div>
+                                            <div class="widget-item-desc">รายการรออนุมัติ</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn active" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: var(--info-light); color: var(--info);">
+                                            <i class="bi bi-people"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Active Users</div>
+                                            <div class="widget-item-desc">จำนวนผู้ใช้งานปัจจุบัน</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn active" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Table Widgets -->
+                            <div class="widget-category">
+                                <div class="widget-category-title">
+                                    <i class="bi bi-table"></i> Table Widgets
+                                </div>
+                                <div class="widget-list">
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: #DDD6FE; color: #7C3AED;">
+                                            <i class="bi bi-list-check"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Recent Jobs</div>
+                                            <div class="widget-item-desc">รายการ Jobs ล่าสุด</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn active" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: #FED7AA; color: #EA580C;">
+                                            <i class="bi bi-clock-history"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Pending Approvals Table</div>
+                                            <div class="widget-item-desc">ตารางรายการรออนุมัติ</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn active" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item disabled">
+                                        <div class="widget-item-icon" style="background: var(--gray-200); color: var(--gray-500);">
+                                            <i class="bi bi-receipt"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Unpaid Invoices</div>
+                                            <div class="widget-item-desc">ใบแจ้งหนี้ค้างชำระ</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox">
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn" title="Small">S</button>
+                                                <button class="size-btn active" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chart Widgets -->
+                            <div class="widget-category">
+                                <div class="widget-category-title">
+                                    <i class="bi bi-pie-chart"></i> Chart Widgets
+                                </div>
+                                <div class="widget-list">
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: #CFFAFE; color: #0891B2;">
+                                            <i class="bi bi-graph-up"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Jobs Trend</div>
+                                            <div class="widget-item-desc">กราฟแนวโน้ม Jobs</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn" title="Small">S</button>
+                                                <button class="size-btn active" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: #D1FAE5; color: #059669;">
+                                            <i class="bi bi-pie-chart"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Jobs by Status</div>
+                                            <div class="widget-item-desc">สัดส่วน Jobs ตาม Status</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn" title="Small">S</button>
+                                                <button class="size-btn active" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Widgets -->
+                            <div class="widget-category">
+                                <div class="widget-category-title">
+                                    <i class="bi bi-lightning"></i> Quick Actions
+                                </div>
+                                <div class="widget-list">
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: var(--primary-light); color: var(--primary);">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Quick Actions Panel</div>
+                                            <div class="widget-item-desc">ปุ่มลัดสำหรับสร้างรายการ</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn active" title="Small">S</button>
+                                                <button class="size-btn" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-item">
+                                        <div class="widget-item-icon" style="background: #FEF3C7; color: #CA8A04;">
+                                            <i class="bi bi-journal-text"></i>
+                                        </div>
+                                        <div class="widget-item-content">
+                                            <div class="widget-item-title">Activity Timeline</div>
+                                            <div class="widget-item-desc">ประวัติกิจกรรมล่าสุด</div>
+                                        </div>
+                                        <div class="widget-item-controls">
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="switch-slider"></span>
+                                            </label>
+                                            <div class="size-selector">
+                                                <button class="size-btn" title="Small">S</button>
+                                                <button class="size-btn active" title="Medium">M</button>
+                                                <button class="size-btn" title="Large">L</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preview Section -->
+                            <div class="preview-section">
+                                <div class="preview-title">
+                                    <i class="bi bi-eye"></i> Dashboard Preview
+                                </div>
+                                <div class="preview-dashboard">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                                        <div class="preview-widget col-4">
+                                            <i class="bi bi-briefcase" style="color: var(--primary);"></i>
+                                            <span>Total Jobs</span>
+                                        </div>
+                                        <div class="preview-widget col-4">
+                                            <i class="bi bi-currency-dollar" style="color: var(--success);"></i>
+                                            <span>Revenue</span>
+                                        </div>
+                                        <div class="preview-widget col-4">
+                                            <i class="bi bi-hourglass-split" style="color: var(--warning);"></i>
+                                            <span>Pending</span>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 12px; margin-top: 12px;">
+                                        <div class="preview-widget col-6">
+                                            <i class="bi bi-graph-up" style="color: #0891B2;"></i>
+                                            <span>Jobs Trend Chart</span>
+                                        </div>
+                                        <div class="preview-widget col-6">
+                                            <i class="bi bi-pie-chart" style="color: #059669;"></i>
+                                            <span>Jobs by Status</span>
+                                        </div>
+                                    </div>
+                                    <div class="preview-widget col-12" style="margin-top: 12px;">
+                                        <i class="bi bi-table" style="color: #7C3AED;"></i>
+                                        <span>Recent Jobs Table</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function selectRole(element, role) {
+            // Remove active class from all
+            document.querySelectorAll('.role-option').forEach(el => el.classList.remove('active'));
+            // Add active class to selected
+            element.classList.add('active');
+            // Update badge
+            const badge = document.getElementById('selected-role');
+            badge.className = 'role-badge role-' + role;
+            badge.textContent = role.toUpperCase();
+        }
+        
+        // Size button toggle
+        document.querySelectorAll('.size-selector').forEach(selector => {
+            selector.querySelectorAll('.size-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    selector.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        });
+        
+        // Toggle widget enabled/disabled
+        document.querySelectorAll('.widget-item input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                this.closest('.widget-item').classList.toggle('disabled', !this.checked);
+            });
+        });
+    </script>
+</body>
+</html>

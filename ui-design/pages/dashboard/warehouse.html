@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Warehouse Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Warehouse</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-seam nav-icon"></i>
+                        <span class="nav-text">Stock</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-upc-scan nav-icon"></i>
+                        <span class="nav-text">Serials</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-arrow-in-down nav-icon"></i>
+                        <span class="nav-text">GR - รับเข้า</span>
+                        <span class="nav-badge">4</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-arrow-up nav-icon"></i>
+                        <span class="nav-text">Returns</span>
+                        <span class="nav-badge">2</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-clipboard-check nav-icon"></i>
+                        <span class="nav-text">POS Check</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Warehouse Dashboard</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #CFFAFE; color: #06B6D4;">WH</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">วิชัย คลังสินค้า</div>
+                            <div class="header-user-role"><span class="role-badge role-wh">WH</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-box-seam" style="color: var(--role-wh);"></i> 
+                            Warehouse Dashboard
+                        </h1>
+                        <p class="page-subtitle">จัดการคลังสินค้าและ Serial Tracking</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline"><i class="bi bi-qr-code-scan"></i> Scan</button>
+                        <button class="btn btn-primary"><i class="bi bi-box-arrow-in-down"></i> รับเข้า GR</button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #CFFAFE; color: #06B6D4;">
+                            <i class="bi bi-box-seam" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">1,245</div>
+                            <div class="stat-label">Total Items</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-check-circle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">892</div>
+                            <div class="stat-label">Available</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-truck" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">245</div>
+                            <div class="stat-label">On Job</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="bi bi-exclamation-triangle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">8</div>
+                            <div class="stat-label">Low Stock Alert</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="widgets-grid">
+                    <!-- Pending GR -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-box-arrow-in-down"></i> Pending GR</h3>
+                            <span class="badge badge-warning">4 รายการ</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>PO No.</th>
+                                        <th>Supplier</th>
+                                        <th>Items</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>PO-2026-0089</code></td>
+                                        <td>บริษัทจัดหา ABC</td>
+                                        <td>5 items</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-box-arrow-in-down"></i> Receive</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PO-2026-0088</code></td>
+                                        <td>บริษัทจัดหา XYZ</td>
+                                        <td>3 items</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-box-arrow-in-down"></i> Receive</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Pending Returns -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-box-arrow-up"></i> Pending Returns</h3>
+                            <span class="badge badge-info">2 Routes</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Route</th>
+                                        <th>Job</th>
+                                        <th>Items</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>RT-0125</code></td>
+                                        <td>JOB-2026-0039</td>
+                                        <td>8 serials</td>
+                                        <td><button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Receive</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>RT-0124</code></td>
+                                        <td>JOB-2026-0037</td>
+                                        <td>5 serials</td>
+                                        <td><button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Receive</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Low Stock Alerts -->
+                    <div class="widget col-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-exclamation-triangle"></i> Low Stock Alerts</h3>
+                        </div>
+                        <div class="card-body">
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                                <div style="padding: 16px; background: var(--danger-light); border-radius: var(--border-radius); border-left: 4px solid var(--danger);">
+                                    <div style="font-weight: 600;">Generator 200KVA</div>
+                                    <div style="font-size: 0.85rem; color: var(--gray-600);">Stock: 0 / Min: 2</div>
+                                </div>
+                                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                                    <div style="font-weight: 600;">Cable 3x50</div>
+                                    <div style="font-size: 0.85rem; color: var(--gray-600);">Stock: 50m / Min: 100m</div>
+                                </div>
+                                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                                    <div style="font-weight: 600;">Distribution Box</div>
+                                    <div style="font-size: 0.85rem; color: var(--gray-600);">Stock: 3 / Min: 5</div>
+                                </div>
+                                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                                    <div style="font-weight: 600;">Safety Cone</div>
+                                    <div style="font-size: 0.85rem; color: var(--gray-600);">Stock: 15 / Min: 20</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

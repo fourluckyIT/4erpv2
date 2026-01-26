@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Form Components</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../assets/css/main.css" rel="stylesheet">
+    <style>
+        .component-section { margin-bottom: 40px; }
+        .component-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200); }
+        .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .code-block { background: var(--gray-800); color: #f8f8f2; padding: 16px; border-radius: var(--border-radius); font-family: var(--font-mono); font-size: 0.85rem; margin-top: 12px; overflow-x: auto; }
+    </style>
+</head>
+<body style="background: var(--gray-100); padding: 40px;">
+    <div style="max-width: 1000px; margin: 0 auto;">
+        <div style="margin-bottom: 40px;">
+            <a href="../index.html" style="color: var(--primary); text-decoration: none;"><i class="bi bi-arrow-left"></i> Back to UI Design</a>
+            <h1 style="margin-top: 16px;"><i class="bi bi-input-cursor-text"></i> Form Components</h1>
+            <p style="color: var(--gray-500);">Form elements และ Input fields</p>
+        </div>
+
+        <!-- Text Inputs -->
+        <div class="component-section card">
+            <div class="card-body">
+                <h2 class="component-title">Text Inputs</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Text Input</label>
+                        <input type="text" class="form-control" placeholder="Enter text...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email Input</label>
+                        <input type="email" class="form-control" placeholder="email@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Number</label>
+                        <input type="number" class="form-control" placeholder="0">
+                    </div>
+                </div>
+                <div class="code-block">
+&lt;div class="form-group"&gt;
+    &lt;label class="form-label"&gt;Label&lt;/label&gt;
+    &lt;input type="text" class="form-control" placeholder="..."&gt;
+&lt;/div&gt;
+                </div>
+            </div>
+        </div>
+
+        <!-- Select & Date -->
+        <div class="component-section card">
+            <div class="card-body">
+                <h2 class="component-title">Select & Date</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Select Dropdown</label>
+                        <select class="form-control form-select">
+                            <option>-- เลือก --</option>
+                            <option>Option 1</option>
+                            <option>Option 2</option>
+                            <option>Option 3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date Picker</label>
+                        <input type="date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Job Type</label>
+                        <select class="form-control form-select">
+                            <option>Lumpsum</option>
+                            <option>Dayrent</option>
+                            <option>Manpower</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control form-select">
+                            <option>Draft</option>
+                            <option>Submitted</option>
+                            <option>Approved</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Textarea -->
+        <div class="component-section card">
+            <div class="card-body">
+                <h2 class="component-title">Textarea</h2>
+                <div class="form-group">
+                    <label class="form-label">Description / Notes</label>
+                    <textarea class="form-control" rows="4" placeholder="Enter description..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checkbox & Radio -->
+        <div class="component-section card">
+            <div class="card-body">
+                <h2 class="component-title">Checkbox & Radio</h2>
+                <div class="form-row">
+                    <div>
+                        <label class="form-label">Checkboxes</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" checked> Option 1
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox"> Option 2
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox"> Option 3
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Radio Buttons</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="radio1" checked> Choice A
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="radio1"> Choice B
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="radio1"> Choice C
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toggle Switch -->
+        <div class="component-section card">
+            <div class="card-body">
+                <h2 class="component-title">Toggle Switch</h2>
+                <div style="display: flex; gap: 24px; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 12px;">
+                        <label class="switch">
+                            <input type="checkbox" checked>
+                            <span class="switch-slider"></span>
+                        </label>
+                        <span>Enabled</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 12px;">
+                        <label class="switch">
+                            <input type="checkbox">
+                            <span class="switch-slider"></span>
+                        </label>
+                        <span>Disabled</span>
+                    </label>
+                </div>
+                <div class="code-block">
+&lt;label class="switch"&gt;
+    &lt;input type="checkbox" checked&gt;
+    &lt;span class="switch-slider"&gt;&lt;/span&gt;
+&lt;/label&gt;
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="component-section card">
+            <div class="card-body">
+                <h2 class="component-title">Search Input</h2>
+                <div class="header-search" style="display: inline-flex;">
+                    <i class="bi bi-search"></i>
+                    <input type="text" placeholder="ค้นหา...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Example -->
+        <div class="component-section card">
+            <div class="card-header">
+                <h3 class="card-title">Create Job Form Example</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Customer <span style="color: var(--danger);">*</span></label>
+                        <select class="form-control form-select">
+                            <option>-- เลือกลูกค้า --</option>
+                            <option>บริษัท ABC จำกัด</option>
+                            <option>บริษัท XYZ จำกัด</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Site <span style="color: var(--danger);">*</span></label>
+                        <select class="form-control form-select">
+                            <option>-- เลือก Site --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Job Type <span style="color: var(--danger);">*</span></label>
+                        <select class="form-control form-select">
+                            <option>Lumpsum</option>
+                            <option>Dayrent</option>
+                            <option>Manpower</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contract Value</label>
+                        <input type="number" class="form-control" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date <span style="color: var(--danger);">*</span></label>
+                        <input type="date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date <span style="color: var(--danger);">*</span></label>
+                        <input type="date" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Scope Description</label>
+                    <textarea class="form-control" rows="3" placeholder="รายละเอียดขอบเขตงาน..."></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                    <button class="btn btn-outline">Cancel</button>
+                    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Create Job</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

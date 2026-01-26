@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - {{PAGE_TITLE}}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <!-- Dashboard -->
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+
+                <!-- Operations -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Operations</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-briefcase nav-icon"></i>
+                        <span class="nav-text">Jobs</span>
+                        <span class="nav-badge">12</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-calendar3 nav-icon"></i>
+                        <span class="nav-text">Planning</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-truck nav-icon"></i>
+                        <span class="nav-text">Logistics</span>
+                    </a>
+                </div>
+
+                <!-- Procurement -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Procurement</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-file-text nav-icon"></i>
+                        <span class="nav-text">PR - ใบขอซื้อ</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cart-check nav-icon"></i>
+                        <span class="nav-text">PO - ใบสั่งซื้อ</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-arrow-in-down nav-icon"></i>
+                        <span class="nav-text">GR - รับเข้า</span>
+                    </a>
+                </div>
+
+                <!-- Warehouse -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Warehouse</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-seam nav-icon"></i>
+                        <span class="nav-text">Stock</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-upc-scan nav-icon"></i>
+                        <span class="nav-text">Serials</span>
+                    </a>
+                </div>
+
+                <!-- Accounting -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Accounting</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-receipt nav-icon"></i>
+                        <span class="nav-text">Invoices</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-credit-card nav-icon"></i>
+                        <span class="nav-text">Payments</span>
+                    </a>
+                </div>
+
+                <!-- HRM -->
+                <div class="nav-section">
+                    <div class="nav-section-title">HRM</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-people nav-icon"></i>
+                        <span class="nav-text">People</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-clock-history nav-icon"></i>
+                        <span class="nav-text">Timesheet</span>
+                    </a>
+                </div>
+
+                <!-- Master Data -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Master Data</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-building nav-icon"></i>
+                        <span class="nav-text">Customers</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-geo-alt nav-icon"></i>
+                        <span class="nav-text">Sites</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box nav-icon"></i>
+                        <span class="nav-text">Items</span>
+                    </a>
+                </div>
+
+                <!-- Admin -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Admin</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-person-gear nav-icon"></i>
+                        <span class="nav-text">Users</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-shield-lock nav-icon"></i>
+                        <span class="nav-text">Roles & Permissions</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-sliders nav-icon"></i>
+                        <span class="nav-text">Dashboard Config</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-journal-text nav-icon"></i>
+                        <span class="nav-text">Audit Logs</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="toggleSidebar()">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="#">Home</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>{{BREADCRUMB}}</span>
+                    </nav>
+                </div>
+                
+                <div class="header-right">
+                    <div class="header-search">
+                        <i class="bi bi-search"></i>
+                        <input type="text" placeholder="ค้นหา...">
+                    </div>
+                    
+                    <button class="header-icon-btn">
+                        <i class="bi bi-bell" style="font-size: 1.1rem;"></i>
+                        <span class="badge"></span>
+                    </button>
+                    
+                    <button class="header-icon-btn">
+                        <i class="bi bi-envelope" style="font-size: 1.1rem;"></i>
+                    </button>
+                    
+                    <div class="header-user">
+                        <div class="header-avatar">{{USER_INITIALS}}</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">{{USER_NAME}}</div>
+                            <div class="header-user-role">{{USER_ROLE}}</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="page-content">
+                {{PAGE_CONTENT}}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+    </script>
+</body>
+</html>

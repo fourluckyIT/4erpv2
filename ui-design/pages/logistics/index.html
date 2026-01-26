@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Logistics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+    <style>
+        .route-card { border: 1px solid var(--gray-200); border-radius: var(--border-radius); padding: 16px; margin-bottom: 12px; }
+        .route-card:hover { border-color: var(--primary); }
+        .route-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .route-stops { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .route-stop { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; }
+        .route-arrow { color: var(--gray-400); }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/planner.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Logistics</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-truck nav-icon"></i>
+                        <span class="nav-text">Dispatch</span>
+                    </a>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-signpost-split nav-icon"></i>
+                        <span class="nav-text">Routes</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-box-arrow-in-left nav-icon"></i>
+                        <span class="nav-text">Returns</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Routes</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #CCFBF1; color: #14B8A6;">PL</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">ประภา แพลนเนอร์</div>
+                            <div class="header-user-role"><span class="role-badge role-pln">PLN</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title"><i class="bi bi-signpost-split" style="color: var(--role-pln);"></i> Route Management</h1>
+                        <p class="page-subtitle">จัดการเส้นทางขนส่งและ Dispatch</p>
+                    </div>
+                    <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Create Route</button>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #CCFBF1; color: #14B8A6;">
+                            <i class="bi bi-truck" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">5</div>
+                            <div class="stat-label">Active Routes Today</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-clock" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">3</div>
+                            <div class="stat-label">Pending Confirm</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-check-circle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">12</div>
+                            <div class="stat-label">Completed This Week</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-camera" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">48</div>
+                            <div class="stat-label">Photos Uploaded</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Today's Routes - 26 ม.ค. 2026</h3>
+                        <div style="display: flex; gap: 12px;">
+                            <select class="form-control form-select" style="width: 140px;">
+                                <option>All Status</option>
+                                <option>Planned</option>
+                                <option>Confirmed</option>
+                                <option>In Progress</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Route 1 -->
+                        <div class="route-card">
+                            <div class="route-header">
+                                <div>
+                                    <strong style="font-size: 1.1rem;">RT-2026-0125</strong>
+                                    <span class="badge badge-in-progress" style="margin-left: 8px;">In Progress</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i> View</button>
+                                    <button class="btn btn-sm btn-outline"><i class="bi bi-camera"></i> Photos</button>
+                                </div>
+                            </div>
+                            <div class="route-stops">
+                                <div class="route-stop"><i class="bi bi-house"></i> Warehouse</div>
+                                <i class="bi bi-arrow-right route-arrow"></i>
+                                <div class="route-stop"><i class="bi bi-geo-alt"></i> Site A (JOB-0040)</div>
+                                <i class="bi bi-arrow-right route-arrow"></i>
+                                <div class="route-stop"><i class="bi bi-geo-alt"></i> Site B (JOB-0039)</div>
+                            </div>
+                            <div style="display: flex; gap: 24px; margin-top: 12px; font-size: 0.85rem; color: var(--gray-500);">
+                                <span><i class="bi bi-truck"></i> รถ: ทะเบียน กข-1234</span>
+                                <span><i class="bi bi-person"></i> คนขับ: สมชาย</span>
+                                <span><i class="bi bi-box-seam"></i> 8 items</span>
+                                <span><i class="bi bi-clock"></i> ออก 06:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Route 2 -->
+                        <div class="route-card">
+                            <div class="route-header">
+                                <div>
+                                    <strong style="font-size: 1.1rem;">RT-2026-0126</strong>
+                                    <span class="badge badge-dispatched" style="margin-left: 8px;">Confirmed</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i> View</button>
+                                    <button class="btn btn-sm btn-primary"><i class="bi bi-play"></i> Start</button>
+                                </div>
+                            </div>
+                            <div class="route-stops">
+                                <div class="route-stop"><i class="bi bi-house"></i> Warehouse</div>
+                                <i class="bi bi-arrow-right route-arrow"></i>
+                                <div class="route-stop"><i class="bi bi-geo-alt"></i> Site C (JOB-0041)</div>
+                            </div>
+                            <div style="display: flex; gap: 24px; margin-top: 12px; font-size: 0.85rem; color: var(--gray-500);">
+                                <span><i class="bi bi-truck"></i> รถ: ทะเบียน คค-5678</span>
+                                <span><i class="bi bi-person"></i> คนขับ: วิชัย</span>
+                                <span><i class="bi bi-box-seam"></i> 5 items</span>
+                                <span><i class="bi bi-clock"></i> กำหนด 08:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Route 3 -->
+                        <div class="route-card">
+                            <div class="route-header">
+                                <div>
+                                    <strong style="font-size: 1.1rem;">RT-2026-0127</strong>
+                                    <span class="badge badge-planned" style="margin-left: 8px;">Planned</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-sm btn-outline"><i class="bi bi-pencil"></i> Edit</button>
+                                    <button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Confirm</button>
+                                </div>
+                            </div>
+                            <div class="route-stops">
+                                <div class="route-stop"><i class="bi bi-house"></i> Warehouse</div>
+                                <i class="bi bi-arrow-right route-arrow"></i>
+                                <div class="route-stop"><i class="bi bi-geo-alt"></i> Site D (JOB-0043)</div>
+                            </div>
+                            <div style="display: flex; gap: 24px; margin-top: 12px; font-size: 0.85rem; color: var(--gray-500);">
+                                <span><i class="bi bi-truck"></i> รถ: ยังไม่ระบุ</span>
+                                <span><i class="bi bi-person"></i> คนขับ: ยังไม่ระบุ</span>
+                                <span><i class="bi bi-box-seam"></i> 12 items</span>
+                                <span><i class="bi bi-clock"></i> กำหนด 10:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Manager Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Approvals</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-check-circle nav-icon"></i>
+                        <span class="nav-text">Pending Approvals</span>
+                        <span class="nav-badge">9</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-briefcase nav-icon"></i>
+                        <span class="nav-text">All Jobs</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Reports</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-graph-up nav-icon"></i>
+                        <span class="nav-text">KPI Dashboard</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-file-earmark-bar-graph nav-icon"></i>
+                        <span class="nav-text">Financial Reports</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-journal-text nav-icon"></i>
+                        <span class="nav-text">Audit Logs</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Manager Dashboard</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <button class="header-icon-btn">
+                        <i class="bi bi-bell" style="font-size: 1.1rem;"></i>
+                        <span class="badge"></span>
+                    </button>
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #FEE2E2; color: #EF4444;">MG</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">มานพ ผู้จัดการ</div>
+                            <div class="header-user-role"><span class="role-badge role-mgr">MGR</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-briefcase" style="color: var(--role-mgr);"></i> 
+                            Manager Dashboard
+                        </h1>
+                        <p class="page-subtitle">ภาพรวมธุรกิจและการอนุมัติ</p>
+                    </div>
+                    <button class="btn btn-primary">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Export Reports
+                    </button>
+                </div>
+
+                <!-- Executive Stats -->
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #FEE2E2; color: #EF4444;">
+                            <i class="bi bi-currency-dollar" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">฿ 12.5M</div>
+                            <div class="stat-label">Revenue YTD</div>
+                            <div class="stat-change up"><i class="bi bi-arrow-up"></i> 18% vs LY</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-graph-up-arrow" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">32%</div>
+                            <div class="stat-label">Profit Margin</div>
+                            <div class="stat-change up"><i class="bi bi-arrow-up"></i> 3%</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-hourglass-split" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">9</div>
+                            <div class="stat-label">Pending Approvals</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-briefcase" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">45</div>
+                            <div class="stat-label">Active Jobs</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="widgets-grid">
+                    <!-- Pending Approvals -->
+                    <div class="widget col-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-check-circle"></i> Pending Approvals</h3>
+                            <span class="badge badge-warning">9 รายการ</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Document</th>
+                                        <th>Type</th>
+                                        <th>Requester</th>
+                                        <th>Amount / Details</th>
+                                        <th>Submitted</th>
+                                        <th>Priority</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>JOB-2026-0043</code></td>
+                                        <td><span class="badge badge-submitted">Job Approval</span></td>
+                                        <td>สมชาย ใจดี <span class="role-badge role-sal">SAL</span></td>
+                                        <td>฿ 150,000 - Lumpsum</td>
+                                        <td>5 นาทีที่แล้ว</td>
+                                        <td><span style="color: var(--danger);"><i class="bi bi-exclamation-circle-fill"></i> High</span></td>
+                                        <td class="table-actions">
+                                            <button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Approve</button>
+                                            <button class="btn btn-sm btn-danger"><i class="bi bi-x"></i> Reject</button>
+                                            <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PR-2026-0156</code></td>
+                                        <td><span class="badge" style="background: #FFEDD5; color: #EA580C;">PR Approval</span></td>
+                                        <td>วิไล ซื้อดี <span class="role-badge role-pur">PUR</span></td>
+                                        <td>฿ 85,000 - Equipment</td>
+                                        <td>1 ชั่วโมงที่แล้ว</td>
+                                        <td><span style="color: var(--warning);"><i class="bi bi-dash-circle-fill"></i> Medium</span></td>
+                                        <td class="table-actions">
+                                            <button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Approve</button>
+                                            <button class="btn btn-sm btn-danger"><i class="bi bi-x"></i> Reject</button>
+                                            <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>EXT-2026-0012</code></td>
+                                        <td><span class="badge badge-planned">Extension Request</span></td>
+                                        <td>ประภา แพลน <span class="role-badge role-pln">PLN</span></td>
+                                        <td>JOB-2026-0038 +3 วัน</td>
+                                        <td>3 ชั่วโมงที่แล้ว</td>
+                                        <td><span style="color: var(--warning);"><i class="bi bi-dash-circle-fill"></i> Medium</span></td>
+                                        <td class="table-actions">
+                                            <button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Approve</button>
+                                            <button class="btn btn-sm btn-danger"><i class="bi bi-x"></i> Reject</button>
+                                            <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>OT-2026-0089</code></td>
+                                        <td><span class="badge" style="background: #EDE9FE; color: #8B5CF6;">OT Approval</span></td>
+                                        <td>สมศักดิ์ ทำดี <span class="role-badge role-hr">HR</span></td>
+                                        <td>5 คน x 4 ชม. = ฿ 3,200</td>
+                                        <td>4 ชั่วโมงที่แล้ว</td>
+                                        <td><span style="color: var(--gray-500);"><i class="bi bi-circle-fill"></i> Low</span></td>
+                                        <td class="table-actions">
+                                            <button class="btn btn-sm btn-success"><i class="bi bi-check"></i> Approve</button>
+                                            <button class="btn btn-sm btn-danger"><i class="bi bi-x"></i> Reject</button>
+                                            <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- KPI Overview -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-speedometer2"></i> KPI Overview</h3>
+                        </div>
+                        <div class="card-body">
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span>Job Completion Rate</span>
+                                        <span style="font-weight: 600;">92%</span>
+                                    </div>
+                                    <div class="progress-bar" style="height: 8px; background: var(--gray-200); border-radius: 4px;">
+                                        <div style="width: 92%; height: 100%; background: var(--success); border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span>On-Time Delivery</span>
+                                        <span style="font-weight: 600;">87%</span>
+                                    </div>
+                                    <div class="progress-bar" style="height: 8px; background: var(--gray-200); border-radius: 4px;">
+                                        <div style="width: 87%; height: 100%; background: var(--success); border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span>Customer Satisfaction</span>
+                                        <span style="font-weight: 600;">95%</span>
+                                    </div>
+                                    <div class="progress-bar" style="height: 8px; background: var(--gray-200); border-radius: 4px;">
+                                        <div style="width: 95%; height: 100%; background: var(--success); border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span>Resource Utilization</span>
+                                        <span style="font-weight: 600;">78%</span>
+                                    </div>
+                                    <div class="progress-bar" style="height: 8px; background: var(--gray-200); border-radius: 4px;">
+                                        <div style="width: 78%; height: 100%; background: var(--warning); border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revenue Chart Placeholder -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-graph-up"></i> Revenue Trend</h3>
+                        </div>
+                        <div class="card-body" style="height: 200px; display: flex; align-items: center; justify-content: center; background: var(--gray-50); border-radius: var(--border-radius);">
+                            <div style="text-align: center; color: var(--gray-400);">
+                                <i class="bi bi-bar-chart" style="font-size: 3rem;"></i>
+                                <p>Revenue Chart Placeholder</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

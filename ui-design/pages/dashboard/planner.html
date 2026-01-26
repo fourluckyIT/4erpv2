@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Planner Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+    <style>
+        .calendar-widget {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .calendar-header {
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            padding: 8px 0;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.85rem;
+            position: relative;
+        }
+        .calendar-day:hover {
+            background: var(--gray-100);
+        }
+        .calendar-day.today {
+            background: var(--primary);
+            color: var(--white);
+        }
+        .calendar-day.has-jobs::after {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--warning);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 4px;
+        }
+        .calendar-day.today.has-jobs::after {
+            background: var(--white);
+        }
+        
+        .job-timeline {
+            position: relative;
+        }
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+        .timeline-time {
+            width: 60px;
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            flex-shrink: 0;
+        }
+        .timeline-bar {
+            flex: 1;
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--white);
+        }
+        .timeline-bar.dispatched { background: linear-gradient(90deg, #14B8A6, #0D9488); }
+        .timeline-bar.planned { background: linear-gradient(90deg, #8B5CF6, #7C3AED); }
+        .timeline-bar.in-progress { background: linear-gradient(90deg, #F59E0B, #D97706); }
+        
+        .resource-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--border-radius);
+            margin-bottom: 8px;
+        }
+        .resource-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .resource-info {
+            flex: 1;
+        }
+        .resource-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .resource-status {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+        .resource-progress {
+            width: 80px;
+        }
+        .progress-bar {
+            height: 6px;
+            background: var(--gray-200);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Planning</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-briefcase nav-icon"></i>
+                        <span class="nav-text">Jobs</span>
+                        <span class="nav-badge">8</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-calendar3 nav-icon"></i>
+                        <span class="nav-text">Resource Planning</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-truck nav-icon"></i>
+                        <span class="nav-text">Dispatch</span>
+                        <span class="nav-badge">3</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-signpost-split nav-icon"></i>
+                        <span class="nav-text">Routes</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Resources</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cpu nav-icon"></i>
+                        <span class="nav-text">Devices</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-tools nav-icon"></i>
+                        <span class="nav-text">Equipment</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-people nav-icon"></i>
+                        <span class="nav-text">Manpower</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Planner Dashboard</span>
+                    </nav>
+                </div>
+                
+                <div class="header-right">
+                    <button class="header-icon-btn">
+                        <i class="bi bi-bell" style="font-size: 1.1rem;"></i>
+                        <span class="badge"></span>
+                    </button>
+                    
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #CCFBF1; color: #14B8A6;">PL</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">ประภา แพลนเนอร์</div>
+                            <div class="header-user-role">
+                                <span class="role-badge role-pln">PLN</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-calendar-check" style="color: var(--role-pln);"></i> 
+                            Planner Dashboard
+                        </h1>
+                        <p class="page-subtitle">วางแผนทรัพยากรและจัดการ Dispatch</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline">
+                            <i class="bi bi-calendar3"></i> ดูปฏิทิน
+                        </button>
+                        <button class="btn btn-primary">
+                            <i class="bi bi-plus-lg"></i> สร้าง Plan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #CCFBF1; color: #14B8A6;">
+                            <i class="bi bi-clipboard-check" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">8</div>
+                            <div class="stat-label">Jobs รอ Plan</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #DDD6FE; color: #7C3AED;">
+                            <i class="bi bi-calendar-event" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">12</div>
+                            <div class="stat-label">Planned วันนี้</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #FEF3C7; color: #F59E0B;">
+                            <i class="bi bi-truck" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">5</div>
+                            <div class="stat-label">Dispatch วันนี้</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #FEE2E2; color: #EF4444;">
+                            <i class="bi bi-exclamation-circle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">2</div>
+                            <div class="stat-label">Resource Conflict</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Widgets -->
+                <div class="widgets-grid">
+                    <!-- Calendar -->
+                    <div class="widget col-4">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-calendar3"></i> มกราคม 2026</h3>
+                            <div>
+                                <button class="btn btn-sm btn-icon btn-outline"><i class="bi bi-chevron-left"></i></button>
+                                <button class="btn btn-sm btn-icon btn-outline"><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="calendar-widget">
+                                <div class="calendar-header">อา</div>
+                                <div class="calendar-header">จ</div>
+                                <div class="calendar-header">อ</div>
+                                <div class="calendar-header">พ</div>
+                                <div class="calendar-header">พฤ</div>
+                                <div class="calendar-header">ศ</div>
+                                <div class="calendar-header">ส</div>
+                                
+                                <div class="calendar-day" style="color: var(--gray-400);">29</div>
+                                <div class="calendar-day" style="color: var(--gray-400);">30</div>
+                                <div class="calendar-day" style="color: var(--gray-400);">31</div>
+                                <div class="calendar-day">1</div>
+                                <div class="calendar-day has-jobs">2</div>
+                                <div class="calendar-day has-jobs">3</div>
+                                <div class="calendar-day">4</div>
+                                
+                                <div class="calendar-day">5</div>
+                                <div class="calendar-day has-jobs">6</div>
+                                <div class="calendar-day has-jobs">7</div>
+                                <div class="calendar-day has-jobs">8</div>
+                                <div class="calendar-day">9</div>
+                                <div class="calendar-day has-jobs">10</div>
+                                <div class="calendar-day">11</div>
+                                
+                                <div class="calendar-day">12</div>
+                                <div class="calendar-day has-jobs">13</div>
+                                <div class="calendar-day has-jobs">14</div>
+                                <div class="calendar-day has-jobs">15</div>
+                                <div class="calendar-day has-jobs">16</div>
+                                <div class="calendar-day">17</div>
+                                <div class="calendar-day">18</div>
+                                
+                                <div class="calendar-day">19</div>
+                                <div class="calendar-day has-jobs">20</div>
+                                <div class="calendar-day has-jobs">21</div>
+                                <div class="calendar-day has-jobs">22</div>
+                                <div class="calendar-day has-jobs">23</div>
+                                <div class="calendar-day has-jobs">24</div>
+                                <div class="calendar-day">25</div>
+                                
+                                <div class="calendar-day today has-jobs">26</div>
+                                <div class="calendar-day has-jobs">27</div>
+                                <div class="calendar-day has-jobs">28</div>
+                                <div class="calendar-day has-jobs">29</div>
+                                <div class="calendar-day has-jobs">30</div>
+                                <div class="calendar-day">31</div>
+                                <div class="calendar-day" style="color: var(--gray-400);">1</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's Timeline -->
+                    <div class="widget col-8">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-clock"></i> Timeline วันนี้ (26 ม.ค.)</h3>
+                            <span class="badge badge-dispatched">5 Dispatches</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="job-timeline">
+                                <div class="timeline-row">
+                                    <div class="timeline-time">06:00</div>
+                                    <div class="timeline-bar dispatched" style="width: 40%;">
+                                        <i class="bi bi-truck"></i>&nbsp; JOB-2026-0038 → Site A
+                                    </div>
+                                </div>
+                                <div class="timeline-row">
+                                    <div class="timeline-time">07:00</div>
+                                    <div class="timeline-bar dispatched" style="width: 60%; margin-left: 10%;">
+                                        <i class="bi bi-truck"></i>&nbsp; JOB-2026-0039 → Site B
+                                    </div>
+                                </div>
+                                <div class="timeline-row">
+                                    <div class="timeline-time">08:00</div>
+                                    <div class="timeline-bar in-progress" style="width: 80%;">
+                                        <i class="bi bi-gear"></i>&nbsp; JOB-2026-0040 → Site C (In Progress)
+                                    </div>
+                                </div>
+                                <div class="timeline-row">
+                                    <div class="timeline-time">09:00</div>
+                                    <div class="timeline-bar planned" style="width: 50%; margin-left: 20%;">
+                                        <i class="bi bi-calendar-check"></i>&nbsp; JOB-2026-0041 → Planned
+                                    </div>
+                                </div>
+                                <div class="timeline-row">
+                                    <div class="timeline-time">10:00</div>
+                                    <div class="timeline-bar planned" style="width: 45%; margin-left: 30%;">
+                                        <i class="bi bi-calendar-check"></i>&nbsp; JOB-2026-0042 → Planned
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resource Availability -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-cpu"></i> Device Availability</h3>
+                            <a href="#" class="btn btn-sm btn-outline">ดูทั้งหมด</a>
+                        </div>
+                        <div class="card-body">
+                            <div class="resource-card">
+                                <div class="resource-icon" style="background: var(--success-light); color: var(--success);">
+                                    <i class="bi bi-cpu"></i>
+                                </div>
+                                <div class="resource-info">
+                                    <div class="resource-name">Generator 50KVA</div>
+                                    <div class="resource-status">15 / 20 พร้อมใช้งาน</div>
+                                </div>
+                                <div class="resource-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 75%; background: var(--success);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="resource-card">
+                                <div class="resource-icon" style="background: var(--warning-light); color: var(--warning);">
+                                    <i class="bi bi-cpu"></i>
+                                </div>
+                                <div class="resource-info">
+                                    <div class="resource-name">Generator 100KVA</div>
+                                    <div class="resource-status">3 / 10 พร้อมใช้งาน</div>
+                                </div>
+                                <div class="resource-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 30%; background: var(--warning);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="resource-card">
+                                <div class="resource-icon" style="background: var(--danger-light); color: var(--danger);">
+                                    <i class="bi bi-cpu"></i>
+                                </div>
+                                <div class="resource-info">
+                                    <div class="resource-name">Generator 200KVA</div>
+                                    <div class="resource-status">0 / 5 พร้อมใช้งาน</div>
+                                </div>
+                                <div class="resource-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 0%; background: var(--danger);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Jobs Awaiting Plan -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-hourglass-split"></i> Jobs รอวางแผน</h3>
+                            <span class="badge badge-warning">8 Jobs</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Job No.</th>
+                                            <th>Customer</th>
+                                            <th>Start Date</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>JOB-2026-0043</code></td>
+                                            <td>บริษัท ABC จำกัด</td>
+                                            <td>28 ม.ค.</td>
+                                            <td><button class="btn btn-sm btn-primary"><i class="bi bi-calendar-plus"></i> Plan</button></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>JOB-2026-0044</code></td>
+                                            <td>บริษัท XYZ จำกัด</td>
+                                            <td>29 ม.ค.</td>
+                                            <td><button class="btn btn-sm btn-primary"><i class="bi bi-calendar-plus"></i> Plan</button></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>JOB-2026-0045</code></td>
+                                            <td>ห้างหุ้นส่วน DEF</td>
+                                            <td>30 ม.ค.</td>
+                                            <td><button class="btn btn-sm btn-primary"><i class="bi bi-calendar-plus"></i> Plan</button></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Card Components</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../assets/css/main.css" rel="stylesheet">
+    <style>
+        .component-section { margin-bottom: 40px; }
+        .component-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200); }
+    </style>
+</head>
+<body style="background: var(--gray-100); padding: 40px;">
+    <div style="max-width: 1200px; margin: 0 auto;">
+        <div style="margin-bottom: 40px;">
+            <a href="../index.html" style="color: var(--primary); text-decoration: none;"><i class="bi bi-arrow-left"></i> Back to UI Design</a>
+            <h1 style="margin-top: 16px;"><i class="bi bi-card-heading"></i> Card Components</h1>
+            <p style="color: var(--gray-500);">Card layouts และ Widget components</p>
+        </div>
+
+        <!-- Basic Card -->
+        <div class="component-section">
+            <h2 class="component-title">Basic Card</h2>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <div class="card">
+                    <div class="card-body">
+                        <h3 style="margin-bottom: 8px;">Simple Card</h3>
+                        <p style="color: var(--gray-500);">Card with body only</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Card with Header</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>Card content goes here</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Full Card</h3>
+                        <button class="btn btn-sm btn-outline">Action</button>
+                    </div>
+                    <div class="card-body">
+                        <p>Card content</p>
+                    </div>
+                    <div class="card-footer">
+                        Footer content
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="component-section">
+            <h2 class="component-title">Stat Cards</h2>
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-icon primary">
+                        <i class="bi bi-briefcase" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">156</div>
+                        <div class="stat-label">Total Jobs</div>
+                        <div class="stat-change up">
+                            <i class="bi bi-arrow-up"></i> 12%
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon success">
+                        <i class="bi bi-currency-dollar" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">฿ 3.5M</div>
+                        <div class="stat-label">Revenue</div>
+                        <div class="stat-change up">
+                            <i class="bi bi-arrow-up"></i> 8%
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon warning">
+                        <i class="bi bi-hourglass-split" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon danger">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Overdue</div>
+                        <div class="stat-change down">
+                            <i class="bi bi-arrow-down"></i> -2
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="component-section">
+            <h2 class="component-title">Quick Actions</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="quick-actions">
+                        <a href="#" class="quick-action">
+                            <div class="quick-action-icon"><i class="bi bi-plus-circle"></i></div>
+                            <span class="quick-action-label">New Job</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <div class="quick-action-icon"><i class="bi bi-file-text"></i></div>
+                            <span class="quick-action-label">Create PR</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <div class="quick-action-icon"><i class="bi bi-cart-plus"></i></div>
+                            <span class="quick-action-label">Create PO</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <div class="quick-action-icon"><i class="bi bi-receipt"></i></div>
+                            <span class="quick-action-label">Invoice</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <div class="quick-action-icon"><i class="bi bi-bar-chart"></i></div>
+                            <span class="quick-action-label">Reports</span>
+                        </a>
+                        <a href="#" class="quick-action">
+                            <div class="quick-action-icon"><i class="bi bi-gear"></i></div>
+                            <span class="quick-action-label">Settings</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Timeline -->
+        <div class="component-section">
+            <h2 class="component-title">Activity Timeline</h2>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="bi bi-clock-history"></i> Recent Activity</h3>
+                </div>
+                <div class="card-body">
+                    <div class="activity-timeline">
+                        <div class="activity-item">
+                            <div class="activity-time">5 นาทีที่แล้ว</div>
+                            <div class="activity-content">
+                                <strong>Admin</strong> approved Job <code>JOB-2026-0042</code>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">15 นาทีที่แล้ว</div>
+                            <div class="activity-content">
+                                <strong>Sale User</strong> created new Job <code>JOB-2026-0043</code>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">1 ชั่วโมงที่แล้ว</div>
+                            <div class="activity-content">
+                                <strong>Planner</strong> updated Plan for <code>JOB-2026-0040</code>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">2 ชั่วโมงที่แล้ว</div>
+                            <div class="activity-content">
+                                <strong>Warehouse</strong> received return for Route <code>RT-0125</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Widget Grid -->
+        <div class="component-section">
+            <h2 class="component-title">Widget Grid Layout</h2>
+            <div class="widgets-grid">
+                <div class="widget col-4">
+                    <div class="card-header"><h3 class="card-title">Widget 4 cols</h3></div>
+                    <div class="card-body"><p>33% width</p></div>
+                </div>
+                <div class="widget col-8">
+                    <div class="card-header"><h3 class="card-title">Widget 8 cols</h3></div>
+                    <div class="card-body"><p>66% width</p></div>
+                </div>
+                <div class="widget col-6">
+                    <div class="card-header"><h3 class="card-title">Widget 6 cols</h3></div>
+                    <div class="card-body"><p>50% width</p></div>
+                </div>
+                <div class="widget col-6">
+                    <div class="card-header"><h3 class="card-title">Widget 6 cols</h3></div>
+                    <div class="card-body"><p>50% width</p></div>
+                </div>
+                <div class="widget col-12">
+                    <div class="card-header"><h3 class="card-title">Widget 12 cols</h3></div>
+                    <div class="card-body"><p>100% width</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Boxes -->
+        <div class="component-section">
+            <h2 class="component-title">Info Boxes</h2>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <div style="padding: 16px; background: var(--success-light); border-radius: var(--border-radius); border-left: 4px solid var(--success);">
+                    <div style="font-weight: 600; color: var(--success);"><i class="bi bi-check-circle"></i> Success</div>
+                    <div style="margin-top: 4px;">Operation completed successfully.</div>
+                </div>
+                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                    <div style="font-weight: 600; color: var(--warning);"><i class="bi bi-exclamation-triangle"></i> Warning</div>
+                    <div style="margin-top: 4px;">Please review before proceeding.</div>
+                </div>
+                <div style="padding: 16px; background: var(--danger-light); border-radius: var(--border-radius); border-left: 4px solid var(--danger);">
+                    <div style="font-weight: 600; color: var(--danger);"><i class="bi bi-x-circle"></i> Error</div>
+                    <div style="margin-top: 4px;">Something went wrong.</div>
+                </div>
+                <div style="padding: 16px; background: var(--info-light); border-radius: var(--border-radius); border-left: 4px solid var(--info);">
+                    <div style="font-weight: 600; color: var(--info);"><i class="bi bi-info-circle"></i> Info</div>
+                    <div style="margin-top: 4px;">Here's some helpful information.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

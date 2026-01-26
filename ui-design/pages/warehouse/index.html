@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Warehouse Stock</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/warehouse.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Warehouse</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-box-seam nav-icon"></i>
+                        <span class="nav-text">Stock</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-upc-scan nav-icon"></i>
+                        <span class="nav-text">Serials</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-arrow-left-right nav-icon"></i>
+                        <span class="nav-text">Movements</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Stock</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #CFFAFE; color: #06B6D4;">WH</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">วิชัย คลังสินค้า</div>
+                            <div class="header-user-role"><span class="role-badge role-wh">WH</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title"><i class="bi bi-box-seam" style="color: var(--role-wh);"></i> Stock Management</h1>
+                        <p class="page-subtitle">จัดการสต็อกสินค้าและอุปกรณ์</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline"><i class="bi bi-download"></i> Export</button>
+                        <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Stock Adjustment</button>
+                    </div>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #CFFAFE; color: #06B6D4;">
+                            <i class="bi bi-box-seam" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">1,245</div>
+                            <div class="stat-label">Total Items</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-check-circle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">892</div>
+                            <div class="stat-label">In Warehouse</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-truck" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">245</div>
+                            <div class="stat-label">On Site</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-arrow-repeat" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">108</div>
+                            <div class="stat-label">In Transit</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div style="display: flex; gap: 12px;">
+                            <select class="form-control form-select" style="width: 150px;">
+                                <option>All Types</option>
+                                <option>Device</option>
+                                <option>Equipment</option>
+                                <option>Consumable</option>
+                            </select>
+                            <select class="form-control form-select" style="width: 150px;">
+                                <option>All Locations</option>
+                                <option>Warehouse</option>
+                                <option>On Site</option>
+                                <option>In Transit</option>
+                            </select>
+                            <input type="text" class="form-control" placeholder="ค้นหา Item..." style="width: 200px;">
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 0;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Item Code</th>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Total</th>
+                                    <th>In WH</th>
+                                    <th>On Site</th>
+                                    <th>Transit</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>GEN-50KVA</code></td>
+                                    <td>Generator 50KVA</td>
+                                    <td><span class="badge" style="background: var(--primary-light); color: var(--primary);">Device</span></td>
+                                    <td>20</td>
+                                    <td>15</td>
+                                    <td>3</td>
+                                    <td>2</td>
+                                    <td><span class="badge badge-approved">OK</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>GEN-100KVA</code></td>
+                                    <td>Generator 100KVA</td>
+                                    <td><span class="badge" style="background: var(--primary-light); color: var(--primary);">Device</span></td>
+                                    <td>10</td>
+                                    <td>3</td>
+                                    <td>5</td>
+                                    <td>2</td>
+                                    <td><span class="badge badge-warning">Low</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>GEN-200KVA</code></td>
+                                    <td>Generator 200KVA</td>
+                                    <td><span class="badge" style="background: var(--primary-light); color: var(--primary);">Device</span></td>
+                                    <td>5</td>
+                                    <td>0</td>
+                                    <td>4</td>
+                                    <td>1</td>
+                                    <td><span class="badge badge-danger">Critical</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>CBL-3x50</code></td>
+                                    <td>Cable 3x50mm</td>
+                                    <td><span class="badge" style="background: var(--gray-200); color: var(--gray-700);">Consumable</span></td>
+                                    <td>500m</td>
+                                    <td>350m</td>
+                                    <td>100m</td>
+                                    <td>50m</td>
+                                    <td><span class="badge badge-approved">OK</span></td>
+                                </tr>
+                                <tr>
+                                    <td><code>DIST-BOX</code></td>
+                                    <td>Distribution Box</td>
+                                    <td><span class="badge" style="background: var(--info-light); color: var(--info);">Equipment</span></td>
+                                    <td>25</td>
+                                    <td>18</td>
+                                    <td>5</td>
+                                    <td>2</td>
+                                    <td><span class="badge badge-approved">OK</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

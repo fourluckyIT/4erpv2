@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Planning Module</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+    <style>
+        .planning-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; }
+        .planning-tab { padding: 12px 20px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; font-weight: 500; color: var(--gray-500); }
+        .planning-tab:hover { color: var(--primary); }
+        .planning-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .resource-item { border: 1px solid var(--gray-200); border-radius: var(--border-radius); padding: 12px; cursor: pointer; transition: all 0.2s; }
+        .resource-item:hover { border-color: var(--primary); background: var(--primary-light); }
+        .resource-item.selected { border-color: var(--primary); background: var(--primary-light); }
+        .resource-item.unavailable { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/planner.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Planning</div>
+                    <a href="../jobs/list.html" class="nav-item">
+                        <i class="bi bi-briefcase nav-icon"></i>
+                        <span class="nav-text">Jobs</span>
+                    </a>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-calendar3 nav-icon"></i>
+                        <span class="nav-text">Resource Planning</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-truck nav-icon"></i>
+                        <span class="nav-text">Dispatch</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Planning</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #CCFBF1; color: #14B8A6;">PL</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">ประภา แพลนเนอร์</div>
+                            <div class="header-user-role"><span class="role-badge role-pln">PLN</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title"><i class="bi bi-calendar3" style="color: var(--role-pln);"></i> Resource Planning</h1>
+                        <p class="page-subtitle">วางแผนทรัพยากรสำหรับ <code>JOB-2026-0043</code> - บริษัท ABC จำกัด</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline"><i class="bi bi-x"></i> Cancel</button>
+                        <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Save Plan</button>
+                    </div>
+                </div>
+
+                <!-- Job Info Card -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-body" style="display: flex; gap: 40px;">
+                        <div><strong>Customer:</strong> บริษัท ABC จำกัด</div>
+                        <div><strong>Site:</strong> Site กรุงเทพ</div>
+                        <div><strong>Type:</strong> <span class="badge" style="background: #DDD6FE; color: #7C3AED;">Lumpsum</span></div>
+                        <div><strong>Period:</strong> 28 - 30 ม.ค. 2026 (3 วัน)</div>
+                        <div><strong>Value:</strong> ฿ 150,000</div>
+                    </div>
+                </div>
+
+                <!-- Planning Tabs -->
+                <div class="planning-tabs">
+                    <div class="planning-tab active"><i class="bi bi-cpu"></i> Device (2)</div>
+                    <div class="planning-tab"><i class="bi bi-tools"></i> Equipment (5)</div>
+                    <div class="planning-tab"><i class="bi bi-people"></i> Manpower (8)</div>
+                    <div class="planning-tab"><i class="bi bi-box"></i> Consumable (10)</div>
+                </div>
+
+                <!-- Device Selection -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-cpu"></i> Select Devices</h3>
+                        <div style="display: flex; gap: 12px;">
+                            <input type="text" class="form-control" placeholder="ค้นหา..." style="width: 200px;">
+                            <select class="form-control form-select" style="width: 150px;">
+                                <option>All Types</option>
+                                <option>Generator</option>
+                                <option>Transformer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="resource-grid">
+                            <div class="resource-item selected">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">GEN-50KVA-001</span>
+                                    <i class="bi bi-check-circle-fill" style="color: var(--primary);"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-500);">Generator 50KVA</div>
+                                <div style="font-size: 0.8rem; margin-top: 8px;">
+                                    <span class="badge badge-approved">Available</span>
+                                </div>
+                            </div>
+                            <div class="resource-item selected">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">GEN-50KVA-002</span>
+                                    <i class="bi bi-check-circle-fill" style="color: var(--primary);"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-500);">Generator 50KVA</div>
+                                <div style="font-size: 0.8rem; margin-top: 8px;">
+                                    <span class="badge badge-approved">Available</span>
+                                </div>
+                            </div>
+                            <div class="resource-item">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">GEN-50KVA-003</span>
+                                    <i class="bi bi-circle" style="color: var(--gray-300);"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-500);">Generator 50KVA</div>
+                                <div style="font-size: 0.8rem; margin-top: 8px;">
+                                    <span class="badge badge-approved">Available</span>
+                                </div>
+                            </div>
+                            <div class="resource-item unavailable">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">GEN-100KVA-001</span>
+                                    <i class="bi bi-x-circle" style="color: var(--danger);"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-500);">Generator 100KVA</div>
+                                <div style="font-size: 0.8rem; margin-top: 8px;">
+                                    <span class="badge badge-in-progress">On JOB-0040</span>
+                                </div>
+                            </div>
+                            <div class="resource-item unavailable">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">GEN-100KVA-002</span>
+                                    <i class="bi bi-x-circle" style="color: var(--danger);"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-500);">Generator 100KVA</div>
+                                <div style="font-size: 0.8rem; margin-top: 8px;">
+                                    <span class="badge badge-returned">Maintenance</span>
+                                </div>
+                            </div>
+                            <div class="resource-item">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">TRF-500KVA-001</span>
+                                    <i class="bi bi-circle" style="color: var(--gray-300);"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--gray-500);">Transformer 500KVA</div>
+                                <div style="font-size: 0.8rem; margin-top: 8px;">
+                                    <span class="badge badge-approved">Available</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><strong>Selected:</strong> 2 devices</span>
+                            <button class="btn btn-outline btn-sm">Clear Selection</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

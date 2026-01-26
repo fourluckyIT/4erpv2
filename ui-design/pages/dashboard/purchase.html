@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Purchase Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Procurement</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-file-text nav-icon"></i>
+                        <span class="nav-text">PR - ใบขอซื้อ</span>
+                        <span class="nav-badge">8</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cart-check nav-icon"></i>
+                        <span class="nav-text">PO - ใบสั่งซื้อ</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-building nav-icon"></i>
+                        <span class="nav-text">Suppliers</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-tags nav-icon"></i>
+                        <span class="nav-text">Rate Cards</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Purchase Dashboard</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #FFEDD5; color: #F97316;">PU</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">วิไล จัดซื้อ</div>
+                            <div class="header-user-role"><span class="role-badge role-pur">PUR</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-cart-check" style="color: var(--role-pur);"></i> 
+                            Purchase Dashboard
+                        </h1>
+                        <p class="page-subtitle">จัดการ PR และ PO</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline"><i class="bi bi-file-text"></i> ดู PR ทั้งหมด</button>
+                        <button class="btn btn-primary"><i class="bi bi-cart-plus"></i> สร้าง PO</button>
+                    </div>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #FFEDD5; color: #F97316;">
+                            <i class="bi bi-file-text" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">8</div>
+                            <div class="stat-label">PR รอดำเนินการ</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-cart-check" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">15</div>
+                            <div class="stat-label">PO Active</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-hourglass-split" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">฿ 450K</div>
+                            <div class="stat-label">Pending GR Value</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-building" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">28</div>
+                            <div class="stat-label">Active Suppliers</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="widgets-grid">
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-file-text"></i> Approved PRs - Ready for PO</h3>
+                            <span class="badge badge-approved">8 PRs</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>PR No.</th><th>Job</th><th>Amount</th><th>Type</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>PR-2026-0158</code></td>
+                                        <td>JOB-2026-0043</td>
+                                        <td>฿ 85,000</td>
+                                        <td><span class="badge" style="background: #DDD6FE; color: #7C3AED;">Item</span></td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-cart-plus"></i> Create PO</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PR-2026-0157</code></td>
+                                        <td>JOB-2026-0042</td>
+                                        <td>฿ 120,000</td>
+                                        <td><span class="badge" style="background: #D1FAE5; color: #059669;">Manpower</span></td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-cart-plus"></i> Create PO</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PR-2026-0155</code></td>
+                                        <td>JOB-2026-0041</td>
+                                        <td>฿ 45,000</td>
+                                        <td><span class="badge" style="background: #DDD6FE; color: #7C3AED;">Item</span></td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-cart-plus"></i> Create PO</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-truck"></i> POs Awaiting Delivery</h3>
+                            <span class="badge badge-dispatched">6 POs</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>PO No.</th><th>Supplier</th><th>Expected</th><th>Status</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>PO-2026-0089</code></td>
+                                        <td>บริษัทจัดหา ABC</td>
+                                        <td>27 ม.ค.</td>
+                                        <td><span class="badge badge-dispatched">On the way</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PO-2026-0088</code></td>
+                                        <td>บริษัทจัดหา XYZ</td>
+                                        <td>28 ม.ค.</td>
+                                        <td><span class="badge badge-approved">Confirmed</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PO-2026-0087</code></td>
+                                        <td>ห้างหุ้นส่วน DEF</td>
+                                        <td>30 ม.ค.</td>
+                                        <td><span class="badge badge-submitted">Pending</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="widget col-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-graph-up"></i> Purchase Summary - This Month</h3>
+                        </div>
+                        <div class="card-body">
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+                                <div style="text-align: center; padding: 20px; background: var(--gray-50); border-radius: var(--border-radius);">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">฿ 2.5M</div>
+                                    <div style="color: var(--gray-500);">Total PO Value</div>
+                                </div>
+                                <div style="text-align: center; padding: 20px; background: var(--gray-50); border-radius: var(--border-radius);">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">฿ 1.8M</div>
+                                    <div style="color: var(--gray-500);">Received</div>
+                                </div>
+                                <div style="text-align: center; padding: 20px; background: var(--gray-50); border-radius: var(--border-radius);">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning);">฿ 700K</div>
+                                    <div style="color: var(--gray-500);">Pending</div>
+                                </div>
+                                <div style="text-align: center; padding: 20px; background: var(--gray-50); border-radius: var(--border-radius);">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--info);">45</div>
+                                    <div style="color: var(--gray-500);">Total Orders</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

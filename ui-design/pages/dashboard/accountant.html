@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - Accountant Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Accounting</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-clipboard-check nav-icon"></i>
+                        <span class="nav-text">Accounting Ready</span>
+                        <span class="nav-badge">6</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-receipt nav-icon"></i>
+                        <span class="nav-text">Invoices</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-credit-card nav-icon"></i>
+                        <span class="nav-text">Payments</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-file-earmark-minus nav-icon"></i>
+                        <span class="nav-text">Credit Notes</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-bar-chart nav-icon"></i>
+                        <span class="nav-text">Reports</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>Accountant Dashboard</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #D1FAE5; color: #10B981;">AC</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">อรุณี บัญชี</div>
+                            <div class="header-user-role"><span class="role-badge role-acc">ACC</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-calculator" style="color: var(--role-acc);"></i> 
+                            Accountant Dashboard
+                        </h1>
+                        <p class="page-subtitle">จัดการ Invoice และ Payments</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline"><i class="bi bi-file-earmark-arrow-down"></i> Reports</button>
+                        <button class="btn btn-primary"><i class="bi bi-receipt"></i> สร้าง Invoice</button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #D1FAE5; color: #10B981;">
+                            <i class="bi bi-cash-stack" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">฿ 3.5M</div>
+                            <div class="stat-label">Revenue MTD</div>
+                            <div class="stat-change up"><i class="bi bi-arrow-up"></i> 12%</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-hourglass-split" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">฿ 850K</div>
+                            <div class="stat-label">Outstanding AR</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-clipboard-check" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">6</div>
+                            <div class="stat-label">Ready to Invoice</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="bi bi-exclamation-circle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">3</div>
+                            <div class="stat-label">Overdue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="widgets-grid">
+                    <!-- Jobs Ready for Invoice -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-clipboard-check"></i> Ready to Invoice</h3>
+                            <span class="badge badge-info">6 Jobs</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Job No.</th>
+                                        <th>Customer</th>
+                                        <th>Value</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>JOB-2026-0039</code></td>
+                                        <td>บริษัท ABC จำกัด</td>
+                                        <td>฿ 180,000</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-receipt"></i> Invoice</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>JOB-2026-0037</code></td>
+                                        <td>บริษัท XYZ จำกัด</td>
+                                        <td>฿ 95,000</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-receipt"></i> Invoice</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>JOB-2026-0035</code></td>
+                                        <td>ห้างหุ้นส่วน DEF</td>
+                                        <td>฿ 220,000</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-receipt"></i> Invoice</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Outstanding Invoices -->
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-clock-history"></i> Outstanding Invoices</h3>
+                            <span class="badge badge-warning">฿ 850K</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice</th>
+                                        <th>Customer</th>
+                                        <th>Amount</th>
+                                        <th>Due</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>INV-2026-0085</code></td>
+                                        <td>บริษัท GHI จำกัด</td>
+                                        <td>฿ 350,000</td>
+                                        <td><span class="badge badge-danger">เกินกำหนด 5 วัน</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>INV-2026-0087</code></td>
+                                        <td>บริษัท JKL จำกัด</td>
+                                        <td>฿ 250,000</td>
+                                        <td><span class="badge badge-warning">อีก 3 วัน</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>INV-2026-0089</code></td>
+                                        <td>บริษัท MNO จำกัด</td>
+                                        <td>฿ 250,000</td>
+                                        <td><span class="badge badge-submitted">อีก 10 วัน</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Recent Payments -->
+                    <div class="widget col-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-credit-card"></i> Recent Payments</h3>
+                            <a href="#" class="btn btn-sm btn-outline">View All</a>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Payment Ref</th>
+                                        <th>Invoice</th>
+                                        <th>Customer</th>
+                                        <th>Amount</th>
+                                        <th>Date</th>
+                                        <th>Method</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>PAY-2026-0156</code></td>
+                                        <td>INV-2026-0082</td>
+                                        <td>บริษัท ABC จำกัด</td>
+                                        <td>฿ 150,000</td>
+                                        <td>26 ม.ค. 2026</td>
+                                        <td><span class="badge" style="background: #DBEAFE; color: #2563EB;">โอนเงิน</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PAY-2026-0155</code></td>
+                                        <td>INV-2026-0080</td>
+                                        <td>บริษัท XYZ จำกัด</td>
+                                        <td>฿ 95,000</td>
+                                        <td>25 ม.ค. 2026</td>
+                                        <td><span class="badge" style="background: #FEF3C7; color: #CA8A04;">เช็ค</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PAY-2026-0154</code></td>
+                                        <td>INV-2026-0078</td>
+                                        <td>ห้างหุ้นส่วน DEF</td>
+                                        <td>฿ 220,000</td>
+                                        <td>24 ม.ค. 2026</td>
+                                        <td><span class="badge" style="background: #DBEAFE; color: #2563EB;">โอนเงิน</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

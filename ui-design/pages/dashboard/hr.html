@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - HR Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">HRM</div>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-people nav-icon"></i>
+                        <span class="nav-text">People</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-person-plus nav-icon"></i>
+                        <span class="nav-text">GR Manpower</span>
+                        <span class="nav-badge">5</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-clock-history nav-icon"></i>
+                        <span class="nav-text">Timesheet</span>
+                        <span class="nav-badge">12</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cash-coin nav-icon"></i>
+                        <span class="nav-text">Salary</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-alarm nav-icon"></i>
+                        <span class="nav-text">Overtime</span>
+                        <span class="nav-badge">3</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-award nav-icon"></i>
+                        <span class="nav-text">Certificates</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>HR Dashboard</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #EDE9FE; color: #8B5CF6;">HR</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">สมศักดิ์ ทรัพยากร</div>
+                            <div class="header-user-role"><span class="role-badge role-hr">HR</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="bi bi-people" style="color: var(--role-hr);"></i> 
+                            HR Dashboard
+                        </h1>
+                        <p class="page-subtitle">จัดการบุคลากร Timesheet และ OT</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline"><i class="bi bi-person-plus"></i> Register Manpower</button>
+                        <button class="btn btn-primary"><i class="bi bi-clock"></i> Approve Timesheet</button>
+                    </div>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #EDE9FE; color: #8B5CF6;">
+                            <i class="bi bi-people" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">156</div>
+                            <div class="stat-label">Total People</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-person-check" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">42</div>
+                            <div class="stat-label">Active on Jobs</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-clock-history" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">12</div>
+                            <div class="stat-label">Timesheet Pending</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-alarm" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">3</div>
+                            <div class="stat-label">OT Requests</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="widgets-grid">
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-person-plus"></i> Pending Manpower Registration</h3>
+                            <span class="badge badge-warning">5 POs</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>PO No.</th><th>Supplier</th><th>Qty</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>PO-2026-0092</code></td>
+                                        <td>บริษัทจัดหาแรงงาน ABC</td>
+                                        <td>10 คน</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-person-plus"></i> Register</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PO-2026-0091</code></td>
+                                        <td>บริษัทจัดหาแรงงาน XYZ</td>
+                                        <td>5 คน</td>
+                                        <td><button class="btn btn-sm btn-primary"><i class="bi bi-person-plus"></i> Register</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="widget col-6">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-clock-history"></i> Timesheet Awaiting Approval</h3>
+                            <span class="badge badge-info">12 entries</span>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Job</th><th>Date</th><th>People</th><th>Hours</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>JOB-2026-0040</code></td>
+                                        <td>25 ม.ค.</td>
+                                        <td>8 คน</td>
+                                        <td>64 ชม.</td>
+                                        <td><button class="btn btn-sm btn-success"><i class="bi bi-check"></i></button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>JOB-2026-0039</code></td>
+                                        <td>24 ม.ค.</td>
+                                        <td>5 คน</td>
+                                        <td>40 ชม.</td>
+                                        <td><button class="btn btn-sm btn-success"><i class="bi bi-check"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="widget col-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-award"></i> Expiring Certificates</h3>
+                            <span class="badge badge-danger">4 certs</span>
+                        </div>
+                        <div class="card-body">
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                                <div style="padding: 16px; background: var(--danger-light); border-radius: var(--border-radius); border-left: 4px solid var(--danger);">
+                                    <div style="font-weight: 600;">สมชาย ใจดี</div>
+                                    <div style="font-size: 0.85rem;">Safety Certificate</div>
+                                    <div style="font-size: 0.8rem; color: var(--danger);">หมดอายุ: 28 ม.ค. 2026</div>
+                                </div>
+                                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                                    <div style="font-weight: 600;">วิชัย แข็งแรง</div>
+                                    <div style="font-size: 0.85rem;">Forklift License</div>
+                                    <div style="font-size: 0.8rem; color: var(--warning);">หมดอายุ: 5 ก.พ. 2026</div>
+                                </div>
+                                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                                    <div style="font-weight: 600;">ประยุทธ์ ทำดี</div>
+                                    <div style="font-size: 0.85rem;">Electrical License</div>
+                                    <div style="font-size: 0.8rem; color: var(--warning);">หมดอายุ: 10 ก.พ. 2026</div>
+                                </div>
+                                <div style="padding: 16px; background: var(--warning-light); border-radius: var(--border-radius); border-left: 4px solid var(--warning);">
+                                    <div style="font-weight: 600;">สมศรี ขยัน</div>
+                                    <div style="font-size: 0.85rem;">First Aid Cert</div>
+                                    <div style="font-size: 0.8rem; color: var(--warning);">หมดอายุ: 15 ก.พ. 2026</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

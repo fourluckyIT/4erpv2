@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP v2 - HRM People</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../../assets/css/main.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">E2</div>
+                <span class="sidebar-title">ERP v2</span>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">หน้าหลัก</div>
+                    <a href="../dashboard/hr.html" class="nav-item">
+                        <i class="bi bi-grid nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">HRM</div>
+                    <a href="#" class="nav-item active">
+                        <i class="bi bi-people nav-icon"></i>
+                        <span class="nav-text">People</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-clock-history nav-icon"></i>
+                        <span class="nav-text">Timesheet</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-cash-coin nav-icon"></i>
+                        <span class="nav-text">Salary</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <i class="bi bi-alarm nav-icon"></i>
+                        <span class="nav-text">Overtime</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+                        <i class="bi bi-list" style="font-size: 1.25rem;"></i>
+                    </button>
+                    <nav class="header-breadcrumb">
+                        <a href="../../index.html">UI Design</a>
+                        <i class="bi bi-chevron-right"></i>
+                        <span>People</span>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-avatar" style="background: #EDE9FE; color: #8B5CF6;">HR</div>
+                        <div class="header-user-info">
+                            <div class="header-user-name">สมศักดิ์ ทรัพยากร</div>
+                            <div class="header-user-role"><span class="role-badge role-hr">HR</span></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title"><i class="bi bi-people" style="color: var(--role-hr);"></i> People Management</h1>
+                        <p class="page-subtitle">จัดการข้อมูลบุคลากร</p>
+                    </div>
+                    <button class="btn btn-primary"><i class="bi bi-person-plus"></i> Add Person</button>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #EDE9FE; color: #8B5CF6;">
+                            <i class="bi bi-people" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">156</div>
+                            <div class="stat-label">Total People</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-person-check" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">42</div>
+                            <div class="stat-label">On Active Jobs</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-person" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">114</div>
+                            <div class="stat-label">Available</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-award" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">8</div>
+                            <div class="stat-label">Cert Expiring</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div style="display: flex; gap: 12px;">
+                            <select class="form-control form-select" style="width: 140px;">
+                                <option>All Status</option>
+                                <option>Active</option>
+                                <option>On Job</option>
+                                <option>Inactive</option>
+                            </select>
+                            <select class="form-control form-select" style="width: 150px;">
+                                <option>All Suppliers</option>
+                                <option>บริษัทจัดหาแรงงาน ABC</option>
+                                <option>บริษัทจัดหาแรงงาน XYZ</option>
+                            </select>
+                            <input type="text" class="form-control" placeholder="ค้นหาชื่อ/ID..." style="width: 200px;">
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 0;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>National ID</th>
+                                    <th>Source PO</th>
+                                    <th>Current Job</th>
+                                    <th>Daily Rate</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>P-001</code></td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--primary);">ส</div>
+                                            <div>
+                                                <div style="font-weight: 500;">สมชาย ใจดี</div>
+                                                <div style="font-size: 0.8rem; color: var(--gray-500);">081-xxx-xxxx</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>1-xxxx-xxxxx-xx-x</td>
+                                    <td><code>PO-2026-0085</code></td>
+                                    <td><code>JOB-2026-0040</code></td>
+                                    <td>฿ 450</td>
+                                    <td><span class="badge badge-in-progress">On Job</span></td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>P-002</code></td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--success-light); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--success);">ว</div>
+                                            <div>
+                                                <div style="font-weight: 500;">วิชัย แข็งแรง</div>
+                                                <div style="font-size: 0.8rem; color: var(--gray-500);">082-xxx-xxxx</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>1-xxxx-xxxxx-xx-x</td>
+                                    <td><code>PO-2026-0085</code></td>
+                                    <td>-</td>
+                                    <td>฿ 500</td>
+                                    <td><span class="badge badge-approved">Available</span></td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>P-003</code></td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--warning-light); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--warning);">ป</div>
+                                            <div>
+                                                <div style="font-weight: 500;">ประยุทธ์ ทำดี</div>
+                                                <div style="font-size: 0.8rem; color: var(--gray-500);">083-xxx-xxxx</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>1-xxxx-xxxxx-xx-x</td>
+                                    <td><code>PO-2026-0086</code></td>
+                                    <td><code>JOB-2026-0039</code></td>
+                                    <td>฿ 550</td>
+                                    <td><span class="badge badge-in-progress">On Job</span></td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></button>
+                                        <button class="btn btn-sm btn-outline"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
