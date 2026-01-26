@@ -1,7 +1,7 @@
 <?php
 /**
  * Manage Certificate Types (Compliance Requirements)
- * ERP v2 - Settings Module
+ * 4ERP - Settings Module
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -82,8 +82,8 @@ $certTypes = $db->query("SELECT * FROM compliance_requirements ORDER BY requirem
 
 $categories = ['Certificate', 'Training', 'Equipment', 'Document', 'Other'];
 
-$pageTitle = 'จัดการประเภทใบรับรอง - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'จัดการประเภทใบรับรอง - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -280,4 +280,4 @@ function editType(data) {
 }
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

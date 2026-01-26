@@ -1,7 +1,7 @@
 <?php
 /**
  * Edit Person
- * ERP v2 - HR Module
+ * 4ERP - HR Module
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -74,7 +74,7 @@ if (isPost()) {
 }
 
 $pageTitle = 'แก้ไข - ' . e($person['full_name']);
-require_once __DIR__ . '/../../../includes/header.php';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -312,4 +312,4 @@ document.getElementById('supplierField').style.display =
     document.getElementById('peopleType').value === 'External' ? 'block' : 'none';
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

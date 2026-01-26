@@ -1,7 +1,7 @@
 <?php
 /**
  * Roles & Permissions Management
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  * 
  * Note: Roles are fixed per agents.md requirements.
  * But permissions can be customized per role.
@@ -71,8 +71,8 @@ if ($selectedRoleId) {
     }
 }
 
-$pageTitle = 'Roles & Permissions - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Roles & Permissions - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -289,4 +289,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

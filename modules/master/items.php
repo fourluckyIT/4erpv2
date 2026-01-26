@@ -1,7 +1,7 @@
 <?php
 /**
  * Item Management
- * ERP v2 - Phase 3
+ * 4ERP - Phase 3
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -115,8 +115,8 @@ $items = $db->prepare("SELECT i.*, s.name as supplier_name FROM items i LEFT JOI
 $items->execute($params);
 $items = $items->fetchAll();
 
-$pageTitle = 'Items - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Items - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -349,4 +349,4 @@ require_once __DIR__ . '/../../includes/header.php';
 <?php endif; ?>
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

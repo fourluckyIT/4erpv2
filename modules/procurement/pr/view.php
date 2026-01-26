@@ -1,7 +1,7 @@
 <?php
 /**
  * View PR
- * ERP v2 - Phase 4
+ * 4ERP - Phase 4
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -108,8 +108,8 @@ if (isPost()) {
     redirect("view.php?id=$id");
 }
 
-$pageTitle = "PR: {$pr['pr_number']} - ERP v2";
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = "PR: {$pr['pr_number']} - 4ERP";
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -326,4 +326,4 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

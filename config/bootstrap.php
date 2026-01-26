@@ -1,7 +1,7 @@
 <?php
 /**
  * Bootstrap - Application initialization
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 // Error reporting

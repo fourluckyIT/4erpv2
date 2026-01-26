@@ -1,7 +1,7 @@
 <?php
 /**
  * Approval Model Class
- * ERP v2 - M8: Approval System
+ * 4ERP - M8: Approval System
  * 
  * Handles:
  * - Purchase threshold approvals

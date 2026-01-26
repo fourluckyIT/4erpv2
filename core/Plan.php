@@ -1,7 +1,7 @@
 <?php
 /**
  * Plan Model Class
- * ERP v2 - Phase 5
+ * 4ERP - Phase 5
  * 
  * Handles Plan CRUD with:
  * - Serial allocation

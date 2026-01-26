@@ -1,7 +1,7 @@
 <?php
 /**
  * Timesheet Model Class
- * ERP v2 - M6: Timesheet Module
+ * 4ERP - M6: Timesheet Module
  * 
  * Handles Timesheet CRUD with:
  * - Auto-populate from plan_assignments (manpower)

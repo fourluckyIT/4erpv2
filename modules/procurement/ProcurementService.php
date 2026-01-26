@@ -1,7 +1,7 @@
 <?php
 /**
  * Procurement Service
- * ERP v2 - Phase 4 (M2)
+ * 4ERP - Phase 4 (M2)
  * 
  * Handles Procurement Lifecycle:
  * PR -> Approval -> PO -> GR

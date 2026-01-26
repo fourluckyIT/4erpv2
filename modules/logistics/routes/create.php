@@ -1,7 +1,7 @@
 <?php
 /**
  * Create/Manage Routes
- * ERP v2 - Phase 5 v2 - Redesigned
+ * 4ERP - Phase 5 v2 - Redesigned
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pageTitle = 'จัดการ Routes - ' . $plan['plan_number'];
-require_once __DIR__ . '/../../../includes/header.php';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-3">
@@ -673,4 +673,4 @@ function editConsumableQty(routeId, itemId, currentQty, maxQty) {
 updateSelectedCount();
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

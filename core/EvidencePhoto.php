@@ -1,7 +1,7 @@
 <?php
 /**
  * Evidence Photo Model Class
- * ERP v2 - Phase 5 v2
+ * 4ERP - Phase 5 v2
  * 
  * Handles photo evidence for route events:
  * - Upload and validate photos

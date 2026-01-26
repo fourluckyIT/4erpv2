@@ -1,7 +1,7 @@
 <?php
 /**
  * Compliance Gate Model Class
- * ERP v2 - M11: Compliance Gate
+ * 4ERP - M11: Compliance Gate
  * 
  * Handles:
  * - Site-specific compliance requirements

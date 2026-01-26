@@ -1,7 +1,7 @@
 <?php
 /**
  * Site Receive - Receive items at site
- * ERP v2 - Route receiving with photo evidence and receiver confirmation
+ * 4ERP - Route receiving with photo evidence and receiver confirmation
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -120,7 +120,7 @@ if (isPost()) {
 }
 
 $pageTitle = 'รับของหน้างาน - ' . $route['route_number'];
-require_once __DIR__ . '/../../../includes/header.php';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="container-fluid">
@@ -259,4 +259,4 @@ function copyLink() {
 }
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

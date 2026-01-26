@@ -1,7 +1,7 @@
 <?php
 /**
  * View Dispatch Note
- * ERP v2 - Phase 5
+ * 4ERP - Phase 5
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -101,8 +101,8 @@ $availableSerials = array_filter($planAssignments, function($a) use ($assignedSe
     return $a['serial_id'] && !in_array($a['serial_id'], $assignedSerialIdsInDispatch);
 });
 
-$pageTitle = 'Dispatch #' . $dispatch['do_number'] . ' - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'Dispatch #' . $dispatch['do_number'] . ' - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -408,4 +408,4 @@ require_once __DIR__ . '/../../../includes/header.php';
 </div>
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Costing Model Class
- * ERP v2 - M10: Rate Cards & Job Costing
+ * 4ERP - M10: Rate Cards & Job Costing
  * 
  * Handles:
  * - Rate card management

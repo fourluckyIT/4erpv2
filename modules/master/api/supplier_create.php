@@ -1,7 +1,7 @@
 <?php
 /**
  * API: Create Supplier
- * ERP v2
+ * 4ERP
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';

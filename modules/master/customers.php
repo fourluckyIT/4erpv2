@@ -1,7 +1,7 @@
 <?php
 /**
  * Customer Management
- * ERP v2 - Phase 3
+ * 4ERP - Phase 3
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -127,8 +127,8 @@ $customers = $db->prepare("SELECT * FROM customers WHERE $where ORDER BY code");
 $customers->execute($params);
 $customers = $customers->fetchAll();
 
-$pageTitle = 'Customers - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Customers - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -336,4 +336,4 @@ require_once __DIR__ . '/../../includes/header.php';
 
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

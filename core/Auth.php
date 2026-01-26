@@ -1,7 +1,7 @@
 <?php
 /**
  * Authentication Class
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  * 
  * Handles login, logout, password hashing and session management.
  * All actions are audit logged per agents.md requirements.

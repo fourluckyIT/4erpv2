@@ -1,7 +1,7 @@
 <?php
 /**
  * User Management
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -121,8 +121,8 @@ if (isPost()) {
     }
 }
 
-$pageTitle = 'User Management - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'User Management - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
 // Get all roles for dropdown
 $roles = $rbac->getAllRoles();
@@ -395,4 +395,4 @@ $roles = $rbac->getAllRoles();
 
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

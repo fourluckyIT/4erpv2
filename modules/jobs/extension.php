@@ -1,7 +1,7 @@
 <?php
 /**
  * Job Extension Request
- * ERP v2 - Request changes to job after Planned status (lockpoint)
+ * 4ERP - Request changes to job after Planned status (lockpoint)
  * 
  * Per agents.md: After Planned, all changes must go through Extension system
  */
@@ -208,7 +208,7 @@ $stmt->execute([$jobId]);
 $extensions = $stmt->fetchAll();
 
 $pageTitle = 'ขอ Extension - ' . $job['job_number'];
-require_once __DIR__ . '/../../includes/header.php';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="container-fluid">
@@ -400,4 +400,4 @@ require_once __DIR__ . '/../../includes/header.php';
 })();
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

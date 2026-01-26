@@ -1,7 +1,7 @@
 <?php
 /**
  * Approve/Reject OT
- * ERP v2 - HR Module
+ * 4ERP - HR Module
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';

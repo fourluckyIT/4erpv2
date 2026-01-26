@@ -1,7 +1,7 @@
 <?php
 /**
  * Warehouse Service
- * ERP v2 - Phase M4
+ * 4ERP - Phase M4
  * 
  * Handles:
  * - Stock movement recording (append-only ledger)

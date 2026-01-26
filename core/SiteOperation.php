@@ -1,7 +1,7 @@
 <?php
 /**
  * Site Operation Model Class
- * ERP v2 - M9: Site Operations
+ * 4ERP - M9: Site Operations
  * 
  * Handles:
  * - Site receiving confirmation

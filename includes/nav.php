@@ -1,7 +1,7 @@
 <?php
 /**
  * Navigation Template
- * ERP v2 - Bootstrap 5
+ * 4ERP - Bootstrap 5
  */
 
 $auth = new Auth();
@@ -12,7 +12,7 @@ $userRoles = $auth->getCurrentRoles();
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
     <div class="container-fluid">
         <a class="navbar-brand" href="<?= BASE_URL ?>/index.php">
-            <i class="bi bi-box-seam me-2"></i>ERP v2
+            <i class="bi bi-box-seam me-2"></i>4ERP
         </a>
         
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">

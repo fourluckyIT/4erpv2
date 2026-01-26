@@ -1,7 +1,7 @@
 <?php
 /**
  * Create PR for Manpower
- * ERP v2 - Phase 4
+ * 4ERP - Phase 4
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -121,8 +121,8 @@ if (isPost()) {
 // Get jobs for dropdown
 $jobs = $db->query("SELECT id, job_number, scope_short FROM jobs WHERE status NOT IN ('Closed', 'Voided', 'Cancelled') ORDER BY job_number DESC")->fetchAll();
 
-$pageTitle = 'สร้าง PR Manpower - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'สร้าง PR Manpower - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -309,4 +309,4 @@ addPosition();
     <?php endforeach; ?>
 </datalist>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

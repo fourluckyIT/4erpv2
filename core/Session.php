@@ -1,7 +1,7 @@
 <?php
 /**
  * Session Management Class
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 class Session {

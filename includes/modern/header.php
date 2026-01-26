@@ -1,7 +1,7 @@
 <?php
 /**
  * Modern Header Template
- * ERP v2 - New UI Design System
+ * 4ERP - New UI Design System
  */
 
 $auth = $auth ?? new Auth();

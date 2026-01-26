@@ -1,7 +1,7 @@
 <?php
 /**
  * Modern Sidebar Template
- * ERP v2 - New UI Design System
+ * 4ERP - New UI Design System
  */
 
 $auth = $auth ?? new Auth();
@@ -36,14 +36,14 @@ $roleColor = $roleColors[$primaryRole] ?? '#4F46E5';
 ?>
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-        <div class="sidebar-logo">E2</div>
-        <span class="sidebar-title">ERP v2</span>
+        <div class="sidebar-logo">4E</div>
+        <span class="sidebar-title">4ERP</span>
     </div>
     
     <nav class="sidebar-nav">
         <div class="nav-section">
             <div class="nav-section-title">หน้าหลัก</div>
-            <a href="<?= BASE_URL ?>/dashboard.php" class="nav-item <?= basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : '' ?>">
+            <a href="<?= BASE_URL ?>/index.php" class="nav-item <?= basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : '' ?>">
                 <i class="bi bi-grid nav-icon"></i>
                 <span class="nav-text">Dashboard</span>
             </a>

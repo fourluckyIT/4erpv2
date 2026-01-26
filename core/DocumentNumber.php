@@ -1,7 +1,7 @@
 <?php
 /**
  * Document Number Generator
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  * 
  * Requirements per agents.md:
  * 1. No duplicates (UNIQUE constraint + atomic increment)

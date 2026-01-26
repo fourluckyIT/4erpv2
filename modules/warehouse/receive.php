@@ -1,7 +1,7 @@
 <?php
 /**
  * WH Receive - Record Incoming Stock
- * Warehouse Module - ERP v2
+ * Warehouse Module - 4ERP
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -73,8 +73,8 @@ $grs = $db->query("
     ORDER BY id DESC LIMIT 20
 ")->fetchAll();
 
-$pageTitle = 'WH Receive - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'WH Receive - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -199,4 +199,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

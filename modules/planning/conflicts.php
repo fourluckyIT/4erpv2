@@ -1,7 +1,7 @@
 <?php
 /**
  * Booking Conflict Detection UI
- * ERP v2 - Phase 7
+ * 4ERP - Phase 7
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -19,8 +19,8 @@ $plan = new Plan();
 $conflicts = $plan->getAllConflicts();
 $totalConflicts = count($conflicts['serials']) + count($conflicts['people']);
 
-$pageTitle = 'Booking Conflicts - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Booking Conflicts - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -203,4 +203,4 @@ require_once __DIR__ . '/../../includes/header.php';
 
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

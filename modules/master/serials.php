@@ -1,7 +1,7 @@
 <?php
 /**
  * Serial Number Management
- * ERP v2 - Phase 3
+ * 4ERP - Phase 3
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -102,8 +102,8 @@ $serials = $serials->fetchAll();
 // Items list (for filter)
 $items = $db->query("SELECT id, code, name FROM items WHERE is_serialized = 1 AND is_active = 1 ORDER BY code")->fetchAll();
 
-$pageTitle = 'Serial Numbers - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Serial Numbers - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -286,4 +286,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

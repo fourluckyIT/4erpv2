@@ -1,7 +1,7 @@
 <?php
 /**
  * Manpower Registration from PO
- * ERP v2 - Phase 4
+ * 4ERP - Phase 4
  * 
  * Layout: Left sidebar shows positions from PO, right side shows registration form
  */
@@ -208,8 +208,8 @@ if (isPost()) {
     redirect($redirectUrl);
 }
 
-$pageTitle = 'ลงทะเบียนแรงงาน - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'ลงทะเบียนแรงงาน - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <style>
@@ -587,4 +587,4 @@ if (existingPerson) {
 }
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

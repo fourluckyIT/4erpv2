@@ -1,7 +1,7 @@
 <?php
 /**
  * Document Number Settings
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -71,8 +71,8 @@ if (isPost()) {
     redirect('doc_numbers.php');
 }
 
-$pageTitle = 'Document Numbers - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Document Numbers - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
 // Get all settings
 $settings = $db->query("SELECT * FROM doc_number_settings ORDER BY doc_type")->fetchAll();
@@ -193,4 +193,4 @@ document.getElementById('editModal').addEventListener('show.bs.modal', function 
 });
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

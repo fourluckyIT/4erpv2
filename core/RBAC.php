@@ -1,7 +1,7 @@
 <?php
 /**
  * Role-Based Access Control (RBAC) Class
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  * 
  * Implements permission checking based on:
  * - User roles (from user_roles table)

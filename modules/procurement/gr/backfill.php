@@ -237,8 +237,8 @@ if (isPost()) {
     }
 }
 
-$pageTitle = 'GR Backfill - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'GR Backfill - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -359,4 +359,4 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </form>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

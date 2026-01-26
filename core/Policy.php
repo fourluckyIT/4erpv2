@@ -1,7 +1,7 @@
 <?php
 /**
  * Policy - Centralized RBAC Action Constants and Permission Matrix
- * ERP v2 - Phase M6 RBAC Hardening
+ * 4ERP - Phase M6 RBAC Hardening
  * 
  * Single Source of Truth for all action permissions following agents.md §4.
  * 

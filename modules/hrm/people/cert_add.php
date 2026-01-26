@@ -1,7 +1,7 @@
 <?php
 /**
  * Add/Edit Certificate
- * ERP v2 - HR Module
+ * 4ERP - HR Module
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -118,7 +118,7 @@ if (isPost()) {
 }
 
 $pageTitle = ($editId ? 'แก้ไข' : 'เพิ่ม') . 'ใบรับรอง - ' . e($person['full_name']);
-require_once __DIR__ . '/../../../includes/header.php';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -356,4 +356,4 @@ function showCertChangesConfirm(event) {
 <?php endif; ?>
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Dashboard Configuration Page
- * ERP v2 - Admin Dashboard Visibility Control
+ * 4ERP - Admin Dashboard Visibility Control
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -60,7 +60,7 @@ function getRoleBgColor($code) {
 }
 
 $pageTitle = 'Dashboard Configuration';
-require_once BASE_PATH . '/includes/header.php';
+require_once BASE_PATH . '/includes/modern/layout_start.php';
 ?>
 
 <style>
@@ -170,4 +170,4 @@ require_once BASE_PATH . '/includes/header.php';
 
 <script src="<?= BASE_URL ?>/assets/js/dashboard-config.js"></script>
 
-<?php require_once BASE_PATH . '/includes/footer.php'; ?>
+<?php require_once BASE_PATH . '/includes/modern/layout_end.php'; ?>

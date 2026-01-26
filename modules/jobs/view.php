@@ -1,7 +1,7 @@
 <?php
 /**
  * View Job Detail
- * ERP v2 - Phase 2
+ * 4ERP - Phase 2
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -102,8 +102,8 @@ foreach ($plans as $plan) {
     }
 }
 
-$pageTitle = $job['job_number'] . ' - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = $job['job_number'] . ' - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -479,4 +479,4 @@ require_once __DIR__ . '/../../includes/header.php';
 }
 </style>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

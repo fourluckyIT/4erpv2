@@ -1,7 +1,7 @@
 <?php
 /**
  * Job API Endpoints
- * ERP v2 - Phase 2
+ * 4ERP - Phase 2
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';

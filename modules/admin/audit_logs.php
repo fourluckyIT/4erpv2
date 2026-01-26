@@ -1,7 +1,7 @@
 <?php
 /**
  * Audit Logs Viewer
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -30,8 +30,8 @@ $users = $db->query("SELECT id, username, full_name FROM users ORDER BY username
 $entityTypes = $db->query("SELECT DISTINCT entity_type FROM audit_logs ORDER BY entity_type")->fetchAll(PDO::FETCH_COLUMN);
 $actions = $db->query("SELECT DISTINCT action_name FROM audit_logs ORDER BY action_name")->fetchAll(PDO::FETCH_COLUMN);
 
-$pageTitle = 'Audit Logs - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Audit Logs - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -249,5 +249,5 @@ function getActionBadgeClass($action) {
     };
 }
 
-require_once __DIR__ . '/../../includes/footer.php'; 
+require_once __DIR__ . '/../../includes/modern/layout_end.php'; 
 ?>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Custom Permissions Management
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -74,8 +74,8 @@ if (isPost()) {
     }
 }
 
-$pageTitle = 'Custom Permissions - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Custom Permissions - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
 // Get all users with custom permissions count
 $users = $db->query("
@@ -286,4 +286,4 @@ $permissions = $rbac->getAllPermissions();
 
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

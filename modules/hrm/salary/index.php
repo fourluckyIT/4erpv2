@@ -1,7 +1,7 @@
 <?php
 /**
  * Salary Management
- * ERP v2 - HR Module
+ * 4ERP - HR Module
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -25,8 +25,8 @@ $people = $db->query("
     ORDER BY p.full_name
 ")->fetchAll();
 
-$pageTitle = 'Salary Management - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'Salary Management - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -135,4 +135,4 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

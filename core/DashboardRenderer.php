@@ -1,7 +1,7 @@
 <?php
 /**
  * Dashboard Widget Renderer
- * ERP v2 - Renders dashboard widgets based on role configuration
+ * 4ERP - Renders dashboard widgets based on role configuration
  */
 
 class DashboardRenderer

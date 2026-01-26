@@ -1,7 +1,7 @@
 <?php
 /**
  * Dispatch Model Class
- * ERP v2 - Phase 5
+ * 4ERP - Phase 5
  * 
  * Handles Dispatch Note CRUD with:
  * - Serial dispatch tracking

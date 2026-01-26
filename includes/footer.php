@@ -5,7 +5,7 @@
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center">
             <span class="text-muted">
-                <?= APP_NAME ?? 'ERP v2' ?> &copy; <?= date('Y') ?>
+                <?= APP_NAME ?? '4ERP' ?> &copy; <?= date('Y') ?>
             </span>
             <span class="text-muted small">
                 Version <?= APP_VERSION ?? '2.0.0' ?>

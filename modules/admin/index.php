@@ -1,7 +1,7 @@
 <?php
 /**
  * Admin Dashboard
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -9,8 +9,8 @@ require_once __DIR__ . '/../../config/bootstrap.php';
 $auth = new Auth();
 $auth->requireRole([ROLE_ADMIN, ROLE_MANAGER]);
 
-$pageTitle = 'Admin Dashboard - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Admin Dashboard - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
 $db = getDB();
 
@@ -137,4 +137,4 @@ $logCount = $db->query("SELECT COUNT(*) FROM audit_logs WHERE DATE(created_at) =
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

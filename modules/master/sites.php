@@ -1,7 +1,7 @@
 <?php
 /**
  * Site Management
- * ERP v2 - Phase 3
+ * 4ERP - Phase 3
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -109,8 +109,8 @@ $sites = $db->prepare("
 $sites->execute($params);
 $sites = $sites->fetchAll();
 
-$pageTitle = 'Sites - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Sites - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -264,4 +264,4 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

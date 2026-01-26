@@ -1,7 +1,7 @@
 <?php
 /**
  * Timesheet - Job List
- * ERP v2 - M6: Timesheet Module
+ * 4ERP - M6: Timesheet Module
  * 
  * Shows jobs with timesheet activity - click to view calendar
  */
@@ -42,7 +42,7 @@ $jobs = $db->query("
 ")->fetchAll();
 
 $pageTitle = 'Timesheet - เช็คชื่อประจำวัน';
-require_once __DIR__ . '/../../includes/header.php';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -141,4 +141,4 @@ require_once __DIR__ . '/../../includes/header.php';
 }
 </style>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

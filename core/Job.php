@@ -1,7 +1,7 @@
 <?php
 /**
  * Job Model Class
- * ERP v2 - Phase 2
+ * 4ERP - Phase 2
  * 
  * Handles Job CRUD with:
  * - Status machine integration

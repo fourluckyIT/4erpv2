@@ -1,7 +1,7 @@
 <?php
 /**
  * Job Timesheet Calendar View
- * ERP v2 - M6: Timesheet Module
+ * 4ERP - M6: Timesheet Module
  * 
  * Shows all timesheets for a job in calendar format
  * Rows: People, Columns: Dates
@@ -102,8 +102,8 @@ foreach ($entriesRaw as $e) {
 $totalDays = count($dates);
 $totalPeople = count($people);
 
-$pageTitle = 'Timesheet: ' . $job['job_number'] . ' - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Timesheet: ' . $job['job_number'] . ' - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -263,4 +263,4 @@ require_once __DIR__ . '/../../includes/header.php';
 
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

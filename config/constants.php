@@ -1,11 +1,11 @@
 <?php
 /**
  * System Constants
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 // Application Info
-define('APP_NAME', 'ERP v2');
+define('APP_NAME', '4ERP');
 define('APP_VERSION', '2.0.0');
 
 // Session settings

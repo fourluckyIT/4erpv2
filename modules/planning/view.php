@@ -1,7 +1,7 @@
 <?php
 /**
  * View Plan
- * ERP v2 - Phase 5
+ * 4ERP - Phase 5
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -110,8 +110,8 @@ $availablePeople = $db->query("SELECT * FROM people WHERE is_active = 1 ORDER BY
 $assignedSerialIds = array_column(array_filter($assignments, fn($a) => $a['serial_id']), 'serial_id');
 $assignedPeopleIds = array_column(array_filter($assignments, fn($a) => $a['people_id']), 'people_id');
 
-$pageTitle = 'Plan #' . $plan['plan_number'] . ' - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Plan #' . $plan['plan_number'] . ' - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -432,4 +432,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

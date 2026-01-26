@@ -1,7 +1,7 @@
 <?php
 /**
  * Global Helper Functions
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  */
 
 /**

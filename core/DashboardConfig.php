@@ -1,7 +1,7 @@
 <?php
 /**
  * Dashboard Configuration Manager
- * ERP v2 - Dashboard Widget Visibility Control
+ * 4ERP - Dashboard Widget Visibility Control
  * 
  * Manages per-role dashboard widget configurations
  * Admin can control which widgets are visible for each role

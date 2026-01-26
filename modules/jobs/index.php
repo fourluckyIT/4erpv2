@@ -1,7 +1,7 @@
 <?php
 /**
  * Job List / Dashboard
- * ERP v2 - Phase 2
+ * 4ERP - Phase 2
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -10,6 +10,7 @@ require_once __DIR__ . '/../../core/Job.php';
 
 $auth = new Auth();
 $auth->requireAuth();
+$rbac = new RBAC();
 
 $job = new Job();
 
@@ -23,56 +24,52 @@ $filters = [
 $jobs = $job->getList(array_filter($filters));
 $stats = $job->getStats();
 
-$pageTitle = 'Jobs - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Jobs';
+$currentPage = 'jobs';
+$breadcrumbs = [['label' => 'Jobs']];
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2 class="mb-0">
-                <i class="bi bi-briefcase me-2"></i>Jobs
-            </h2>
-            <p class="text-muted mb-0">รายการงานทั้งหมด</p>
-        </div>
-        <a href="create.php" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>สร้างงานใหม่
-        </a>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-briefcase" style="color: var(--primary);"></i> Jobs
+        </h1>
+        <p class="page-subtitle">รายการงานทั้งหมด</p>
     </div>
+    <a href="create.php" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> สร้างงานใหม่
+    </a>
 </div>
 
 <!-- Stats Cards -->
-<div class="row mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="stat-number"><?= $stats['active'] ?? 0 ?></div>
-                <div class="stat-label">งานที่กำลังดำเนินการ</div>
-            </div>
+<div class="stat-cards">
+    <div class="stat-card">
+        <div class="stat-icon primary"><i class="bi bi-briefcase" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= $stats['active'] ?? 0 ?></div>
+            <div class="stat-label">งานที่กำลังดำเนินการ</div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card warning">
-            <div class="card-body">
-                <div class="stat-number"><?= $stats['pending_approval'] ?? 0 ?></div>
-                <div class="stat-label">รออนุมัติ</div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon warning"><i class="bi bi-hourglass-split" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= $stats['pending_approval'] ?? 0 ?></div>
+            <div class="stat-label">รออนุมัติ</div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card success">
-            <div class="card-body">
-                <div class="stat-number"><?= $stats['by_status']['Closed'] ?? 0 ?></div>
-                <div class="stat-label">ปิดงานแล้ว</div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon success"><i class="bi bi-check-circle" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= $stats['by_status']['Closed'] ?? 0 ?></div>
+            <div class="stat-label">ปิดงานแล้ว</div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card info">
-            <div class="card-body">
-                <div class="stat-number"><?= $stats['this_month'] ?? 0 ?></div>
-                <div class="stat-label">สร้างเดือนนี้</div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon info"><i class="bi bi-calendar-plus" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= $stats['this_month'] ?? 0 ?></div>
+            <div class="stat-label">สร้างเดือนนี้</div>
         </div>
     </div>
 </div>
@@ -171,4 +168,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Record Payment
- * Accounting Module - ERP v2
+ * Accounting Module - 4ERP
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'Record Payment - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'Record Payment - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -153,4 +153,4 @@ require_once __DIR__ . '/../../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

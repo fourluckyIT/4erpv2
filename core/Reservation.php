@@ -1,7 +1,7 @@
 <?php
 /**
  * Reservation Model Class
- * ERP v2 - M7: Reservation System
+ * 4ERP - M7: Reservation System
  * 
  * Handles:
  * - Serial reservation (1 serial = 1 allocation only)

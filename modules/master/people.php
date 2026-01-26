@@ -1,7 +1,7 @@
 <?php
 /**
  * People Management (Employees & External Manpower)
- * ERP v2 - Phase 3
+ * 4ERP - Phase 3
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -133,8 +133,8 @@ $people = $db->prepare("SELECT * FROM people WHERE $where ORDER BY people_type, 
 $people->execute($params);
 $people = $people->fetchAll();
 
-$pageTitle = 'People - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'People - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -384,4 +384,4 @@ document.getElementById('peopleType')?.addEventListener('change', function() {
 </script>
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

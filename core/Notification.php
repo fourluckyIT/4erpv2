@@ -1,7 +1,7 @@
 <?php
 /**
  * Notification Model Class
- * ERP v2 - M8: Notification System
+ * 4ERP - M8: Notification System
  * 
  * Handles:
  * - In-app notifications

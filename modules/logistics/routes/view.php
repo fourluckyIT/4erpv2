@@ -1,7 +1,7 @@
 <?php
 /**
  * View Route
- * ERP v2 - Phase 5 v2
+ * 4ERP - Phase 5 v2
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -104,8 +104,8 @@ function getStatusBadge(string $status): string {
     return "<span class=\"badge bg-{$class}\">{$label}</span>";
 }
 
-$pageTitle = 'Route: ' . $route['route_number'] . ' - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'Route: ' . $route['route_number'] . ' - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -438,4 +438,4 @@ function openUploadModal(eventType, seq) {
 }
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

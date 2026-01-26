@@ -1,7 +1,7 @@
 <?php
 /**
  * Edit PR
- * ERP v2 - Phase 4
+ * 4ERP - Phase 4
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -121,8 +121,8 @@ $jobs = $db->query("SELECT id, job_number, scope_short FROM jobs WHERE status NO
 // Get items for dropdown
 $catalogItems = $db->query("SELECT id, code, name, unit FROM items WHERE is_active = 1 ORDER BY code")->fetchAll();
 
-$pageTitle = "แก้ไข PR: {$pr['pr_number']} - ERP v2";
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = "แก้ไข PR: {$pr['pr_number']} - 4ERP";
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -295,4 +295,4 @@ existingItems.forEach(item => addItem(item));
 if (existingItems.length === 0) addItem();
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

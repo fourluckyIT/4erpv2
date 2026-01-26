@@ -1,7 +1,7 @@
 <?php
 /**
  * Edit Job
- * ERP v2 - Phase 2
+ * 4ERP - Phase 2
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -78,8 +78,8 @@ $planners = $db->query("
     ORDER BY u.full_name
 ")->fetchAll();
 
-$pageTitle = 'Edit ' . $job['job_number'] . ' - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Edit ' . $job['job_number'] . ' - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -234,4 +234,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </form>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

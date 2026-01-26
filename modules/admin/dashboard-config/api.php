@@ -1,7 +1,7 @@
 <?php
 /**
  * Dashboard Configuration API
- * ERP v2 - Admin Dashboard Visibility Control
+ * 4ERP - Admin Dashboard Visibility Control
  * 
  * Endpoints:
  * GET  ?action=widgets           - Get all widgets

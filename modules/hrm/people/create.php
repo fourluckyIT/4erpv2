@@ -1,7 +1,7 @@
 <?php
 /**
  * Create Person
- * ERP v2 - HR Module
+ * 4ERP - HR Module
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -60,8 +60,8 @@ if (isPost()) {
     }
 }
 
-$pageTitle = 'เพิ่มบุคลากร - ERP v2';
-require_once __DIR__ . '/../../../includes/header.php';
+$pageTitle = 'เพิ่มบุคลากร - 4ERP';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -160,4 +160,4 @@ document.getElementById('peopleType').addEventListener('change', function() {
 });
 </script>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

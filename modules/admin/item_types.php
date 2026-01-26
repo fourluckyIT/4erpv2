@@ -1,7 +1,7 @@
 <?php
 /**
  * Item Types Management
- * ERP v2 - Admin
+ * 4ERP - Admin
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -127,8 +127,8 @@ if (isPost()) {
 // Get all item types
 $itemTypes = $db->query("SELECT * FROM item_types ORDER BY planning_tab_order, code")->fetchAll();
 
-$pageTitle = 'Item Types - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Item Types - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -408,4 +408,4 @@ function editType(t) {
 }
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Audit Log Class
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  * 
  * APPEND-ONLY audit trail per agents.md requirements.
  * Every significant action is logged with full context.

@@ -1,7 +1,7 @@
 <?php
 /**
  * Stock Movements List
- * Warehouse Module - ERP v2
+ * Warehouse Module - 4ERP
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -65,8 +65,8 @@ $items = $db->query("SELECT id, code, name FROM items ORDER BY name")->fetchAll(
 // Get movement types
 $moveTypes = $db->query("SELECT DISTINCT movement_type FROM stock_movements ORDER BY movement_type")->fetchAll(PDO::FETCH_COLUMN);
 
-$pageTitle = 'Stock Movements - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Stock Movements - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -188,4 +188,4 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

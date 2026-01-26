@@ -1,7 +1,7 @@
 <?php
 /**
  * Invoice Service
- * ERP v2 - Phase M5 Accounting AR
+ * 4ERP - Phase M5 Accounting AR
  * 
  * Handles:
  * - Invoice creation from Job

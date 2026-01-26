@@ -1,7 +1,7 @@
 <?php
 /**
  * Status Machine for Jobs
- * ERP v2 - Phase 2
+ * 4ERP - Phase 2
  * 
  * Enforces:
  * - Valid status transitions only

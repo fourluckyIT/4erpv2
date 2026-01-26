@@ -1,7 +1,7 @@
 <?php
 /**
  * Payment Service
- * ERP v2 - Phase M5 Accounting AR
+ * 4ERP - Phase M5 Accounting AR
  * 
  * Handles:
  * - Payment recording

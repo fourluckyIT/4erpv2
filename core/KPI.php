@@ -1,7 +1,7 @@
 <?php
 /**
  * KPI Model Class
- * ERP v2 - M11: KPI Dashboard
+ * 4ERP - M11: KPI Dashboard
  * 
  * Provides 8+ KPIs as required by blueprint.md §15:
  * 

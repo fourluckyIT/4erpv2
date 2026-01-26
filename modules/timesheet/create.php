@@ -1,7 +1,7 @@
 <?php
 /**
  * Create Timesheet
- * ERP v2 - M6: Timesheet Module
+ * 4ERP - M6: Timesheet Module
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -61,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'สร้าง Timesheet - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'สร้าง Timesheet - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -163,4 +163,4 @@ if (document.getElementById('job_id').value) {
 }
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

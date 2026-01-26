@@ -1,7 +1,7 @@
 <?php
 /**
  * Supplier Management
- * ERP v2 - Phase 3
+ * 4ERP - Phase 3
  */
 
 require_once __DIR__ . '/../../config/bootstrap.php';
@@ -101,8 +101,8 @@ $suppliers = $db->prepare("SELECT * FROM suppliers WHERE $where ORDER BY code");
 $suppliers->execute($params);
 $suppliers = $suppliers->fetchAll();
 
-$pageTitle = 'Suppliers - ERP v2';
-require_once __DIR__ . '/../../includes/header.php';
+$pageTitle = 'Suppliers - 4ERP';
+require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
@@ -246,4 +246,4 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

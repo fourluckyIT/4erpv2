@@ -132,7 +132,7 @@ $photoModel = new EvidencePhoto();
 $existingPhotos = $photoModel->getPhotos($routeId, 'Return');
 
 $pageTitle = 'รับคืน - ' . $route['route_number'];
-require_once __DIR__ . '/../../../includes/header.php';
+require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="container-fluid">
@@ -280,4 +280,4 @@ require_once __DIR__ . '/../../../includes/header.php';
     </form>
 </div>
 
-<?php require_once __DIR__ . '/../../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

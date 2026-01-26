@@ -1,7 +1,7 @@
 <?php
 /**
  * Database Configuration
- * ERP v2 - Phase 1
+ * 4ERP - Phase 1
  * 
  * For MAMP: Default port is 8889
  */
