@@ -134,6 +134,8 @@ $userRoles = $auth->getCurrentRoles();
                         <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/admin/line_bindings.php">LINE Bindings</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/admin/audit_logs.php">Audit Logs</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/admin/dashboard-config/">Dashboard Config</a></li>
                     </ul>
                 </li>
                 <?php endif; ?>

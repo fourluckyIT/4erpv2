@@ -227,35 +227,39 @@ class DashboardConfigEngine {
             const catInfo = this.categories[category] || { label: category, icon: 'bi-grid' };
             
             html += `
-                <div class="widget-category">
-                    <div class="widget-category-title">
-                        <i class="${catInfo.icon}"></i> ${catInfo.label}
-                    </div>
-                    <div class="widget-list">
+                <div class="mb-4">
+                    <h6 class="text-secondary mb-3">
+                        <i class="${catInfo.icon} me-1"></i> ${catInfo.label}
+                    </h6>
+                    <div class="row g-3">
             `;
             
             widgets.forEach(widget => {
                 const isEnabled = widget.is_enabled ? 'checked' : '';
-                const isDisabled = !widget.is_enabled ? 'disabled' : '';
+                const disabledClass = !widget.is_enabled ? 'disabled' : '';
+                const iconColors = this.getIconColors(widget.icon_bg_color);
                 
                 html += `
-                    <div class="widget-item ${isDisabled}" data-widget="${widget.code}">
-                        <div class="widget-item-icon" style="background: var(--${widget.icon_bg_color}-light, var(--gray-100)); color: var(--${widget.icon_bg_color}, var(--gray-600));">
-                            <i class="${widget.icon}"></i>
-                        </div>
-                        <div class="widget-item-content">
-                            <div class="widget-item-title">${widget.name}</div>
-                            <div class="widget-item-desc">${widget.description || ''}</div>
-                        </div>
-                        <div class="widget-item-controls">
-                            <label class="switch">
-                                <input type="checkbox" ${isEnabled} onchange="dashConfig.toggleWidget('${widget.code}', this.checked)">
-                                <span class="switch-slider"></span>
-                            </label>
-                            <div class="size-selector">
-                                <button class="size-btn ${widget.size === 'S' ? 'active' : ''}" onclick="dashConfig.updateSize('${widget.code}', 'S')">S</button>
-                                <button class="size-btn ${widget.size === 'M' ? 'active' : ''}" onclick="dashConfig.updateSize('${widget.code}', 'M')">M</button>
-                                <button class="size-btn ${widget.size === 'L' ? 'active' : ''}" onclick="dashConfig.updateSize('${widget.code}', 'L')">L</button>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="widget-item border rounded p-3 h-100 ${disabledClass}" data-widget="${widget.code}">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="widget-item-icon rounded" style="background: ${iconColors.bg}; color: ${iconColors.text};">
+                                    <i class="${widget.icon}"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold small">${widget.name}</div>
+                                    <div class="text-muted small">${widget.description || ''}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" ${isEnabled} onchange="dashConfig.toggleWidget('${widget.code}', this.checked)">
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn ${widget.size === 'S' ? 'btn-primary' : 'btn-outline-secondary'} size-btn" onclick="dashConfig.updateSize('${widget.code}', 'S')">S</button>
+                                    <button class="btn ${widget.size === 'M' ? 'btn-primary' : 'btn-outline-secondary'} size-btn" onclick="dashConfig.updateSize('${widget.code}', 'M')">M</button>
+                                    <button class="btn ${widget.size === 'L' ? 'btn-primary' : 'btn-outline-secondary'} size-btn" onclick="dashConfig.updateSize('${widget.code}', 'L')">L</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -269,6 +273,21 @@ class DashboardConfigEngine {
     }
     
     /**
+     * Get icon colors based on color name
+     */
+    getIconColors(colorName) {
+        const colors = {
+            'primary': { bg: '#e7f1ff', text: '#0d6efd' },
+            'success': { bg: '#d1e7dd', text: '#198754' },
+            'warning': { bg: '#fff3cd', text: '#ffc107' },
+            'danger': { bg: '#f8d7da', text: '#dc3545' },
+            'info': { bg: '#cff4fc', text: '#0dcaf0' },
+            'secondary': { bg: '#e2e3e5', text: '#6c757d' }
+        };
+        return colors[colorName] || colors['secondary'];
+    }
+    
+    /**
      * Update dashboard preview
      */
     updatePreview() {
@@ -278,23 +297,27 @@ class DashboardConfigEngine {
         const enabledWidgets = this.roleConfig.filter(w => w.is_enabled);
         
         if (enabledWidgets.length === 0) {
-            container.innerHTML = '<div style="text-align: center; color: var(--gray-400); padding: 40px;">No widgets enabled</div>';
+            container.innerHTML = '<div class="text-center text-muted py-4">No widgets enabled</div>';
             return;
         }
         
-        let html = '<div style="display: flex; flex-wrap: wrap; gap: 12px;">';
+        let html = '<div class="row g-2">';
         
         enabledWidgets.forEach(widget => {
-            const sizeClass = {
-                'S': 'width: 32%;',
-                'M': 'width: 48%;',
-                'L': 'width: 100%;'
-            }[widget.size] || 'width: 32%;';
+            const colClass = {
+                'S': 'col-md-4',
+                'M': 'col-md-6',
+                'L': 'col-12'
+            }[widget.size] || 'col-md-4';
+            
+            const iconColors = this.getIconColors(widget.icon_bg_color);
             
             html += `
-                <div class="preview-widget" style="${sizeClass} display: inline-flex; background: var(--white); padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); align-items: center; gap: 8px;">
-                    <i class="${widget.icon}" style="color: var(--${widget.icon_bg_color}, var(--primary));"></i>
-                    <span style="font-size: 0.85rem;">${widget.name}</span>
+                <div class="${colClass}">
+                    <div class="bg-white rounded p-2 border d-flex align-items-center gap-2">
+                        <i class="${widget.icon}" style="color: ${iconColors.text};"></i>
+                        <span class="small">${widget.name}</span>
+                    </div>
                 </div>
             `;
         });
