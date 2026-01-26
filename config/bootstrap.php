@@ -41,6 +41,10 @@ require_once dirname(__DIR__) . '/core/Costing.php';
 require_once dirname(__DIR__) . '/core/KPI.php';
 require_once dirname(__DIR__) . '/core/Compliance.php';
 
+// Dashboard configuration
+require_once dirname(__DIR__) . '/core/DashboardConfig.php';
+require_once dirname(__DIR__) . '/core/DashboardRenderer.php';
+
 // Load helpers
 require_once dirname(__DIR__) . '/includes/functions.php';
 
