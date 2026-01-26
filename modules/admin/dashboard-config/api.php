@@ -17,18 +17,21 @@ require_once __DIR__ . '/../../../config/bootstrap.php';
 header('Content-Type: application/json');
 
 // Check authentication
-if (!Auth::check()) {
+$auth = new Auth();
+if (!$auth->isAuthenticated()) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
 
 // Only ADM can manage dashboard config
-if (!RBAC::hasRole(Auth::user()['id'], 'ADM')) {
+if (!$auth->hasRole('ADM')) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden - Admin only']);
     exit;
 }
+
+$currentUserId = $auth->getCurrentUserId();
 
 $db = getDB();
 $dashConfig = new DashboardConfig($db);
@@ -80,7 +83,7 @@ try {
                 throw new InvalidArgumentException('Role code required');
             }
             
-            $dashConfig->saveRoleConfig($roleCode, $widgets, Auth::user()['id']);
+            $dashConfig->saveRoleConfig($roleCode, $widgets, $currentUserId);
             
             echo json_encode([
                 'success' => true,
@@ -99,7 +102,7 @@ try {
                 throw new InvalidArgumentException('Role and widget code required');
             }
             
-            $dashConfig->toggleWidget($roleCode, $widgetCode, $enabled, Auth::user()['id']);
+            $dashConfig->toggleWidget($roleCode, $widgetCode, $enabled, $currentUserId);
             
             echo json_encode([
                 'success' => true,
@@ -118,7 +121,7 @@ try {
                 throw new InvalidArgumentException('Role and widget code required');
             }
             
-            $dashConfig->updateWidgetSize($roleCode, $widgetCode, $size, Auth::user()['id']);
+            $dashConfig->updateWidgetSize($roleCode, $widgetCode, $size, $currentUserId);
             
             echo json_encode([
                 'success' => true,
@@ -135,7 +138,7 @@ try {
                 throw new InvalidArgumentException('Role code required');
             }
             
-            $dashConfig->resetRoleConfig($roleCode, Auth::user()['id']);
+            $dashConfig->resetRoleConfig($roleCode, $currentUserId);
             
             echo json_encode([
                 'success' => true,

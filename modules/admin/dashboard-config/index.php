@@ -7,13 +7,14 @@
 require_once __DIR__ . '/../../../config/bootstrap.php';
 
 // Check authentication
-if (!Auth::check()) {
+$auth = new Auth();
+if (!$auth->isAuthenticated()) {
     header('Location: ' . BASE_URL . '/modules/auth/login.php');
     exit;
 }
 
 // Only ADM can access
-if (!RBAC::hasRole(Auth::user()['id'], 'ADM')) {
+if (!$auth->hasRole('ADM')) {
     http_response_code(403);
     die('Access denied - Admin only');
 }
