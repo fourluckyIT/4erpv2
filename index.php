@@ -375,7 +375,7 @@ $pageTitle = $currentRoleInfo['label'];
                                         <div class="activity-time"><?= timeAgo($log['created_at']) ?></div>
                                         <div class="activity-content">
                                             <strong><?= e($log['full_name'] ?? 'System') ?></strong> 
-                                            <?= e($log['action']) ?> <?= e($log['entity_type']) ?>
+                                            <?= e($log['action'] ?? '') ?> <?= e($log['entity_type'] ?? '') ?>
                                             <?php if ($log['entity_id']): ?>
                                             <code><?= e($log['entity_id']) ?></code>
                                             <?php endif; ?>

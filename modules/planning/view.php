@@ -192,13 +192,13 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             } ?>"><?= $plan['status'] ?></span>
                         </td>
                     </tr>
-                    <?php if ($plan['confirmed_at']): ?>
+                    <?php if (!empty($plan['confirmed_at'])): ?>
                     <tr>
                         <th>ยืนยันเมื่อ:</th>
                         <td><?= formatDate($plan['confirmed_at'], 'd/m/Y H:i') ?></td>
                     </tr>
                     <?php endif; ?>
-                    <?php if ($plan['notes']): ?>
+                    <?php if (!empty($plan['notes'])): ?>
                     <tr>
                         <th>หมายเหตุ:</th>
                         <td><?= nl2br(e($plan['notes'])) ?></td>

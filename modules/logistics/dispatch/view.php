@@ -192,31 +192,31 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             } ?>"><?= $dispatch['status'] ?></span>
                         </td>
                     </tr>
-                    <?php if ($dispatch['vehicle_info']): ?>
+                    <?php if (!empty($dispatch['vehicle_info'])): ?>
                     <tr>
                         <th>รถ/ยานพาหนะ:</th>
                         <td><?= e($dispatch['vehicle_info']) ?></td>
                     </tr>
                     <?php endif; ?>
-                    <?php if ($dispatch['driver_name']): ?>
+                    <?php if (!empty($dispatch['driver_name'])): ?>
                     <tr>
                         <th>คนขับ:</th>
                         <td><?= e($dispatch['driver_name']) ?> <?= $dispatch['driver_phone'] ? '(' . e($dispatch['driver_phone']) . ')' : '' ?></td>
                     </tr>
                     <?php endif; ?>
-                    <?php if ($dispatch['dispatched_at']): ?>
+                    <?php if (!empty($dispatch['dispatched_at'])): ?>
                     <tr>
                         <th>จัดส่งเมื่อ:</th>
                         <td><?= formatDate($dispatch['dispatched_at'], 'd/m/Y H:i') ?></td>
                     </tr>
                     <?php endif; ?>
-                    <?php if ($dispatch['delivered_at']): ?>
+                    <?php if (!empty($dispatch['delivered_at'])): ?>
                     <tr>
                         <th>ถึงเมื่อ:</th>
                         <td><?= formatDate($dispatch['delivered_at'], 'd/m/Y H:i') ?></td>
                     </tr>
                     <?php endif; ?>
-                    <?php if ($dispatch['notes']): ?>
+                    <?php if (!empty($dispatch['notes'])): ?>
                     <tr>
                         <th>หมายเหตุ:</th>
                         <td><?= nl2br(e($dispatch['notes'])) ?></td>

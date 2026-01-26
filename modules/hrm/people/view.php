@@ -145,7 +145,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <tr>
                         <th>ผู้ขาย/บริษัท</th>
                         <td>
-                            <?php if ($person['supplier_name']): ?>
+                            <?php if (!empty($person['supplier_name'])): ?>
                             <?= e($person['supplier_code']) ?> - <?= e($person['supplier_name']) ?>
                             <?php else: ?>
                             -
@@ -369,7 +369,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     </td>
                     <td><?= e($sh['change_reason'] ?: '-') ?></td>
                     <td>
-                        <?php if ($sh['is_active']): ?>
+                        <?php if (!empty($sh['is_active'])): ?>
                         <span class="badge bg-success">ใช้งานอยู่</span>
                         <?php else: ?>
                         <span class="badge bg-secondary">ไม่ใช้งาน</span>

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(mysql:*)",
-      "Bash(php -r:*)"
+      "Bash(php -r:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

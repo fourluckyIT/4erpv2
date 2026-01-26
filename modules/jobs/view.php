@@ -163,7 +163,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                 <div class="mb-3">
                     <label class="form-label text-muted">รายละเอียด</label>
                     <div class="fw-bold"><?= e($job['scope_short']) ?></div>
-                    <?php if ($job['scope_detail']): ?>
+                    <?php if (!empty($job['scope_detail'])): ?>
                     <div class="text-muted small mt-1"><?= nl2br(e($job['scope_detail'])) ?></div>
                     <?php endif; ?>
                 </div>
@@ -208,7 +208,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     <div class="timeline-item">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <?php if ($h['old_status']): ?>
+                                <?php if (!empty($h['old_status'])): ?>
                                 <span class="badge bg-secondary"><?= StatusMachine::getStatusLabel($h['old_status']) ?></span>
                                 <i class="bi bi-arrow-right mx-2"></i>
                                 <?php endif; ?>
@@ -219,7 +219,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             </div>
                             <small class="text-muted"><?= formatDateTime($h['created_at']) ?></small>
                         </div>
-                        <?php if ($h['reason']): ?>
+                        <?php if (!empty($h['reason'])): ?>
                         <div class="text-muted small mt-1">
                             <i class="bi bi-chat-left-quote"></i> <?= e($h['reason']) ?>
                         </div>

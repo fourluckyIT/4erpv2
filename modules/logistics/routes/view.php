@@ -227,7 +227,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <th>คนขับ:</th>
                         <td><?= e($route['driver_name'] ?? '-') ?> <?= $route['driver_phone'] ? '(' . e($route['driver_phone']) . ')' : '' ?></td>
                     </tr>
-                    <?php if ($route['notes']): ?>
+                    <?php if (!empty($route['notes'])): ?>
                     <tr>
                         <th>หมายเหตุ:</th>
                         <td><?= nl2br(e($route['notes'])) ?></td>
@@ -269,23 +269,23 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 } ?>"><?= e($item['item_type']) ?></span>
                             </td>
                             <td>
-                                <?php if ($item['serial_id']): ?>
+                                <?php if (!empty($item['serial_id'])): ?>
                                 <strong><?= e($item['serial_number']) ?></strong><br>
                                 <small class="text-muted"><?= e($item['item_code']) ?> - <?= e($item['item_name']) ?></small>
-                                <?php elseif ($item['people_id']): ?>
+                                <?php elseif (!empty($item['people_id'])): ?>
                                 <strong><?= e($item['people_code']) ?></strong> - <?= e($item['people_name']) ?>
-                                <?php if ($item['position']): ?>
+                                <?php if (!empty($item['position'])): ?>
                                 <small class="text-muted">(<?= e($item['position']) ?>)</small>
                                 <?php endif; ?>
                                 <?php else: ?>
                                 <strong><?= e($item['item_code'] ?? '') ?></strong> - <?= e($item['item_name'] ?? '') ?>
-                                <?php if ($item['quantity']): ?>
+                                <?php if (!empty($item['quantity'])): ?>
                                 <small class="text-muted">(จำนวน: <?= e($item['quantity']) ?>)</small>
                                 <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if ($item['condition_out']): ?>
+                                <?php if (!empty($item['condition_out'])): ?>
                                 <span class="badge bg-<?= match($item['condition_out']) {
                                     'Good' => 'success',
                                     'Fair' => 'warning',
@@ -295,7 +295,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 <?php else: ?>-<?php endif; ?>
                             </td>
                             <td>
-                                <?php if ($item['condition_in']): ?>
+                                <?php if (!empty($item['condition_in'])): ?>
                                 <span class="badge bg-<?= match($item['condition_in']) {
                                     'Good' => 'success',
                                     'Fair' => 'warning',

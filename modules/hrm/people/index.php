@@ -186,7 +186,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <td><code><?= e($p['code']) ?></code></td>
                     <td>
                         <strong><?= e($p['full_name']) ?></strong>
-                        <?php if ($p['id_card']): ?>
+                        <?php if (!empty($p['id_card'])): ?>
                         <br><small class="text-muted"><?= e($p['id_card']) ?></small>
                         <?php endif; ?>
                     </td>

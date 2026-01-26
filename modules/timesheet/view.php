@@ -268,7 +268,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <td><?= e($entry['people_code']) ?></td>
                         <td>
                             <?= e($entry['full_name']) ?>
-                            <?php if ($entry['manually_added']): ?>
+                            <?php if (!empty($entry['manually_added'])): ?>
                             <span class="badge bg-warning text-dark" title="เพิ่มด้วยมือ: <?= e($entry['manual_add_reason']) ?>">
                                 <i class="bi bi-plus-circle"></i>
                             </span>
@@ -276,18 +276,18 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         </td>
                         <td><?= e($entry['position'] ?? '-') ?></td>
                         <td class="text-center">
-                            <?php if ($entry['is_present']): ?>
+                            <?php if (!empty($entry['is_present'])): ?>
                             <span class="badge bg-success">มา</span>
                             <?php else: ?>
                             <span class="badge bg-secondary">ขาด</span>
-                            <?php if ($entry['absence_reason']): ?>
+                            <?php if (!empty($entry['absence_reason'])): ?>
                             <br><small><?= e($entry['absence_reason']) ?></small>
                             <?php endif; ?>
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
                             <?= $entry['check_in'] ? substr($entry['check_in'], 0, 5) : '-' ?>
-                            <?php if ($entry['is_late']): ?>
+                            <?php if (!empty($entry['is_late'])): ?>
                             <span class="badge bg-warning text-dark" title="สาย <?= $entry['late_minutes'] ?> นาที">
                                 <i class="bi bi-clock"></i>
                             </span>
@@ -295,7 +295,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         </td>
                         <td class="text-center">
                             <?= $entry['check_out'] ? substr($entry['check_out'], 0, 5) : '-' ?>
-                            <?php if ($entry['missing_checkout']): ?>
+                            <?php if (!empty($entry['missing_checkout'])): ?>
                             <span class="badge bg-danger" title="ไม่มี check-out">!</span>
                             <?php endif; ?>
                         </td>
@@ -303,7 +303,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <td class="text-center">
                             <?php if ($entry['ot_hours'] > 0): ?>
                             <span class="text-warning fw-bold"><?= number_format($entry['ot_hours'], 1) ?></span>
-                            <?php if ($entry['ot_reason']): ?>
+                            <?php if (!empty($entry['ot_reason'])): ?>
                             <br><small class="text-muted"><?= e($entry['ot_reason']) ?></small>
                             <?php endif; ?>
                             <?php else: ?>

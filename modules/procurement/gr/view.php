@@ -167,7 +167,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <th>ผู้รับ</th>
                         <td><?= e($gr['receiver_name']) ?></td>
                     </tr>
-                    <?php if ($gr['notes']): ?>
+                    <?php if (!empty($gr['notes'])): ?>
                     <tr>
                         <th>หมายเหตุ</th>
                         <td><?= e($gr['notes']) ?></td>
@@ -190,7 +190,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             </span>
                         </td>
                     </tr>
-                    <?php if ($gr['confirmed_at']): ?>
+                    <?php if (!empty($gr['confirmed_at'])): ?>
                     <tr>
                         <th>ยืนยันโดย</th>
                         <td><?= e($gr['confirmer_name']) ?></td>
