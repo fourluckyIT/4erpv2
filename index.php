@@ -25,11 +25,16 @@ if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)) {
 ?>
 
 <div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0">
-            <i class="bi bi-speedometer2 me-2"></i>Dashboard
-        </h2>
-        <p class="text-muted">ยินดีต้อนรับ, <?= e($currentUser['full_name']) ?></p>
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </h2>
+            <p class="text-muted mb-0">ยินดีต้อนรับ, <?= e($currentUser['full_name']) ?></p>
+        </div>
+        <a href="<?= BASE_URL ?>/dashboard.php" class="btn btn-primary">
+            <i class="bi bi-stars me-1"></i>Try New Dashboard
+        </a>
     </div>
 </div>
 
