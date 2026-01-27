@@ -64,7 +64,11 @@ function getStatValue($db, $code) {
         case 'stat_jobs_awaiting_plan':
             return $db->query("SELECT COUNT(*) FROM jobs WHERE status = 'Approved'")->fetchColumn();
         case 'stat_dispatches_today':
-            return $db->query("SELECT COUNT(*) FROM routes WHERE DATE(dispatch_date) = CURRENT_DATE")->fetchColumn();
+            try {
+                return $db->query("SELECT COUNT(*) FROM routes WHERE DATE(dispatched_at) = CURRENT_DATE")->fetchColumn();
+            } catch (Exception $e) {
+                return $db->query("SELECT COUNT(*) FROM routes WHERE route_date = CURRENT_DATE")->fetchColumn();
+            }
         case 'stat_stock_items':
             return $db->query("SELECT COUNT(*) FROM items WHERE is_active = 1")->fetchColumn();
         case 'stat_low_stock':
