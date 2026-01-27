@@ -8,7 +8,7 @@
 
 define('DB_HOST', '127.0.0.1');
 define('DB_PORT', '8889');
-define('DB_NAME', 'fourlucky_4erpv2');
+define('DB_NAME', 'TEST_2');
 define('DB_USER', 'fourlucky');
 define('DB_PASS', 'strongpassword');
 define('DB_CHARSET', 'utf8mb4');
