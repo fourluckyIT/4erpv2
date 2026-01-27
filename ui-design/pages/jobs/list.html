@@ -23,6 +23,54 @@
             font-size: 0.85rem;
             color: var(--gray-600);
         }
+        .filter-select {
+            border-radius: 999px;
+            border: 1px solid transparent;
+            padding: 6px 32px 6px 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            appearance: none;
+            background-color: #F3F4F6;
+            color: var(--gray-700);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+        }
+        .filter-select.select-all {
+            background-color: #F3F4F6;
+            color: var(--gray-700);
+            border-color: #E5E7EB;
+        }
+        .filter-select.select-lumpsum {
+            background-color: #DDD6FE;
+            color: #7C3AED;
+            border-color: #C4B5FD;
+        }
+        .filter-select.select-dayrent {
+            background-color: #CFFAFE;
+            color: #0891B2;
+            border-color: #99F6E4;
+        }
+        .filter-select.select-manpower {
+            background-color: #D1FAE5;
+            color: #059669;
+            border-color: #A7F3D0;
+        }
+        .filter-select.select-neutral {
+            background-color: #F1F5F9;
+            color: #475569;
+            border-color: #E2E8F0;
+        }
+        .filter-select-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .filter-select-wrap .chevron {
+            position: absolute;
+            right: 10px;
+            font-size: 0.8rem;
+            color: rgba(0,0,0,0.35);
+            pointer-events: none;
+        }
         .status-tabs {
             display: flex;
             gap: 8px;
@@ -297,20 +345,26 @@
                 <div class="filters-bar">
                     <div class="filter-group">
                         <span class="filter-label">Job Type:</span>
-                        <select class="form-control form-select" style="width: 140px;">
-                            <option>ทั้งหมด</option>
-                            <option>Lumpsum</option>
-                            <option>Dayrent</option>
-                            <option>Manpower</option>
-                        </select>
+                        <div class="filter-select-wrap">
+                            <select class="filter-select select-all" id="jobTypeSelect" style="width: 140px;">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="lumpsum">Lumpsum</option>
+                                <option value="dayrent">Dayrent</option>
+                                <option value="manpower">Manpower</option>
+                            </select>
+                            <i class="bi bi-chevron-down chevron"></i>
+                        </div>
                     </div>
                     <div class="filter-group">
                         <span class="filter-label">Customer:</span>
-                        <select class="form-control form-select" style="width: 180px;">
-                            <option>ทั้งหมด</option>
-                            <option>บริษัท ABC จำกัด</option>
-                            <option>บริษัท XYZ จำกัด</option>
-                        </select>
+                        <div class="filter-select-wrap">
+                            <select class="filter-select select-neutral" style="width: 180px;">
+                                <option>ทั้งหมด</option>
+                                <option>บริษัท ABC จำกัด</option>
+                                <option>บริษัท XYZ จำกัด</option>
+                            </select>
+                            <i class="bi bi-chevron-down chevron"></i>
+                        </div>
                     </div>
                     <div class="filter-group">
                         <span class="filter-label">Date Range:</span>
@@ -526,6 +580,22 @@
                 this.classList.add('active');
             });
         });
+
+        // Job type select color sync
+        const jobTypeSelect = document.getElementById('jobTypeSelect');
+        const jobTypeClassMap = {
+            all: 'select-all',
+            lumpsum: 'select-lumpsum',
+            dayrent: 'select-dayrent',
+            manpower: 'select-manpower'
+        };
+        function updateJobTypeSelect() {
+            const value = jobTypeSelect.value || 'all';
+            jobTypeSelect.classList.remove('select-all', 'select-lumpsum', 'select-dayrent', 'select-manpower');
+            jobTypeSelect.classList.add(jobTypeClassMap[value] || 'select-all');
+        }
+        jobTypeSelect.addEventListener('change', updateJobTypeSelect);
+        updateJobTypeSelect();
     </script>
 </body>
 </html>
