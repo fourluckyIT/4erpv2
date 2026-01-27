@@ -1066,6 +1066,10 @@ class Route {
             
             // Audit
             $this->audit->log('status_change', 'routes', $routeId, ['from' => $fromStatus], ['to' => $toStatus]);
+
+            if ($toStatus === 'Draft') {
+                $this->reminder->stop($routeId, 'Route reverted to Draft', $_SESSION['user_id'] ?? 1);
+            }
             
             // If status changed, check Job Status update (existing logic)
             $stmt = $this->db->prepare("SELECT plan_id FROM routes WHERE id = ?");
