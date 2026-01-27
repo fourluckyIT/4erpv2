@@ -45,6 +45,8 @@ if (!$route) {
     exit;
 }
 
+$oldStatus = $route['status'];
+
 try {
     switch ($action) {
         case 'confirm':
@@ -58,6 +60,9 @@ try {
             break;
             
         case 'edit':
+            if ($oldStatus !== 'Confirmed') {
+                throw new Exception('Route ต้องอยู่ในสถานะ Confirmed เท่านั้น');
+            }
             $result = $routeModel->transitionStatus($routeId, 'Draft', $reason);
             $newStatus = 'Draft';
             break;
