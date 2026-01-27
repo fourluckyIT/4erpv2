@@ -124,7 +124,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-table me-2"></i>Movements (<?= count($movements) ?>)</span>
-        <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_WH)): ?>
+        <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_WAREHOUSE)): ?>
         <a href="receive.php" class="btn btn-sm btn-success">
             <i class="bi bi-plus-circle me-1"></i>WH Receive
         </a>

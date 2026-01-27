@@ -68,7 +68,18 @@ function getStatValue($db, $code) {
         case 'stat_stock_items':
             return $db->query("SELECT COUNT(*) FROM items WHERE is_active = 1")->fetchColumn();
         case 'stat_low_stock':
-            return $db->query("SELECT COUNT(*) FROM item_stock_levels WHERE qty_available < min_qty")->fetchColumn();
+            try {
+                return $db->query("
+                    SELECT COUNT(*)
+                    FROM items i
+                    LEFT JOIN item_stock_levels isl
+                        ON isl.item_id = i.id AND isl.location = 'WH'
+                    WHERE i.is_active = 1
+                      AND COALESCE(isl.available, i.min_stock) < i.min_stock
+                ")->fetchColumn();
+            } catch (Exception $e) {
+                return 0;
+            }
         case 'stat_outstanding_ar':
             $sum = $db->query("SELECT COALESCE(SUM(total_amount - paid_amount), 0) FROM ar_invoices WHERE status NOT IN ('Paid', 'Voided')")->fetchColumn();
             return '฿ ' . number_format($sum);
