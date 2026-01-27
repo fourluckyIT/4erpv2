@@ -37,8 +37,6 @@ if (!$routeId || !$action) {
 }
 
 $routeModel = new Route();
-$db = getDB();
-$audit = new AuditLog();
 
 // Get route
 $route = $routeModel->getById($routeId);
@@ -47,63 +45,36 @@ if (!$route) {
     exit;
 }
 
-$oldStatus = $route['status'];
-$newStatus = null;
-
 try {
     switch ($action) {
         case 'confirm':
-            if ($oldStatus !== 'Draft') {
-                throw new Exception('Route ต้องอยู่ในสถานะ Draft เท่านั้น');
-            }
-            // Check route has items
-            $items = $routeModel->getItems($routeId);
-            if (empty($items)) {
-                throw new Exception('Route ต้องมีรายการอย่างน้อย 1 รายการ');
-            }
+            $result = $routeModel->confirm($routeId);
             $newStatus = 'Confirmed';
             break;
             
         case 'dispatch':
-            if ($oldStatus !== 'Confirmed') {
-                throw new Exception('Route ต้องอยู่ในสถานะ Confirmed เท่านั้น');
-            }
+            $result = $routeModel->dispatch($routeId);
             $newStatus = 'Dispatched';
             break;
             
         case 'edit':
-            if ($oldStatus !== 'Confirmed') {
-                throw new Exception('Route ต้องอยู่ในสถานะ Confirmed เท่านั้น');
-            }
+            $result = $routeModel->transitionStatus($routeId, 'Draft', $reason);
             $newStatus = 'Draft';
             break;
             
         case 'cancel':
-            if (!in_array($oldStatus, ['Draft', 'Confirmed'])) {
-                throw new Exception('ไม่สามารถยกเลิก Route ที่ Dispatch แล้วได้');
-            }
-            if (empty($reason)) {
-                throw new Exception('กรุณาระบุเหตุผลในการยกเลิก');
-            }
+            $result = $routeModel->cancel($routeId, $reason);
             $newStatus = 'Cancelled';
             break;
             
         default:
             throw new Exception('Invalid action');
     }
-    
-    // Update status
-    $stmt = $db->prepare("UPDATE routes SET status = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([$newStatus, $routeId]);
-    
-    // Audit log
-    $audit->log('status_change', 'ROUTE', $routeId, [
-        'old_status' => $oldStatus,
-        'new_status' => $newStatus,
-        'action' => $action,
-        'reason' => $reason ?: null
-    ], null);
-    
+
+    if (!isset($result) || !$result['success']) {
+        throw new Exception($result['error'] ?? 'Action failed');
+    }
+
     echo json_encode(['success' => true, 'new_status' => $newStatus]);
     
 } catch (Exception $e) {

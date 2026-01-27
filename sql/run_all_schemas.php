@@ -25,6 +25,8 @@ $schemas = [
     'schema_m9_site_operations.sql',
     'schema_m10_costing.sql',
     'schema_m11_compliance.sql',
+    // Patches
+    'schema_patch_route_dispatch_reminders.sql',
 ];
 
 echo "=== Running ERP v2 Schema Files ===\n\n";

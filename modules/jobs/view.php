@@ -52,6 +52,8 @@ if (isPost()) {
 $userRoles = $auth->getCurrentRoles();
 $availableActions = StatusMachine::getAvailableActions($job['status'], $userRoles);
 $rbac = new RBAC();
+// Route-driven status changes are handled in Route module only
+unset($availableActions['dispatch'], $availableActions['start'], $availableActions['return'], $availableActions['wh_receive']);
 
 // Get status history
 $statusHistory = $jobModel->getStatusHistory($jobId);

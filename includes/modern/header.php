@@ -61,15 +61,16 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
             <input type="text" placeholder="ค้นหา..." id="globalSearch">
         </div>
         
-        <button class="header-icon-btn" id="notifyBtn" title="Notifications" onclick="toggleNotifications()">
+        <button class="header-icon-btn" id="notifyBtn" title="Notifications" onclick="toggleNotifications(event)">
             <i class="bi bi-bell" style="font-size: 1.1rem;"></i>
-            <span class="badge" id="notifyBadge"></span>
+            <span class="badge" id="notifyBadge" style="display: none;"></span>
         </button>
         
         <!-- Notification Dropdown -->
         <div class="notification-dropdown" id="notificationDropdown" style="display: none; position: absolute; right: 80px; top: 56px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow-lg); min-width: 320px; max-height: 400px; overflow-y: auto; z-index: 1000;">
-            <div style="padding: 12px 16px; border-bottom: 1px solid var(--gray-200); font-weight: 600;">
-                <i class="bi bi-bell me-2"></i>การแจ้งเตือน
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--gray-200); font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="bi bi-bell me-2"></i>การแจ้งเตือน</span>
+                <button type="button" class="btn btn-sm btn-light" id="notificationMarkAll">อ่านทั้งหมด</button>
             </div>
             <div id="notificationList" style="padding: 8px;">
                 <div style="padding: 16px; text-align: center; color: var(--gray-500);">
@@ -111,9 +112,103 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
             </div>
         </div>
     </div>
+        <script>
+        const BASE_URL = "<?= BASE_URL ?>";
+        </script>
 </header>
 
 <script>
+let notificationsLoaded = false;
+const notifyBadge = document.getElementById('notifyBadge');
+const notificationList = document.getElementById('notificationList');
+
+function formatNotificationTime(value) {
+    if (!value) return '';
+    const dt = new Date(value.replace(' ', 'T'));
+    return dt.toLocaleString('th-TH');
+}
+
+function renderNotifications(items) {
+    notificationList.innerHTML = '';
+    if (!items || items.length === 0) {
+        notificationList.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: var(--gray-500);">
+                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                <p class="mb-0 mt-2">ไม่มีการแจ้งเตือนใหม่</p>
+            </div>
+        `;
+        return;
+    }
+
+    items.forEach(item => {
+        const link = document.createElement('a');
+        link.href = item.action_url || '#';
+        link.className = 'notification-item' + (item.is_read ? '' : ' unread');
+        link.dataset.id = item.id;
+
+        const title = document.createElement('div');
+        title.className = 'notification-title';
+        title.textContent = item.title;
+
+        const message = document.createElement('div');
+        message.className = 'notification-message';
+        message.textContent = item.message;
+
+        const meta = document.createElement('div');
+        meta.className = 'notification-meta';
+        meta.textContent = formatNotificationTime(item.created_at);
+
+        link.appendChild(title);
+        link.appendChild(message);
+        link.appendChild(meta);
+
+        link.addEventListener('click', (e) => {
+            const payload = JSON.stringify({ id: item.id });
+            fetch(`${BASE_URL}/modules/notifications/api/mark_read.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true
+            }).then(() => {
+                link.classList.remove('unread');
+                refreshNotificationBadge();
+            }).catch(() => {});
+
+            if (!item.action_url) {
+                e.preventDefault();
+            }
+        });
+
+        notificationList.appendChild(link);
+    });
+}
+
+async function refreshNotificationBadge() {
+    try {
+        const res = await fetch(`${BASE_URL}/modules/notifications/api/list.php?limit=1`);
+        const data = await res.json();
+        if (data.success) {
+            notifyBadge.textContent = data.unread_count > 0 ? data.unread_count : '';
+            notifyBadge.style.display = data.unread_count > 0 ? 'flex' : 'none';
+        }
+    } catch (e) {}
+}
+
+async function loadNotifications() {
+    try {
+        const res = await fetch(`${BASE_URL}/modules/notifications/api/list.php?limit=10`);
+        const data = await res.json();
+        if (data.success) {
+            notifyBadge.textContent = data.unread_count > 0 ? data.unread_count : '';
+            notifyBadge.style.display = data.unread_count > 0 ? 'flex' : 'none';
+            renderNotifications(data.items);
+            notificationsLoaded = true;
+        }
+    } catch (e) {
+        notificationList.innerHTML = '<div class="text-danger p-3">โหลดการแจ้งเตือนไม่สำเร็จ</div>';
+    }
+}
+
 document.getElementById('userDropdown').addEventListener('click', function(e) {
     e.stopPropagation();
     const menu = document.getElementById('userDropdownMenu');
@@ -121,15 +216,29 @@ document.getElementById('userDropdown').addEventListener('click', function(e) {
     document.getElementById('notificationDropdown').style.display = 'none';
 });
 
-function toggleNotifications() {
+function toggleNotifications(event) {
     event.stopPropagation();
     const dropdown = document.getElementById('notificationDropdown');
     dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
     document.getElementById('userDropdownMenu').style.display = 'none';
+    if (dropdown.style.display === 'block' && !notificationsLoaded) {
+        loadNotifications();
+    }
 }
 
 document.addEventListener('click', function() {
     document.getElementById('userDropdownMenu').style.display = 'none';
     document.getElementById('notificationDropdown').style.display = 'none';
 });
+
+document.getElementById('notificationMarkAll')?.addEventListener('click', async function(e) {
+    e.stopPropagation();
+    try {
+        await fetch(`${BASE_URL}/modules/notifications/api/mark_all_read.php`, { method: 'POST' });
+        notificationsLoaded = false;
+        loadNotifications();
+    } catch (err) {}
+});
+
+refreshNotificationBadge();
 </script>

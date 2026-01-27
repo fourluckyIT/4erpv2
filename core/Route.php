@@ -12,12 +12,16 @@
 
 require_once __DIR__ . '/DocumentNumber.php';
 require_once __DIR__ . '/../includes/booking_conflicts.php';
+require_once __DIR__ . '/Notification.php';
+require_once __DIR__ . '/RouteReminder.php';
 
 class Route {
     private PDO $db;
     private AuditLog $audit;
     private DocumentNumber $docNum;
     private BookingConflict $conflict;
+    private Notification $notification;
+    private RouteReminder $reminder;
     
     // Photo requirements per event
     const PHOTOS_REQUIRED = 4;
@@ -27,6 +31,8 @@ class Route {
         $this->audit = new AuditLog();
         $this->docNum = new DocumentNumber();
         $this->conflict = new BookingConflict($this->db);
+        $this->notification = new Notification();
+        $this->reminder = new RouteReminder();
     }
     
     /**
@@ -365,6 +371,27 @@ class Route {
                 WHERE id = ?
             ");
             $stmt->execute([$_SESSION['user_id'], $routeId]);
+
+            // Create/reset WH dispatch reminder
+            $this->reminder->createOrReset($route, $_SESSION['user_id']);
+
+            // Notify WH: Route ready for dispatch
+            $whUsers = $this->getUserIdsByRoles(['WH']);
+            if (!empty($whUsers)) {
+                $title = "Route {$route['route_number']} พร้อมปล่อยรถ";
+                $message = "Job: {$route['job_number']} (กรุณา WH ปล่อยรถ)";
+                $url = "/4erpv2/modules/logistics/routes/view.php?id={$routeId}";
+                $this->notification->createBulk(
+                    $whUsers,
+                    Notification::TYPE_DISPATCH_ALERT,
+                    $title,
+                    $message,
+                    $url,
+                    'ROUTE',
+                    $routeId,
+                    Notification::PRIORITY_NORMAL
+                );
+            }
             
             // Audit log
             $this->audit->log(
@@ -430,6 +457,19 @@ class Route {
             
             // Check if all routes in plan are dispatched, then update job status
             $this->checkAndUpdateJobStatus($route['plan_id']);
+
+            // Stop reminder and notify planner + supervisor
+            $this->reminder->stop($routeId, 'Route dispatched', $_SESSION['user_id']);
+            $job = $this->getJob($route['job_id']);
+            $notifyIds = [];
+            if (!empty($job['owner_planner_id'])) {
+                $notifyIds[] = (int) $job['owner_planner_id'];
+            }
+            $notifyIds = array_merge($notifyIds, $this->getUserIdsByRoles(['MGR']));
+            $notifyIds = array_values(array_unique($notifyIds));
+            if (!empty($notifyIds)) {
+                $this->notification->notifyDispatch($routeId, $route['route_number'], $job['job_number'], $notifyIds);
+            }
             
             // Audit log
             $this->audit->log(
@@ -716,6 +756,9 @@ class Route {
                 ['status' => 'Cancelled'],
                 $reason
             );
+
+            // Stop reminder on cancel
+            $this->reminder->stop($routeId, 'Route cancelled', $_SESSION['user_id']);
             
             $this->db->commit();
             
@@ -1053,5 +1096,21 @@ class Route {
         $stmt = $this->db->prepare("SELECT * FROM jobs WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch() ?: null;
+    }
+
+    private function getUserIdsByRoles(array $roles): array {
+        if (empty($roles)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($roles), '?'));
+        $stmt = $this->db->prepare("
+            SELECT DISTINCT u.id
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            WHERE r.code IN ($placeholders) AND u.is_active = 1
+        ");
+        $stmt->execute($roles);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 }

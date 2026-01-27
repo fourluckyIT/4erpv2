@@ -7,9 +7,11 @@
 require_once __DIR__ . '/../../../config/bootstrap.php';
 require_once __DIR__ . '/../../../core/Route.php';
 require_once __DIR__ . '/../../../core/EvidencePhoto.php';
+require_once __DIR__ . '/../../../core/RouteReminder.php';
 
 $auth = new Auth();
 $auth->requireAuth();
+$rbac = new RBAC();
 
 $routeModel = new Route();
 $photoModel = new EvidencePhoto();
@@ -54,6 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'cancel':
             $reason = post('cancel_reason', '');
             $result = $routeModel->cancel($id, $reason);
+            break;
+            
+        case 'snooze_reminder':
+            if (!$rbac->hasAnyRole(['WH', 'ADM', 'MGR'])) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์จัดการแจ้งเตือน'];
+                break;
+            }
+            $option = post('snooze_option', '30m');
+            $reminder = new RouteReminder();
+            $result = $reminder->snooze($id, $option, $_SESSION['user_id']);
             break;
             
         case 'upload_photo':
@@ -181,6 +193,36 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         </div>
     </div>
 </div>
+
+<?php if ($route['status'] === 'Confirmed' && $rbac->hasAnyRole(['WH', 'ADM', 'MGR'])): ?>
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning text-dark">
+        <i class="bi bi-bell-slash me-2"></i>WH แจ้งเตือนปล่อยรถ (Snooze)
+    </div>
+    <div class="card-body">
+        <form method="POST" class="row g-2 align-items-center">
+            <input type="hidden" name="action" value="snooze_reminder">
+            <div class="col-auto">
+                <select name="snooze_option" class="form-select form-select-sm">
+                    <option value="30m">30 นาที</option>
+                    <option value="2h">2 ชั่วโมง</option>
+                    <option value="4h">4 ชั่วโมง</option>
+                    <option value="8h">8 ชั่วโมง</option>
+                    <option value="next_day">วันถัดไป 07:30</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-dark btn-sm">
+                    ปิดแจ้งเตือนชั่วคราว
+                </button>
+            </div>
+        </form>
+        <div class="small text-muted mt-2">
+            แจ้งเตือนจะกลับมาเวลา 07:30 ตามรอบปกติ
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="row">
     <!-- Route Info -->

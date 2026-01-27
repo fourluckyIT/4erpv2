@@ -11,6 +11,7 @@
  */
 
 require_once __DIR__ . '/StatusMachine.php';
+require_once __DIR__ . '/RouteReminder.php';
 require_once __DIR__ . '/DocumentNumber.php';
 
 class Job {
@@ -200,6 +201,12 @@ class Job {
             if (!$validation['valid']) {
                 return ['success' => false, 'error' => $validation['error']];
             }
+
+            // Route-driven statuses should not be changed directly on Job
+            $routeDrivenActions = ['dispatch', 'start', 'return', 'wh_receive'];
+            if (in_array($action, $routeDrivenActions)) {
+                return ['success' => false, 'error' => 'สถานะนี้อัปเดตผ่าน Route เท่านั้น'];
+            }
             
             $this->db->beginTransaction();
             
@@ -256,6 +263,12 @@ class Job {
                 ['status' => $toStatus],
                 $reason
             );
+
+            // Stop route dispatch reminders if job is cancelled/voided
+            if (in_array($action, ['cancel', 'reject', 'void'])) {
+                $reminder = new RouteReminder();
+                $reminder->stopByJobId($id, 'Job cancelled/voided', $_SESSION['user_id']);
+            }
             
             $this->db->commit();
             

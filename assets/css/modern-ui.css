@@ -303,10 +303,16 @@ body {
     position: absolute;
     top: 4px;
     right: 4px;
-    width: 8px;
-    height: 8px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
     background: var(--danger);
     border-radius: 50%;
+    font-size: 0.7rem;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .header-user {
@@ -316,6 +322,43 @@ body {
     cursor: pointer;
     padding: 6px 12px;
     border-radius: var(--border-radius);
+}
+
+/* Notifications */
+.notification-item {
+    display: block;
+    padding: 10px 12px;
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    color: var(--gray-800);
+    border: 1px solid transparent;
+    margin-bottom: 6px;
+}
+
+.notification-item.unread {
+    background: var(--gray-100);
+    border-color: var(--gray-200);
+}
+
+.notification-item:hover {
+    background: var(--gray-100);
+}
+
+.notification-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.notification-message {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin-top: 2px;
+}
+
+.notification-meta {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    margin-top: 6px;
 }
 
 .header-user:hover {
