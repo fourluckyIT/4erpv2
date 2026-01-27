@@ -41,7 +41,7 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
             <i class="bi bi-list" style="font-size: 1.25rem;"></i>
         </button>
         <nav class="header-breadcrumb">
-            <a href="<?= BASE_URL ?>/dashboard.php">Dashboard</a>
+            <a href="<?= BASE_URL ?>/index.php">Dashboard</a>
             <?php if (!empty($breadcrumbs)): ?>
                 <?php foreach ($breadcrumbs as $crumb): ?>
                 <i class="bi bi-chevron-right"></i>
