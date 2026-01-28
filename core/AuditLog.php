@@ -45,8 +45,13 @@ class AuditLog {
             $reason = '[REASON NOT PROVIDED - VIOLATION]';
         }
         
-        $userId = $_SESSION['user_id'] ?? 0;
+        $sessionUserId = (int) ($_SESSION['user_id'] ?? 0);
+        [$userId, $fallbackNote] = $this->resolveAuditUserId($sessionUserId);
         $userRole = $this->getCurrentUserRole();
+        if ($fallbackNote !== null) {
+            $reason = trim(($reason ? $reason . ' ' : '') . $fallbackNote);
+            $userRole = $this->getUserPrimaryRoleById($userId) ?? $userRole;
+        }
         $requestId = getRequestId();
         
         $stmt = $this->db->prepare("
@@ -87,6 +92,92 @@ class AuditLog {
         if (in_array(ROLE_ADMIN, $roles)) return ROLE_ADMIN;
         if (in_array(ROLE_MANAGER, $roles)) return ROLE_MANAGER;
         return $roles[0] ?? 'GUEST';
+    }
+
+    /**
+     * Resolve a safe audit user id that satisfies FK constraints.
+     * Falls back to username/admin/any user if session user_id is stale.
+     *
+     * @return array{0:int,1:?string} [resolvedUserId, fallbackNote]
+     */
+    private function resolveAuditUserId(int $sessionUserId): array {
+        if ($sessionUserId > 0 && $this->userIdExists($sessionUserId)) {
+            return [$sessionUserId, null];
+        }
+
+        $resolvedId = null;
+        $sessionUsername = $_SESSION['username'] ?? null;
+        if (!empty($sessionUsername)) {
+            $resolvedId = $this->getUserIdByUsername($sessionUsername);
+        }
+        if (!$resolvedId) {
+            $resolvedId = $this->getAdminUserId();
+        }
+        if (!$resolvedId) {
+            $resolvedId = $this->getAnyUserId();
+        }
+        if (!$resolvedId) {
+            throw new RuntimeException('Audit log requires at least one user record.');
+        }
+
+        $note = sprintf(
+            '[AUDIT_USER_FALLBACK: session_user_id=%s resolved_user_id=%d]',
+            $sessionUserId > 0 ? (string) $sessionUserId : 'NULL',
+            $resolvedId
+        );
+
+        return [$resolvedId, $note];
+    }
+
+    private function userIdExists(int $userId): bool {
+        $stmt = $this->db->prepare("SELECT 1 FROM users WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => $userId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function getUserIdByUsername(string $username): ?int {
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE username = :username LIMIT 1");
+        $stmt->execute(['username' => $username]);
+        $id = $stmt->fetchColumn();
+        return $id ? (int) $id : null;
+    }
+
+    private function getAdminUserId(): ?int {
+        $stmt = $this->db->prepare("
+            SELECT u.id
+            FROM users u
+            INNER JOIN user_roles ur ON ur.user_id = u.id
+            INNER JOIN roles r ON r.id = ur.role_id
+            WHERE r.code = :code
+            ORDER BY u.id ASC
+            LIMIT 1
+        ");
+        $stmt->execute(['code' => ROLE_ADMIN]);
+        $id = $stmt->fetchColumn();
+        return $id ? (int) $id : null;
+    }
+
+    private function getAnyUserId(): ?int {
+        $stmt = $this->db->query("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+        $id = $stmt->fetchColumn();
+        return $id ? (int) $id : null;
+    }
+
+    private function getUserPrimaryRoleById(int $userId): ?string {
+        $stmt = $this->db->prepare("
+            SELECT r.code
+            FROM roles r
+            INNER JOIN user_roles ur ON ur.role_id = r.id
+            WHERE ur.user_id = :user_id
+        ");
+        $stmt->execute(['user_id' => $userId]);
+        $roles = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($roles)) {
+            return null;
+        }
+        if (in_array(ROLE_ADMIN, $roles, true)) return ROLE_ADMIN;
+        if (in_array(ROLE_MANAGER, $roles, true)) return ROLE_MANAGER;
+        return $roles[0];
     }
     
     /**

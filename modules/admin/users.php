@@ -55,9 +55,9 @@ if (isPost()) {
         $stmt->execute([$username, $email, $fullName, $passwordHash]);
         $newUserId = $db->lastInsertId();
         
-        // Assign roles
-        foreach ($roles as $roleId) {
-            $rbac->assignRole($newUserId, (int)$roleId, $auth->getCurrentUserId());
+        // Assign roles (form sends role codes now)
+        foreach ($roles as $roleCode) {
+            $rbac->assignRole($newUserId, $roleCode, $auth->getCurrentUserId());
         }
         
         // Audit log
@@ -100,11 +100,11 @@ if (isPost()) {
             $stmt->execute([$passwordHash, $userId]);
         }
         
-        // Update roles - remove all and re-add
+        // Update roles - remove all and re-add (form sends role codes now)
         $stmt = $db->prepare("DELETE FROM user_roles WHERE user_id = ?");
         $stmt->execute([$userId]);
-        foreach ($roles as $roleId) {
-            $rbac->assignRole($userId, (int)$roleId, $auth->getCurrentUserId());
+        foreach ($roles as $roleCode) {
+            $rbac->assignRole($userId, $roleCode, $auth->getCurrentUserId());
         }
         
         // Audit log
@@ -260,10 +260,10 @@ $roles = $rbac->getAllRoles();
                         <?php foreach ($roles as $role): ?>
                         <div class="col-md-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" 
-                                       name="roles[]" value="<?= $role['id'] ?>" 
-                                       id="role_<?= $role['id'] ?>">
-                                <label class="form-check-label" for="role_<?= $role['id'] ?>">
+                                <input class="form-check-input" type="checkbox"
+                                       name="roles[]" value="<?= e($role['code']) ?>"
+                                       id="role_<?= e($role['code']) ?>">
+                                <label class="form-check-label" for="role_<?= e($role['code']) ?>">
                                     <?= e($role['code']) ?> - <?= e($role['name']) ?>
                                 </label>
                             </div>
@@ -291,10 +291,10 @@ $roles = $rbac->getAllRoles();
         redirect('users.php');
     }
     
-    // Get user's current roles
-    $stmt = $db->prepare("SELECT role_id FROM user_roles WHERE user_id = ?");
+    // Get user's current roles (get role codes for comparison)
+    $stmt = $db->prepare("SELECT r.code FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?");
     $stmt->execute([$userId]);
-    $userRoleIds = array_column($stmt->fetchAll(), 'role_id');
+    $userRoleCodes = array_column($stmt->fetchAll(), 'code');
     ?>
     
     <div class="card">
@@ -351,11 +351,11 @@ $roles = $rbac->getAllRoles();
                         <?php foreach ($roles as $role): ?>
                         <div class="col-md-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" 
-                                       name="roles[]" value="<?= $role['id'] ?>" 
-                                       id="role_<?= $role['id'] ?>"
-                                       <?= in_array($role['id'], $userRoleIds) ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="role_<?= $role['id'] ?>">
+                                <input class="form-check-input" type="checkbox"
+                                       name="roles[]" value="<?= e($role['code']) ?>"
+                                       id="role_edit_<?= e($role['code']) ?>"
+                                       <?= in_array($role['code'], $userRoleCodes) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="role_edit_<?= e($role['code']) ?>">
                                     <?= e($role['code']) ?> - <?= e($role['name']) ?>
                                 </label>
                             </div>

@@ -187,32 +187,32 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span>รายการ</span>
+            <span><i class="bi bi-list-ul me-2"></i>รายการสินค้า</span>
             <button type="button" class="btn btn-sm btn-success" onclick="addItem()">
                 <i class="bi bi-plus-circle me-1"></i>เพิ่มรายการ
             </button>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table mb-0" id="itemsTable">
-                    <thead>
+                <table class="table table-hover mb-0" id="itemsTable">
+                    <thead class="table-light">
                         <tr>
-                            <th style="width: 200px;">สินค้า</th>
-                            <th>รายละเอียด</th>
-                            <th style="width: 100px;">จำนวน</th>
-                            <th style="width: 80px;">หน่วย</th>
-                            <th style="width: 120px;">ราคา/หน่วย</th>
-                            <th style="width: 120px;">รวม</th>
-                            <th style="width: 50px;"></th>
+                            <th width="40">#</th>
+                            <th>รายละเอียด (พิมพ์ค้นหาหรือใส่เอง)</th>
+                            <th width="100" class="text-end">ราคา/หน่วย</th>
+                            <th width="90" class="text-center">จำนวน</th>
+                            <th width="60" class="text-center">หน่วย</th>
+                            <th width="100" class="text-end">รวม</th>
+                            <th width="40"></th>
                         </tr>
                     </thead>
-                    <tbody id="itemsBody">
+                    <tbody id="itemsContainer">
                         <!-- Items added by JS -->
                     </tbody>
-                    <tfoot>
+                    <tfoot class="table-light">
                         <tr>
                             <td colspan="5" class="text-end"><strong>รวมทั้งสิ้น</strong></td>
-                            <td><strong id="grandTotal">0.00</strong></td>
+                            <td class="text-end"><strong class="text-primary" id="grandTotal">0.00</strong></td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -220,9 +220,12 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </div>
         </div>
     </div>
-    
-    <div class="text-end">
-        <button type="submit" class="btn btn-primary btn-lg">
+
+    <div class="d-flex justify-content-between">
+        <a href="index.php" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>ยกเลิก
+        </a>
+        <button type="submit" class="btn btn-primary btn-lg px-5">
             <i class="bi bi-check-circle me-1"></i>บันทึก PR
         </button>
     </div>
@@ -233,129 +236,138 @@ const catalogItems = <?= json_encode($catalogItems) ?>;
 let itemIndex = 0;
 
 function addItem() {
-    const tbody = document.getElementById('itemsBody');
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td>
-            <div class="input-group input-group-sm">
-                <select class="form-select form-select-sm" name="items[${itemIndex}][item_id]" onchange="selectItem(this, ${itemIndex})">
-                    <option value="">-- เลือก --</option>
-                    ${catalogItems.map(i => `<option value="${i.id}" data-name="${i.name}" data-unit="${i.unit}">${i.code} - ${i.name}</option>`).join('')}
-                </select>
-                <button type="button" class="btn btn-outline-secondary" onclick="showNewItemModal(${itemIndex})" title="เพิ่มสินค้าใหม่">
-                    <i class="bi bi-plus"></i>
-                </button>
-            </div>
+    const tbody = document.getElementById('itemsContainer');
+    const tr = document.createElement('tr');
+    tr.id = `item_${itemIndex}`;
+    tr.innerHTML = `
+        <td class="align-middle text-center text-muted row-num">${tbody.children.length + 1}</td>
+        <td class="position-relative">
+            <input type="hidden" name="items[${itemIndex}][item_id]" class="item-id-input" value="">
+            <input type="text" class="form-control form-control-sm item-search" name="items[${itemIndex}][description]" data-idx="${itemIndex}" placeholder="พิมพ์ค้นหาหรือใส่รายละเอียด..." autocomplete="off" required>
+            <div class="item-dropdown"></div>
         </td>
         <td>
-            <input type="text" class="form-control form-control-sm" name="items[${itemIndex}][description]" required>
+            <input type="number" class="form-control form-control-sm text-center item-qty" name="items[${itemIndex}][qty]" value="1" step="0.01" min="0.01" onchange="calcRow(${itemIndex})">
         </td>
         <td>
-            <input type="number" class="form-control form-control-sm" name="items[${itemIndex}][qty]" value="1" step="0.01" min="0" onchange="calcRow(${itemIndex})">
+            <input type="text" class="form-control form-control-sm text-center item-unit" name="items[${itemIndex}][unit]" value="pcs">
         </td>
         <td>
-            <input type="text" class="form-control form-control-sm" name="items[${itemIndex}][unit]" value="pcs">
+            <input type="number" class="form-control form-control-sm text-end item-price" name="items[${itemIndex}][unit_price]" value="0" step="0.01" min="0" onchange="calcRow(${itemIndex})">
         </td>
         <td>
-            <input type="number" class="form-control form-control-sm" name="items[${itemIndex}][unit_price]" value="0" step="0.01" min="0" onchange="calcRow(${itemIndex})">
+            <input type="text" class="form-control form-control-sm text-end bg-light" id="amount_${itemIndex}" value="0.00" readonly>
         </td>
-        <td>
-            <span id="amount_${itemIndex}">0.00</span>
-        </td>
-        <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); calcTotal();">
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${itemIndex})" title="ลบ">
                 <i class="bi bi-trash"></i>
             </button>
         </td>
     `;
-    tbody.appendChild(row);
+    tbody.appendChild(tr);
+    initItemSearch(tr.querySelector('.item-search'));
     itemIndex++;
+    renumberRows();
 }
 
-function selectItem(select, idx) {
-    const option = select.options[select.selectedIndex];
-    if (option.value) {
-        document.querySelector(`[name="items[${idx}][description]"]`).value = option.dataset.name || '';
-        document.querySelector(`[name="items[${idx}][unit]"]`).value = option.dataset.unit || 'pcs';
+function removeItem(idx) {
+    const row = document.getElementById(`item_${idx}`);
+    if (row) {
+        row.remove();
+        calcTotal();
+        renumberRows();
+    }
+}
+
+function renumberRows() {
+    document.querySelectorAll('#itemsContainer tr').forEach((tr, i) => {
+        const numCell = tr.querySelector('.row-num');
+        if (numCell) numCell.textContent = i + 1;
+    });
+}
+
+// Item Search Combobox
+function initItemSearch(input) {
+    const tr = input.closest('tr');
+    const dropdown = tr.querySelector('.item-dropdown');
+    const idx = input.dataset.idx;
+
+    input.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        if (query.length === 0) {
+            dropdown.classList.remove('show');
+            return;
+        }
+
+        const filtered = catalogItems.filter(item =>
+            item.code.toLowerCase().includes(query) ||
+            item.name.toLowerCase().includes(query)
+        ).slice(0, 10);
+
+        if (filtered.length > 0) {
+            dropdown.innerHTML = filtered.map(item => `
+                <a href="#" class="dropdown-item py-1" onclick="selectCatalogItem(${idx}, ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.unit}'); return false;">
+                    <small class="text-muted">${item.code}</small> - ${item.name}
+                </a>
+            `).join('');
+            dropdown.classList.add('show');
+        } else {
+            dropdown.innerHTML = `<div class="dropdown-item text-muted small py-1"><i class="bi bi-pencil me-1"></i>ใช้ "${query}" เป็นรายละเอียด</div>`;
+            dropdown.classList.add('show');
+        }
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(() => dropdown.classList.remove('show'), 150);
+    });
+}
+
+function selectCatalogItem(idx, itemId, name, unit) {
+    const tr = document.getElementById(`item_${idx}`);
+    if (tr) {
+        tr.querySelector('.item-search').value = name;
+        tr.querySelector('.item-id-input').value = itemId;
+        tr.querySelector('.item-unit').value = unit || 'pcs';
+        tr.querySelector('.item-dropdown').classList.remove('show');
     }
 }
 
 function calcRow(idx) {
-    const qty = parseFloat(document.querySelector(`[name="items[${idx}][qty]"]`).value) || 0;
-    const price = parseFloat(document.querySelector(`[name="items[${idx}][unit_price]"]`).value) || 0;
+    const qty = parseFloat(document.querySelector(`[name="items[${idx}][qty]"]`)?.value) || 0;
+    const price = parseFloat(document.querySelector(`[name="items[${idx}][unit_price]"]`)?.value) || 0;
     const amount = qty * price;
-    document.getElementById(`amount_${idx}`).textContent = amount.toFixed(2);
+    const el = document.getElementById(`amount_${idx}`);
+    if (el) el.value = formatNumber(amount);
     calcTotal();
 }
 
 function calcTotal() {
     let total = 0;
     document.querySelectorAll('[id^="amount_"]').forEach(el => {
-        total += parseFloat(el.textContent) || 0;
+        total += parseFloat(el.value.replace(/,/g, '')) || 0;
     });
-    document.getElementById('grandTotal').textContent = total.toFixed(2);
+    document.getElementById('grandTotal').textContent = formatNumber(total);
+}
+
+function formatNumber(num) {
+    return num.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 // Add first item row
 addItem();
-
-// New Item Modal functions
-function showNewItemModal(idx) {
-    document.getElementById('newItemIdx').value = idx;
-    document.getElementById('newItemName').value = '';
-    document.getElementById('newItemUnit').value = 'pcs';
-    const modal = new bootstrap.Modal(document.getElementById('newItemModal'));
-    modal.show();
-}
-
-function saveNewItem() {
-    const idx = document.getElementById('newItemIdx').value;
-    const name = document.getElementById('newItemName').value.trim();
-    const unit = document.getElementById('newItemUnit').value.trim() || 'pcs';
-    
-    if (!name) {
-        alert('กรุณาระบุชื่อสินค้า');
-        return;
-    }
-    
-    // Set description directly (no item_id means new item)
-    document.querySelector(`[name="items[${idx}][item_id]"]`).value = '';
-    document.querySelector(`[name="items[${idx}][description]"]`).value = name;
-    document.querySelector(`[name="items[${idx}][unit]"]`).value = unit;
-    
-    // Close modal
-    bootstrap.Modal.getInstance(document.getElementById('newItemModal')).hide();
-}
 </script>
 
-<!-- New Item Modal -->
-<div class="modal fade" id="newItemModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>เพิ่มสินค้าใหม่</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="newItemIdx">
-                <div class="mb-3">
-                    <label class="form-label">ชื่อสินค้า <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="newItemName" placeholder="ระบุชื่อสินค้าที่ต้องการ">
-                    <div class="form-text">สินค้านี้จะถูกบันทึกในรายละเอียด PR (ไม่เพิ่มใน Master)</div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">หน่วย</label>
-                    <input type="text" class="form-control" id="newItemUnit" value="pcs">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="button" class="btn btn-primary" onclick="saveNewItem()">
-                    <i class="bi bi-check me-1"></i>ใช้สินค้านี้
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+.item-dropdown { display: none; position: absolute; top: 100%; left: 0; z-index: 1000; width: 100%; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.item-dropdown.show { display: block; }
+.item-dropdown a { display: block; padding: 6px 10px; color: #333; text-decoration: none; }
+.item-dropdown a:hover { background: #f0f0f0; }
+#itemsTable td { padding: 0.4rem; vertical-align: middle; }
+#itemsTable th { padding: 0.5rem 0.4rem; font-size: 0.875rem; }
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+</style>
 
 <?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>
