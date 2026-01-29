@@ -13,16 +13,22 @@
 require_once __DIR__ . '/StatusMachine.php';
 require_once __DIR__ . '/RouteReminder.php';
 require_once __DIR__ . '/DocumentNumber.php';
+require_once __DIR__ . '/Notification.php';
+require_once __DIR__ . '/RBAC.php';
 
 class Job {
     private PDO $db;
     private AuditLog $audit;
     private DocumentNumber $docNum;
+    private Notification $notification;
+    private RBAC $rbac;
     
     public function __construct() {
         $this->db = getDB();
         $this->audit = new AuditLog();
         $this->docNum = new DocumentNumber();
+        $this->notification = new Notification();
+        $this->rbac = new RBAC();
     }
     
     /**
@@ -271,6 +277,56 @@ class Job {
             }
             
             $this->db->commit();
+
+            // Notifications (after commit)
+            if ($action === 'submit') {
+                $approverIds = $this->rbac->getUserIdsWithPermission('approve', 'JOB', 'Submitted');
+                if (!empty($approverIds)) {
+                    $title = "Job {$job['job_number']} รออนุมัติ";
+                    $message = "ลูกค้า: {$job['customer_name']}";
+                    $url = "/4erpv2/modules/jobs/view.php?id={$id}";
+                    $this->notification->createBulk(
+                        $approverIds,
+                        Notification::TYPE_APPROVAL_REQUEST,
+                        $title,
+                        $message,
+                        $url,
+                        'JOB',
+                        $id,
+                        Notification::PRIORITY_HIGH
+                    );
+                }
+            }
+
+            if (in_array($action, ['approve', 'reject', 'cancel', 'void'], true)) {
+                $this->notification->markReadByEntity('JOB', $id, Notification::TYPE_APPROVAL_REQUEST);
+                $requesterId = $job['submitted_by'] ?? $job['created_by'];
+                if (!empty($requesterId)) {
+                    $statusText = match ($action) {
+                        'approve' => 'อนุมัติแล้ว',
+                        'reject' => 'ถูกปฏิเสธ',
+                        'cancel' => 'ถูกยกเลิก',
+                        'void' => 'ถูก Void',
+                        default => 'อัปเดตแล้ว'
+                    };
+                    $title = "Job {$job['job_number']} {$statusText}";
+                    $message = "ลูกค้า: {$job['customer_name']}";
+                    if (!empty($reason)) {
+                        $message .= "\nเหตุผล: {$reason}";
+                    }
+                    $url = "/4erpv2/modules/jobs/view.php?id={$id}";
+                    $this->notification->create(
+                        (int)$requesterId,
+                        Notification::TYPE_APPROVAL_RESULT,
+                        $title,
+                        $message,
+                        $url,
+                        'JOB',
+                        $id,
+                        Notification::PRIORITY_NORMAL
+                    );
+                }
+            }
             
             return ['success' => true, 'new_status' => $toStatus];
             

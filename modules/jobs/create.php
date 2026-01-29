@@ -296,7 +296,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                 </div>
                 <div id="cust_sites_section" class="d-none">
                     <div id="cust_sites_list">
-                        <div class="site-row border rounded p-2 mb-2" data-idx="0">
+                        <div class="site-row p-2 mb-2" data-idx="0">
                             <div class="row g-2">
                                 <div class="col-md-5">
                                     <input type="text" class="form-control form-control-sm site-name" placeholder="ชื่อไซต์ *">
@@ -365,10 +365,13 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 </div>
 
 <script>
-const BASE_URL = '<?= BASE_URL ?>';
+if (typeof window.BASE_URL === 'undefined') {
+    window.BASE_URL = '<?= BASE_URL ?>';
+}
 
 // Load sites when customer changes
-document.getElementById('customer_id').addEventListener('change', function() {
+const customerSelectEl = document.getElementById('customer_id');
+customerSelectEl.addEventListener('change', function() {
     const customerId = this.value;
     const siteSelect = document.getElementById('site_id');
     
@@ -379,7 +382,7 @@ document.getElementById('customer_id').addEventListener('change', function() {
         return;
     }
     
-    fetch(BASE_URL + '/modules/jobs/api.php?action=get_sites&customer_id=' + customerId)
+    fetch(window.BASE_URL + '/modules/jobs/api.php?action=get_sites&customer_id=' + customerId)
         .then(r => r.json())
         .then(data => {
             siteSelect.innerHTML = '<option value="">-- เลือก site --</option>';
@@ -392,6 +395,9 @@ document.getElementById('customer_id').addEventListener('change', function() {
     document.getElementById('btnAddSite').disabled = false;
     document.getElementById('btnAddSite').title = 'เพิ่มไซต์';
 });
+if (customerSelectEl.value) {
+    customerSelectEl.dispatchEvent(new Event('change'));
+}
 
 const modalCreateCustomerEl = document.getElementById('modalCreateCustomer');
 const custError = document.getElementById('cust_error');
@@ -457,12 +463,19 @@ btnCreateCustomerSave.addEventListener('click', async () => {
             formData.append('sites', JSON.stringify(sites));
         }
 
-        const res = await fetch(BASE_URL + '/modules/jobs/api.php?action=create_customer', {
+        const res = await fetch(window.BASE_URL + '/modules/jobs/api.php?action=create_customer', {
             method: 'POST',
             body: formData
         });
 
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            custShowError(text || 'ไม่สามารถสร้างลูกค้าได้');
+            return;
+        }
         if (!res.ok || !data.success) {
             custShowError(data.error || 'ไม่สามารถสร้างลูกค้าได้');
             return;
@@ -505,40 +518,73 @@ btnCreateCustomerSave.addEventListener('click', async () => {
 });
 
 // Toggle site section
-document.getElementById('cust_has_sites').addEventListener('change', function() {
-    const section = document.getElementById('cust_sites_section');
-    if (this.checked) {
-        section.classList.remove('d-none');
-    } else {
-        section.classList.add('d-none');
-    }
-});
+const custHasSitesEl = document.getElementById('cust_has_sites');
+if (custHasSitesEl) {
+    custHasSitesEl.addEventListener('change', function() {
+        const section = document.getElementById('cust_sites_section');
+        if (!section) {
+            return;
+        }
+        if (this.checked) {
+            section.classList.remove('d-none');
+            updateRemoveButtons();
+        } else {
+            section.classList.add('d-none');
+        }
+    });
+}
 
 // Add more site row
 let siteRowIdx = 1;
-document.getElementById('btnAddMoreSite').addEventListener('click', function() {
+function addMoreSiteRow(e) {
+    if (e && e.preventDefault) {
+        e.preventDefault();
+    }
     const container = document.getElementById('cust_sites_list');
-    const newRow = document.createElement('div');
-    newRow.className = 'site-row border rounded p-2 mb-2';
-    newRow.dataset.idx = siteRowIdx++;
-    newRow.innerHTML = `
-        <div class="row g-2">
-            <div class="col-md-5">
-                <input type="text" class="form-control form-control-sm site-name" placeholder="ชื่อไซต์ *">
+    if (!container) {
+        custShowError('ไม่พบพื้นที่เพิ่มไซต์');
+        return;
+    }
+    const firstRow = container.querySelector('.site-row');
+    let newRow;
+    if (firstRow) {
+        newRow = firstRow.cloneNode(true);
+        newRow.dataset.idx = siteRowIdx++;
+        newRow.querySelectorAll('input').forEach(input => {
+            input.value = '';
+        });
+        const removeBtn = newRow.querySelector('.btn-remove-site');
+        if (removeBtn) {
+            removeBtn.classList.remove('d-none');
+        }
+    } else {
+        newRow = document.createElement('div');
+            newRow.className = 'site-row p-2 mb-2';
+        newRow.dataset.idx = siteRowIdx++;
+        newRow.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <input type="text" class="form-control form-control-sm site-name" placeholder="ชื่อไซต์ *">
+                </div>
+                <div class="col-md-6">
+                    <input type="text" class="form-control form-control-sm site-map-url" placeholder="ลิงก์ Google Maps (ไม่บังคับ)">
+                </div>
+                <div class="col-md-1 d-flex align-items-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-site" title="ลบ">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
             </div>
-            <div class="col-md-6">
-                <input type="text" class="form-control form-control-sm site-map-url" placeholder="ลิงก์ Google Maps (ไม่บังคับ)">
-            </div>
-            <div class="col-md-1 d-flex align-items-center">
-                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-site" title="ลบ">
-                    <i class="bi bi-x"></i>
-                </button>
-            </div>
-        </div>
-    `;
+        `;
+    }
     container.appendChild(newRow);
     updateRemoveButtons();
-});
+}
+
+const btnAddMoreSiteEl = document.getElementById('btnAddMoreSite');
+if (btnAddMoreSiteEl) {
+    btnAddMoreSiteEl.addEventListener('click', addMoreSiteRow);
+}
 
 // Remove site row
 document.getElementById('cust_sites_list').addEventListener('click', function(e) {
@@ -563,7 +609,7 @@ function updateRemoveButtons() {
 function resetSiteRows() {
     const container = document.getElementById('cust_sites_list');
     container.innerHTML = `
-        <div class="site-row border rounded p-2 mb-2" data-idx="0">
+        <div class="site-row p-2 mb-2" data-idx="0">
             <div class="row g-2">
                 <div class="col-md-5">
                     <input type="text" class="form-control form-control-sm site-name" placeholder="ชื่อไซต์ *">
@@ -580,6 +626,7 @@ function resetSiteRows() {
         </div>
     `;
     siteRowIdx = 1;
+    updateRemoveButtons();
 }
 
 // === Create Site for Existing Customer ===
@@ -631,12 +678,19 @@ btnCreateSiteSave.addEventListener('click', async () => {
         formData.append('map_url', document.getElementById('site_map_url').value.trim());
         formData.append('address', document.getElementById('site_address').value.trim());
 
-        const res = await fetch(BASE_URL + '/modules/jobs/api.php?action=create_site', {
+        const res = await fetch(window.BASE_URL + '/modules/jobs/api.php?action=create_site', {
             method: 'POST',
             body: formData
         });
 
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            siteShowError(text || 'ไม่สามารถสร้างไซต์ได้');
+            return;
+        }
         if (!res.ok || !data.success) {
             siteShowError(data.error || 'ไม่สามารถสร้างไซต์ได้');
             return;

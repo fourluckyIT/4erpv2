@@ -62,6 +62,10 @@
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+.d-none {
+    display: none !important;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -765,6 +769,11 @@ body {
 .form-select.form-select-sm {
     padding: 6px 32px 6px 10px;
     font-size: 0.8rem;
+}
+
+#cust_sites_list .site-row + .site-row {
+    border-top: 1px dashed var(--gray-200);
+    padding-top: 12px;
 }
 
 /* Switch Toggle */

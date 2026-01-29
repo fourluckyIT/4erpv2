@@ -14,6 +14,7 @@ $db = getDB();
 // Filters
 $statusFilter = get('status', '');
 $search = get('search', '');
+$monthFilter = get('month', '');
 
 $where = '1=1';
 $params = [];
@@ -26,6 +27,18 @@ if ($search) {
     $where .= ' AND (pr.pr_number LIKE ? OR pr.purpose LIKE ?)';
     $params[] = "%$search%";
     $params[] = "%$search%";
+}
+if ($monthFilter) {
+    $monthDate = DateTime::createFromFormat('Y-m', $monthFilter);
+    if ($monthDate) {
+        $startDate = $monthDate->format('Y-m-01');
+        $endDate = $monthDate->modify('first day of next month')->format('Y-m-01');
+        $where .= ' AND pr.created_at >= ? AND pr.created_at < ?';
+        $params[] = $startDate;
+        $params[] = $endDate;
+    } else {
+        $monthFilter = '';
+    }
 }
 
 $prs = $db->prepare("
@@ -68,6 +81,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         <form method="GET" class="row g-3">
             <div class="col-md-3">
                 <input type="text" class="form-control" name="search" placeholder="ค้นหา..." value="<?= e($search) ?>">
+            </div>
+            <div class="col-md-2">
+                <input type="month" class="form-control" name="month" value="<?= e($monthFilter) ?>">
             </div>
             <div class="col-md-3">
                 <select class="form-select" name="status">

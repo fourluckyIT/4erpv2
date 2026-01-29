@@ -13,6 +13,7 @@ $db = getDB();
 
 // Filters
 $search = get('search', '');
+$monthFilter = get('month', '');
 
 $where = '1=1';
 $params = [];
@@ -21,6 +22,18 @@ if ($search) {
     $where .= ' AND (gr.gr_number LIKE ? OR po.po_number LIKE ?)';
     $params[] = "%$search%";
     $params[] = "%$search%";
+}
+if ($monthFilter) {
+    $monthDate = DateTime::createFromFormat('Y-m', $monthFilter);
+    if ($monthDate) {
+        $startDate = $monthDate->format('Y-m-01');
+        $endDate = $monthDate->modify('first day of next month')->format('Y-m-01');
+        $where .= ' AND gr.received_date >= ? AND gr.received_date < ?';
+        $params[] = $startDate;
+        $params[] = $endDate;
+    } else {
+        $monthFilter = '';
+    }
 }
 
 $grs = $db->prepare("
@@ -59,6 +72,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         <form method="GET" class="row g-3">
             <div class="col-md-4">
                 <input type="text" class="form-control" name="search" placeholder="ค้นหา GR หรือ PO..." value="<?= e($search) ?>">
+            </div>
+            <div class="col-md-3">
+                <input type="month" class="form-control" name="month" value="<?= e($monthFilter) ?>">
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-primary">ค้นหา</button>

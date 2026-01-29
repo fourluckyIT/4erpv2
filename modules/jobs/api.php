@@ -28,6 +28,18 @@ function generateCustomerCode(PDO $db): string {
     return 'CUST' . date('ymdHis');
 }
 
+function columnExists(PDO $db, string $table, string $column): bool {
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    $col = $db->quote($column);
+    $stmt = $db->query("SHOW COLUMNS FROM `{$table}` LIKE {$col}");
+    $cache[$key] = (bool)$stmt->fetchColumn();
+    return $cache[$key];
+}
+
 switch ($action) {
     case 'get_sites':
         $customerId = (int) get('customer_id');
@@ -105,15 +117,27 @@ switch ($action) {
             if ($sitesJson) {
                 $sites = json_decode($sitesJson, true);
                 if (is_array($sites)) {
-                    $siteStmt = $db->prepare("INSERT INTO sites (customer_id, name, map_url, is_active) VALUES (:customer_id, :name, :map_url, 1)");
+                    $hasMapUrl = columnExists($db, 'sites', 'map_url');
+                    if ($hasMapUrl) {
+                        $siteStmt = $db->prepare("INSERT INTO sites (customer_id, name, map_url, is_active) VALUES (:customer_id, :name, :map_url, 1)");
+                    } else {
+                        $siteStmt = $db->prepare("INSERT INTO sites (customer_id, name, is_active) VALUES (:customer_id, :name, 1)");
+                    }
                     foreach ($sites as $site) {
                         $siteName = trim($site['name'] ?? '');
                         if ($siteName) {
-                            $siteStmt->execute([
-                                'customer_id' => $customerId,
-                                'name' => $siteName,
-                                'map_url' => trim($site['map_url'] ?? '') ?: null
-                            ]);
+                            if ($hasMapUrl) {
+                                $siteStmt->execute([
+                                    'customer_id' => $customerId,
+                                    'name' => $siteName,
+                                    'map_url' => trim($site['map_url'] ?? '') ?: null
+                                ]);
+                            } else {
+                                $siteStmt->execute([
+                                    'customer_id' => $customerId,
+                                    'name' => $siteName
+                                ]);
+                            }
                             $siteId = (int)$db->lastInsertId();
                             $audit->log(AUDIT_ACTION_CREATE, 'SITE', $siteId, null, ['customer_id' => $customerId, 'name' => $siteName]);
                             $sitesCreated++;
@@ -184,9 +208,18 @@ switch ($action) {
                 'address' => sanitize((string)post('address', '')) ?: null,
                 'map_url' => sanitize((string)post('map_url', '')) ?: null,
             ];
-
-            $stmt = $db->prepare("INSERT INTO sites (customer_id, name, address, map_url, is_active) VALUES (:customer_id, :name, :address, :map_url, 1)");
-            $stmt->execute($siteData);
+            $hasMapUrl = columnExists($db, 'sites', 'map_url');
+            if ($hasMapUrl) {
+                $stmt = $db->prepare("INSERT INTO sites (customer_id, name, address, map_url, is_active) VALUES (:customer_id, :name, :address, :map_url, 1)");
+                $stmt->execute($siteData);
+            } else {
+                $stmt = $db->prepare("INSERT INTO sites (customer_id, name, address, is_active) VALUES (:customer_id, :name, :address, 1)");
+                $stmt->execute([
+                    'customer_id' => $siteData['customer_id'],
+                    'name' => $siteData['name'],
+                    'address' => $siteData['address'],
+                ]);
+            }
             $siteId = (int)$db->lastInsertId();
 
             $audit = new AuditLog();
