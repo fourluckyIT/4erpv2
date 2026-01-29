@@ -9,8 +9,10 @@ require_once __DIR__ . '/../../../config/bootstrap.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+$rbac = new RBAC();
 $db = getDB();
 $audit = new AuditLog();
+$notification = new Notification();
 $id = (int) get('id');
 
 if (!$id) {
@@ -78,14 +80,30 @@ if (isPost()) {
         ")->execute([$_SESSION['user_id'], $id]);
 
         $audit->log('submit', 'PO', $id);
+        $approverIds = $rbac->getUserIdsWithPermission('approve', 'PO', 'Submitted');
+        if (!empty($approverIds)) {
+            $title = "PO {$po['po_number']} รออนุมัติ";
+            $message = "Supplier: {$po['supplier_name']}";
+            $url = "/4erpv2/modules/procurement/po/view.php?id={$id}";
+            $notification->createBulk(
+                $approverIds,
+                Notification::TYPE_APPROVAL_REQUEST,
+                $title,
+                $message,
+                $url,
+                'PO',
+                $id,
+                Notification::PRIORITY_HIGH
+            );
+        }
         setFlash('success', 'ส่งอนุมัติเรียบร้อย');
 
     } elseif ($action === 'approve' && $po['status'] === 'Submitted') {
-        if (!in_array('ADM', $_SESSION['roles']) && !in_array('MGR', $_SESSION['roles'])) {
+        if (!$rbac->can('approve', 'PO', $po['status'])) {
             setFlash('error', 'คุณไม่มีสิทธิ์อนุมัติ');
             redirect("view.php?id=$id");
         }
-
+        
         $db->prepare("
             UPDATE purchase_orders
             SET status = 'Approved', approved_at = NOW(), approved_by = ?
@@ -93,11 +111,54 @@ if (isPost()) {
         ")->execute([$_SESSION['user_id'], $id]);
 
         $audit->log('approve', 'PO', $id);
+        $notification->markReadByEntity('PO', $id, Notification::TYPE_APPROVAL_REQUEST);
+        $requesterId = $po['submitted_by'] ?? $po['created_by'];
+        if (!empty($requesterId)) {
+            $title = "PO {$po['po_number']} อนุมัติแล้ว";
+            $message = "Supplier: {$po['supplier_name']}";
+            $url = "/4erpv2/modules/procurement/po/view.php?id={$id}";
+            $notification->create(
+                (int) $requesterId,
+                Notification::TYPE_APPROVAL_RESULT,
+                $title,
+                $message,
+                $url,
+                'PO',
+                $id,
+                Notification::PRIORITY_NORMAL
+            );
+        }
         setFlash('success', 'อนุมัติเรียบร้อย');
 
     } elseif ($action === 'cancel' && in_array($po['status'], ['Draft', 'Submitted'])) {
+        $reason = trim((string) post('cancel_reason', ''));
+        if ($reason === '') {
+            setFlash('error', 'กรุณาระบุเหตุผล');
+            redirect("view.php?id=$id");
+        }
+
         $db->prepare("UPDATE purchase_orders SET status = 'Cancelled' WHERE id = ?")->execute([$id]);
-        $audit->log('cancel', 'PO', $id);
+        $audit->log('cancel', 'PO', $id, null, ['status' => 'Cancelled'], $reason);
+        $notification->markReadByEntity('PO', $id, Notification::TYPE_APPROVAL_REQUEST);
+        $requesterId = $po['submitted_by'] ?? $po['created_by'];
+        if (!empty($requesterId)) {
+            $title = "PO {$po['po_number']} ถูกยกเลิก";
+            $message = "Supplier: {$po['supplier_name']}";
+            if ($reason !== '') {
+                $message .= "\nเหตุผล: {$reason}";
+            }
+            $url = "/4erpv2/modules/procurement/po/view.php?id={$id}";
+            $notification->create(
+                (int) $requesterId,
+                Notification::TYPE_APPROVAL_RESULT,
+                $title,
+                $message,
+                $url,
+                'PO',
+                $id,
+                Notification::PRIORITY_NORMAL
+            );
+        }
         setFlash('success', 'ยกเลิกเรียบร้อย');
     }
 
@@ -167,16 +228,18 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <button type="submit" name="action" value="submit" class="btn btn-primary" onclick="return confirm('ยืนยันส่งอนุมัติ?')">
                 <i class="bi bi-send me-1"></i>ส่งอนุมัติ
             </button>
-            <button type="submit" name="action" value="cancel" class="btn btn-outline-danger" onclick="return confirm('ยืนยันยกเลิก?')">
+            <input type="hidden" name="cancel_reason" id="cancelReasonDraft" value="">
+            <button type="button" class="btn btn-outline-danger" onclick="return promptCancelReason('cancelReasonDraft')">
                 <i class="bi bi-x-circle me-1"></i>ยกเลิก
             </button>
             <?php endif; ?>
 
-            <?php if ($po['status'] === 'Submitted' && (in_array('ADM', $_SESSION['roles']) || in_array('MGR', $_SESSION['roles']))): ?>
+            <?php if ($po['status'] === 'Submitted' && $rbac->can('approve', 'PO', $po['status'])): ?>
             <button type="submit" name="action" value="approve" class="btn btn-success" onclick="return confirm('ยืนยันอนุมัติ?')">
                 <i class="bi bi-check-circle me-1"></i>อนุมัติ
             </button>
-            <button type="submit" name="action" value="cancel" class="btn btn-outline-danger" onclick="return confirm('ยืนยันยกเลิก?')">
+            <input type="hidden" name="cancel_reason" id="cancelReasonSubmitted" value="">
+            <button type="button" class="btn btn-outline-danger" onclick="return promptCancelReason('cancelReasonSubmitted')">
                 <i class="bi bi-x-circle me-1"></i>ยกเลิก
             </button>
             <?php endif; ?>
@@ -389,3 +452,17 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>
+
+<script>
+function promptCancelReason(inputId) {
+    const reason = prompt('ระบุเหตุผลยกเลิก PO');
+    if (reason === null) return false;
+    if (!reason.trim()) {
+        alert('กรุณาระบุเหตุผล');
+        return false;
+    }
+    const input = document.getElementById(inputId);
+    if (input) input.value = reason.trim();
+    return true;
+}
+</script>

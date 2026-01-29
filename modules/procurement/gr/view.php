@@ -9,8 +9,10 @@ require_once __DIR__ . '/../../../config/bootstrap.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+$rbac = new RBAC();
 $db = getDB();
 $audit = new AuditLog();
+$notification = new Notification();
 $id = (int) get('id');
 
 if (!$id) {
@@ -21,7 +23,8 @@ if (!$id) {
 // Get GR
 $stmt = $db->prepare("
     SELECT gr.*, 
-           po.po_number, po.supplier_id,
+           po.po_number, po.supplier_id, po.status as po_status,
+           po.created_by as po_created_by, po.submitted_by as po_submitted_by, po.approved_by as po_approved_by,
            s.name as supplier_name,
            u.full_name as receiver_name,
            c.full_name as confirmer_name
@@ -76,6 +79,31 @@ if (isPost()) {
         ")->execute([$_SESSION['user_id'], $id]);
         
         $audit->log('confirm', 'GR', $id);
+        
+        $recipients = $rbac->getUserIdsWithPermission('view', 'PO', $gr['po_status'] ?? null);
+        $extraUsers = array_filter([
+            $gr['po_created_by'] ?? null,
+            $gr['po_submitted_by'] ?? null,
+            $gr['po_approved_by'] ?? null,
+            $gr['received_by'] ?? null
+        ], fn($v) => !empty($v));
+        $recipients = array_values(array_unique(array_merge($recipients, array_map('intval', $extraUsers))));
+        
+        if (!empty($recipients)) {
+            $title = "GR {$gr['gr_number']} ยืนยันรับสินค้าแล้ว";
+            $message = "PO {$gr['po_number']} / Supplier: {$gr['supplier_name']}";
+            $url = "/4erpv2/modules/procurement/gr/view.php?id={$id}";
+            $notification->createBulk(
+                $recipients,
+                Notification::TYPE_SYSTEM,
+                $title,
+                $message,
+                $url,
+                'GR',
+                $id,
+                Notification::PRIORITY_NORMAL
+            );
+        }
         setFlash('success', 'ยืนยันการรับเรียบร้อย');
     }
     

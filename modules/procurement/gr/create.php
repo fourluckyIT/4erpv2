@@ -10,8 +10,10 @@ require_once __DIR__ . '/../../warehouse/WarehouseService.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+$rbac = new RBAC();
 $db = getDB();
 $audit = new AuditLog();
+$notification = new Notification();
 $docNum = new DocumentNumber();
 $warehouseService = new WarehouseService();
 
@@ -260,6 +262,30 @@ if (isPost()) {
         $db->commit();
         
         $audit->log('create', 'GR', $grId, null, ['gr_number' => $grNumber, 'po_id' => $poId]);
+
+        $recipients = $rbac->getUserIdsWithPermission('view', 'PO', $newStatus);
+        $extraUsers = array_filter([
+            $po['created_by'] ?? null,
+            $po['submitted_by'] ?? null,
+            $po['approved_by'] ?? null,
+            $_SESSION['user_id'] ?? null
+        ], fn($v) => !empty($v));
+        $recipients = array_values(array_unique(array_merge($recipients, array_map('intval', $extraUsers))));
+        if (!empty($recipients)) {
+            $title = "GR {$grNumber} รับสินค้าแล้ว";
+            $message = "PO {$po['po_number']} / Supplier: {$po['supplier_name']}";
+            $url = "/4erpv2/modules/procurement/gr/view.php?id={$grId}";
+            $notification->createBulk(
+                $recipients,
+                Notification::TYPE_SYSTEM,
+                $title,
+                $message,
+                $url,
+                'GR',
+                (int) $grId,
+                Notification::PRIORITY_NORMAL
+            );
+        }
         
         setFlash('success', "สร้าง GR เรียบร้อย: $grNumber");
         redirect("view.php?id=$grId");

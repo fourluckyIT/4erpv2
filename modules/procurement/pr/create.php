@@ -199,9 +199,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <tr>
                             <th width="40">#</th>
                             <th>รายละเอียด (พิมพ์ค้นหาหรือใส่เอง)</th>
-                            <th width="100" class="text-end">ราคา/หน่วย</th>
                             <th width="90" class="text-center">จำนวน</th>
                             <th width="60" class="text-center">หน่วย</th>
+                            <th width="100" class="text-end">ราคา/หน่วย</th>
                             <th width="100" class="text-end">รวม</th>
                             <th width="40"></th>
                         </tr>

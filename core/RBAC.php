@@ -188,6 +188,71 @@ class RBAC {
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Get user IDs that can perform an action on an entity (with optional status)
+     * Considers role permissions and custom permissions (grants/revokes).
+     */
+    public function getUserIdsWithPermission(string $action, string $entityType, ?string $entityStatus = null): array {
+        $permStmt = $this->db->prepare("
+            SELECT id FROM permissions
+            WHERE action = ? AND entity_type = ?
+        ");
+        $permStmt->execute([$action, $entityType]);
+        $permissionIds = $permStmt->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($permissionIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($permissionIds), '?'));
+        $params = array_merge($permissionIds, [$entityStatus]);
+
+        $roleStmt = $this->db->prepare("
+            SELECT DISTINCT u.id
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN role_permissions rp ON rp.role_id = ur.role_id
+            WHERE rp.permission_id IN ($placeholders)
+            AND rp.is_granted = 1
+            AND (rp.entity_status IS NULL OR rp.entity_status = ?)
+            AND u.is_active = 1
+        ");
+        $roleStmt->execute($params);
+        $roleUserIds = array_map('intval', $roleStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        $customGrantStmt = $this->db->prepare("
+            SELECT DISTINCT u.id
+            FROM users u
+            JOIN custom_permissions cp ON cp.user_id = u.id
+            WHERE cp.permission_id IN ($placeholders)
+            AND cp.is_granted = 1
+            AND (cp.entity_status IS NULL OR cp.entity_status = ?)
+            AND (cp.expires_at IS NULL OR cp.expires_at > NOW())
+            AND u.is_active = 1
+        ");
+        $customGrantStmt->execute($params);
+        $customGrantIds = array_map('intval', $customGrantStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        $customRevokeStmt = $this->db->prepare("
+            SELECT DISTINCT u.id
+            FROM users u
+            JOIN custom_permissions cp ON cp.user_id = u.id
+            WHERE cp.permission_id IN ($placeholders)
+            AND cp.is_granted = 0
+            AND (cp.entity_status IS NULL OR cp.entity_status = ?)
+            AND (cp.expires_at IS NULL OR cp.expires_at > NOW())
+            AND u.is_active = 1
+        ");
+        $customRevokeStmt->execute($params);
+        $customRevokeIds = array_map('intval', $customRevokeStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        $userIds = array_values(array_unique(array_merge($roleUserIds, $customGrantIds)));
+        if (!empty($customRevokeIds)) {
+            $userIds = array_values(array_diff($userIds, $customRevokeIds));
+        }
+
+        return $userIds;
+    }
     
     /**
      * Require permission or redirect

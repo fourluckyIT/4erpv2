@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../../config/bootstrap.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+$rbac = new RBAC();
 $db = getDB();
 
 // Filters
@@ -176,6 +177,16 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             <a href="view.php?id=<?= $po['id'] ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i>
                             </a>
+                            <?php if (in_array($po['status'], ['Draft', 'Submitted']) && $rbac->can('void', 'PO', $po['status'])): ?>
+                                <form method="POST" action="view.php?id=<?= $po['id'] ?>" class="d-inline" id="cancel-form-<?= $po['id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                    <input type="hidden" name="action" value="cancel">
+                                    <input type="hidden" name="cancel_reason" value="">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="cancelPoFromList(<?= $po['id'] ?>, '<?= e($po['po_number']) ?>')">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -187,3 +198,18 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 
 <?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>
+
+<script>
+function cancelPoFromList(poId, poNumber) {
+    const reason = prompt(`ระบุเหตุผลยกเลิก PO ${poNumber}`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+        alert('กรุณาระบุเหตุผล');
+        return;
+    }
+    const form = document.getElementById(`cancel-form-${poId}`);
+    if (!form) return;
+    form.querySelector('[name="cancel_reason"]').value = reason.trim();
+    form.submit();
+}
+</script>

@@ -9,8 +9,10 @@ require_once __DIR__ . '/../../../config/bootstrap.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+$rbac = new RBAC();
 $db = getDB();
 $audit = new AuditLog();
+$notification = new Notification();
 $id = (int) get('id');
 
 if (!$id) {
@@ -48,6 +50,24 @@ $items = $db->prepare("
 $items->execute([$id]);
 $items = $items->fetchAll();
 
+// Check existing PO(s) for this PR
+$poStmt = $db->prepare("
+    SELECT id, po_number, status
+    FROM purchase_orders
+    WHERE pr_id = ?
+    ORDER BY id DESC
+");
+$poStmt->execute([$id]);
+$poRows = $poStmt->fetchAll();
+$activePo = null;
+foreach ($poRows as $poRow) {
+    if ($poRow['status'] !== 'Cancelled') {
+        $activePo = $poRow;
+        break;
+    }
+}
+$hasActivePo = $activePo !== null;
+
 // Handle actions
 if (isPost()) {
     if (!verifyCsrf(post('csrf_token', ''))) {
@@ -65,11 +85,27 @@ if (isPost()) {
         ")->execute([$_SESSION['user_id'], $id]);
         
         $audit->log('submit', 'PR', $id);
+        $approverIds = $rbac->getUserIdsWithPermission('approve', 'PR', 'Submitted');
+        if (!empty($approverIds)) {
+            $title = "PR {$pr['pr_number']} รออนุมัติ";
+            $message = $pr['job_number'] ? "Job: {$pr['job_number']}" : "มี PR ใหม่รออนุมัติ";
+            $url = "/4erpv2/modules/procurement/pr/view.php?id={$id}";
+            $notification->createBulk(
+                $approverIds,
+                Notification::TYPE_APPROVAL_REQUEST,
+                $title,
+                $message,
+                $url,
+                'PR',
+                $id,
+                Notification::PRIORITY_HIGH
+            );
+        }
         setFlash('success', 'ส่งอนุมัติเรียบร้อย');
         
     } elseif ($action === 'approve' && $pr['status'] === 'Submitted') {
         // Check permission
-        if (!in_array('ADM', $_SESSION['roles']) && !in_array('MGR', $_SESSION['roles'])) {
+        if (!$rbac->can('approve', 'PR', $pr['status'])) {
             setFlash('error', 'คุณไม่มีสิทธิ์อนุมัติ');
             redirect("view.php?id=$id");
         }
@@ -81,6 +117,23 @@ if (isPost()) {
         ")->execute([$_SESSION['user_id'], $id]);
         
         $audit->log('approve', 'PR', $id);
+        $notification->markReadByEntity('PR', $id, Notification::TYPE_APPROVAL_REQUEST);
+        $requesterId = $pr['submitted_by'] ?? $pr['requester_id'];
+        if (!empty($requesterId)) {
+            $title = "PR {$pr['pr_number']} อนุมัติแล้ว";
+            $message = $pr['job_number'] ? "Job: {$pr['job_number']}" : "คำขอได้รับอนุมัติ";
+            $url = "/4erpv2/modules/procurement/pr/view.php?id={$id}";
+            $notification->create(
+                (int) $requesterId,
+                Notification::TYPE_APPROVAL_RESULT,
+                $title,
+                $message,
+                $url,
+                'PR',
+                $id,
+                Notification::PRIORITY_NORMAL
+            );
+        }
         setFlash('success', 'อนุมัติเรียบร้อย');
         
     } elseif ($action === 'reject' && $pr['status'] === 'Submitted') {
@@ -97,11 +150,45 @@ if (isPost()) {
         ")->execute([$_SESSION['user_id'], $reason, $id]);
         
         $audit->log('reject', 'PR', $id, null, ['reason' => $reason]);
+        $notification->markReadByEntity('PR', $id, Notification::TYPE_APPROVAL_REQUEST);
+        $requesterId = $pr['submitted_by'] ?? $pr['requester_id'];
+        if (!empty($requesterId)) {
+            $title = "PR {$pr['pr_number']} ถูกปฏิเสธ";
+            $message = "เหตุผล: {$reason}";
+            $url = "/4erpv2/modules/procurement/pr/view.php?id={$id}";
+            $notification->create(
+                (int) $requesterId,
+                Notification::TYPE_APPROVAL_RESULT,
+                $title,
+                $message,
+                $url,
+                'PR',
+                $id,
+                Notification::PRIORITY_HIGH
+            );
+        }
         setFlash('success', 'ปฏิเสธเรียบร้อย');
         
     } elseif ($action === 'cancel') {
         $db->prepare("UPDATE purchase_requests SET status = 'Cancelled' WHERE id = ?")->execute([$id]);
         $audit->log('cancel', 'PR', $id);
+        $notification->markReadByEntity('PR', $id, Notification::TYPE_APPROVAL_REQUEST);
+        $requesterId = $pr['submitted_by'] ?? $pr['requester_id'];
+        if (!empty($requesterId)) {
+            $title = "PR {$pr['pr_number']} ถูกยกเลิก";
+            $message = $pr['job_number'] ? "Job: {$pr['job_number']}" : "คำขอถูกยกเลิก";
+            $url = "/4erpv2/modules/procurement/pr/view.php?id={$id}";
+            $notification->create(
+                (int) $requesterId,
+                Notification::TYPE_APPROVAL_RESULT,
+                $title,
+                $message,
+                $url,
+                'PR',
+                $id,
+                Notification::PRIORITY_NORMAL
+            );
+        }
         setFlash('success', 'ยกเลิกเรียบร้อย');
     }
     
@@ -168,7 +255,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </button>
             <?php endif; ?>
             
-            <?php if ($pr['status'] === 'Submitted' && (in_array('ADM', $_SESSION['roles']) || in_array('MGR', $_SESSION['roles']))): ?>
+            <?php if ($pr['status'] === 'Submitted' && $rbac->can('approve', 'PR', $pr['status'])): ?>
             <button type="submit" name="action" value="approve" class="btn btn-success" onclick="return confirm('ยืนยันอนุมัติ?')">
                 <i class="bi bi-check-circle me-1"></i>อนุมัติ
             </button>
@@ -178,9 +265,18 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <?php endif; ?>
             
             <?php if ($pr['status'] === 'Approved'): ?>
-            <a href="../po/create.php?pr_id=<?= $id ?>" class="btn btn-info text-white">
-                <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
-            </a>
+                <?php if ($hasActivePo): ?>
+                    <button type="button" class="btn btn-info text-white" disabled>
+                        <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
+                    </button>
+                    <span class="text-muted ms-2">
+                        มี PO แล้ว: <a href="../po/view.php?id=<?= $activePo['id'] ?>" class="text-decoration-none"><?= e($activePo['po_number']) ?></a>
+                    </span>
+                <?php else: ?>
+                    <a href="../po/create.php?pr_id=<?= $id ?>" class="btn btn-info text-white">
+                        <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
+                    </a>
+                <?php endif; ?>
             <?php endif; ?>
         </form>
     </div>

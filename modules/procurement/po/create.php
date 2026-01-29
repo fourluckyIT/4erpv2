@@ -9,8 +9,10 @@ require_once __DIR__ . '/../../../config/bootstrap.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+$rbac = new RBAC();
 $db = getDB();
 $audit = new AuditLog();
+$notification = new Notification();
 $docNum = new DocumentNumber();
 
 // Check if creating from PR
@@ -31,6 +33,21 @@ if ($prId) {
     if (!$pr) {
         setFlash('error', 'ไม่พบ PR หรือ PR ยังไม่ได้รับการอนุมัติ');
         redirect('index.php');
+    }
+
+    // Prevent creating PO if an active PO already exists for this PR
+    $stmt = $db->prepare("
+        SELECT id, po_number, status
+        FROM purchase_orders
+        WHERE pr_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([$prId]);
+    $existingPo = $stmt->fetch();
+    if ($existingPo && $existingPo['status'] !== 'Cancelled') {
+        setFlash('error', 'PR นี้มี PO แล้ว: ' . $existingPo['po_number']);
+        redirect("../pr/view.php?id=$prId");
     }
 
     // Get PR items
@@ -160,6 +177,38 @@ if (isPost()) {
         $db->commit();
 
         $audit->log('create', 'PO', $poId, null, ['po_number' => $poNumber, 'from_pr' => $prId]);
+
+        if (!$saveAsDraft) {
+            $approverIds = $rbac->getUserIdsWithPermission('approve', 'PO', 'Submitted');
+            if (!empty($approverIds)) {
+                $supplierName = '';
+                foreach ($suppliers as $s) {
+                    if ((int) $s['id'] === (int) $supplierId) {
+                        $supplierName = $s['name'];
+                        break;
+                    }
+                }
+                if ($supplierName === '') {
+                    $stmt = $db->prepare("SELECT name FROM suppliers WHERE id = ?");
+                    $stmt->execute([$supplierId]);
+                    $supplierName = (string) ($stmt->fetchColumn() ?: '');
+                }
+
+                $title = "PO {$poNumber} รออนุมัติ";
+                $message = $supplierName !== '' ? "Supplier: {$supplierName}" : "มี PO ใหม่รออนุมัติ";
+                $url = "/4erpv2/modules/procurement/po/view.php?id={$poId}";
+                $notification->createBulk(
+                    $approverIds,
+                    Notification::TYPE_APPROVAL_REQUEST,
+                    $title,
+                    $message,
+                    $url,
+                    'PO',
+                    $poId,
+                    Notification::PRIORITY_HIGH
+                );
+            }
+        }
         setFlash('success', "สร้าง PO เรียบร้อย: $poNumber");
         redirect("view.php?id=$poId");
 

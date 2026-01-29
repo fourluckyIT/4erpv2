@@ -123,6 +123,27 @@ class Notification {
         $stmt->execute([$_SESSION['user_id']]);
         return $stmt->rowCount();
     }
+
+    /**
+     * Mark notifications as read by entity (all users)
+     */
+    public function markReadByEntity(string $entityType, int $entityId, ?string $type = null): int {
+        $where = 'entity_type = ? AND entity_id = ? AND is_read = 0';
+        $params = [$entityType, $entityId];
+
+        if ($type !== null) {
+            $where .= ' AND type = ?';
+            $params[] = $type;
+        }
+
+        $stmt = $this->db->prepare("
+            UPDATE notifications
+            SET is_read = 1, read_at = NOW()
+            WHERE $where
+        ");
+        $stmt->execute($params);
+        return $stmt->rowCount();
+    }
     
     /**
      * Delete old read notifications (cleanup)

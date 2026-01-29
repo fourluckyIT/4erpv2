@@ -21,11 +21,12 @@ if (!$auth->isAuthenticated()) {
 
 $limit = (int) ($_GET['limit'] ?? 10);
 $limit = max(1, min(50, $limit));
+$includeRead = isset($_GET['include_read']) && $_GET['include_read'] === '1';
 
 $notification = new Notification();
 $userId = $_SESSION['user_id'];
 
-$items = $notification->getRecent($userId, $limit);
+$items = $notification->getForUser($userId, !$includeRead, $limit);
 $unreadCount = $notification->getUnreadCount($userId);
 
 echo json_encode([
