@@ -47,6 +47,9 @@ foreach ($existingRoutes as $route) {
 $assignedSerialIds = [];
 $assignedPeopleIds = [];
 foreach ($routesWithItems as $route) {
+    if (($route['status'] ?? '') === 'Cancelled') {
+        continue;
+    }
     foreach ($route['items'] as $item) {
         if ($item['serial_id']) $assignedSerialIds[] = $item['serial_id'];
         if ($item['people_id']) $assignedPeopleIds[] = $item['people_id'];
@@ -219,12 +222,17 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Supplier (ถ้าใช้รถภายนอก)</label>
-                            <select class="form-select" name="supplier_id" id="supplierSelect">
-                                <option value="">-- ไม่ระบุ --</option>
-                                <?php foreach ($suppliers as $s): ?>
-                                <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <div class="d-flex gap-2">
+                                <select class="form-select" name="supplier_id" id="supplierSelect">
+                                    <option value="">-- ไม่ระบุ --</option>
+                                    <?php foreach ($suppliers as $s): ?>
+                                    <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSupplierModal" title="เพิ่มผู้ขายใหม่">
+                                    <i class="bi bi-building-add"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="row">
@@ -512,6 +520,45 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     </div>
 </div>
 
+<!-- Add Supplier Modal -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-building-add me-2"></i>เพิ่มผู้ขายใหม่</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-none" id="supplierError"></div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">รหัส <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newSupplierCode" placeholder="SUP001">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">ชื่อผู้ขาย <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newSupplierName" placeholder="บริษัท ABC จำกัด">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">ผู้ติดต่อ</label>
+                        <input type="text" class="form-control" id="newSupplierContact" placeholder="คุณสมชาย">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">โทรศัพท์</label>
+                        <input type="text" class="form-control" id="newSupplierPhone" placeholder="02-xxx-xxxx">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-success" onclick="saveNewSupplier()">
+                    <i class="bi bi-check-lg me-1"></i>บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Update selected count
 function updateSelectedCount() {
@@ -669,6 +716,51 @@ function editConsumableQty(routeId, itemId, currentQty, maxQty) {
     })
     .catch(err => alert('Error: ' + err.message));
 }
+
+// Supplier Modal
+async function saveNewSupplier() {
+    const code = document.getElementById('newSupplierCode').value.trim();
+    const name = document.getElementById('newSupplierName').value.trim();
+    const contact = document.getElementById('newSupplierContact').value.trim();
+    const phone = document.getElementById('newSupplierPhone').value.trim();
+    const errorDiv = document.getElementById('supplierError');
+
+    if (!code || !name) {
+        errorDiv.textContent = 'กรุณากรอกรหัสและชื่อผู้ขาย';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+
+    try {
+        const response = await fetch('<?= BASE_URL ?>/modules/master/api/supplier_create.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, name, contact_person: contact, phone })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            const select = document.getElementById('supplierSelect');
+            const option = new Option(`${result.code} - ${result.name}`, result.id, true, true);
+            select.appendChild(option);
+            bootstrap.Modal.getInstance(document.getElementById('addSupplierModal')).hide();
+        } else {
+            errorDiv.textContent = result.error || 'เกิดข้อผิดพลาด';
+            errorDiv.classList.remove('d-none');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
+        errorDiv.classList.remove('d-none');
+    }
+}
+
+document.getElementById('addSupplierModal')?.addEventListener('show.bs.modal', function() {
+    this.querySelector('#newSupplierCode').value = '';
+    this.querySelector('#newSupplierName').value = '';
+    this.querySelector('#newSupplierContact').value = '';
+    this.querySelector('#newSupplierPhone').value = '';
+    this.querySelector('#supplierError').classList.add('d-none');
+});
 
 updateSelectedCount();
 </script>

@@ -137,6 +137,32 @@ try {
     // Tables might not exist
 }
 
+// Dispatch-ready routes (for WH/Admin/Manager)
+$dispatchRoutes = [];
+$dispatchRouteCount = 0;
+if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WAREHOUSE)) {
+    try {
+        $stmt = $db->query("
+            SELECT r.id, r.route_number, r.route_date,
+                   p.plan_number,
+                   j.job_number,
+                   c.name as customer_name
+            FROM routes r
+            LEFT JOIN plans p ON r.plan_id = p.id
+            LEFT JOIN jobs j ON p.job_id = j.id
+            LEFT JOIN customers c ON j.customer_id = c.id
+            WHERE r.status = 'Confirmed'
+            ORDER BY r.route_date ASC, r.id ASC
+            LIMIT 5
+        ");
+        $dispatchRoutes = $stmt->fetchAll();
+        $dispatchRouteCount = (int) $db->query("SELECT COUNT(*) FROM routes WHERE status = 'Confirmed'")->fetchColumn();
+    } catch (Exception $e) {
+        $dispatchRoutes = [];
+        $dispatchRouteCount = 0;
+    }
+}
+
 // Helper function to format time
 function timeAgo($datetime) {
     $time = strtotime($datetime);
@@ -288,6 +314,53 @@ $pageTitle = $currentRoleInfo['label'];
                                 </a>
                                 <?php endif; ?>
                             </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WAREHOUSE)): ?>
+                    <!-- Dispatch Widget (WH/Admin/Manager) -->
+                    <div class="widget col-4">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="bi bi-truck"></i> Dispatch จาก Route</h3>
+                            <a href="<?= BASE_URL ?>/modules/logistics/routes/index.php?status=Confirmed" class="btn btn-sm btn-outline">
+                                ทั้งหมด (<?= $dispatchRouteCount ?>)
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <?php if (!empty($dispatchRoutes)): ?>
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Route</th>
+                                            <th>วันที่</th>
+                                            <th>Job</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($dispatchRoutes as $r): ?>
+                                        <tr>
+                                            <td><strong><?= e($r['route_number']) ?></strong></td>
+                                            <td><?= formatDate($r['route_date']) ?></td>
+                                            <td>
+                                                <div><?= e($r['job_number']) ?></div>
+                                                <small class="text-muted"><?= e($r['customer_name']) ?></small>
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="<?= BASE_URL ?>/modules/logistics/routes/view.php?id=<?= (int)$r['id'] ?>" class="btn btn-sm btn-primary">
+                                                    Dispatch
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <?php else: ?>
+                            <p class="text-muted" style="margin: 0;">ไม่มี Route ที่รอ Dispatch</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <?php endif; ?>

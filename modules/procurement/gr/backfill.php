@@ -51,8 +51,27 @@ $itemsStmt->execute([$grId]);
 $grItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $unlinkedCount = 0;
+$missingSerialCount = 0;
 foreach ($grItems as $r) {
-    if (empty($r['item_id'])) $unlinkedCount++;
+    if (empty($r['item_id'])) {
+        $unlinkedCount++;
+        continue;
+    }
+    $requiresSerial = ((int)($r['is_serialized'] ?? 0) === 1)
+        || in_array(($r['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+    if ($requiresSerial) {
+        $existingSerials = [];
+        if (!empty($r['serial_numbers'])) {
+            $decoded = json_decode((string)$r['serial_numbers'], true);
+            if (is_array($decoded)) {
+                $existingSerials = array_values(array_filter(array_map('trim', $decoded), fn($s) => $s !== ''));
+            }
+        }
+        $receivedQty = (int) round((float) $r['received_qty']);
+        if (count($existingSerials) < $receivedQty) {
+            $missingSerialCount++;
+        }
+    }
 }
 
 if (isPost()) {
@@ -84,13 +103,82 @@ if (isPost()) {
         foreach ($grItems as $row) {
             $grItemId = (int) $row['gr_item_id'];
             $poItemId = (int) $row['po_item_id'];
+            $itemId = (int) ($row['item_id'] ?? 0);
 
-            // Only backfill unlinked PO items
-            if (!empty($row['item_id'])) {
-                $skipped++;
+            $existingSerials = [];
+            if (!empty($row['serial_numbers'])) {
+                $decoded = json_decode((string)$row['serial_numbers'], true);
+                if (is_array($decoded)) {
+                    $existingSerials = array_values(array_filter(array_map('trim', $decoded), fn($s) => $s !== ''));
+                }
+            }
+
+            // Case 1: item already linked -> only fill missing serials
+            if (!empty($itemId)) {
+                $requiresSerial = ((int)($row['is_serialized'] ?? 0) === 1)
+                    || in_array(($row['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+                if (!$requiresSerial) {
+                    $skipped++;
+                    continue;
+                }
+
+                $qtyFloat = (float) $row['received_qty'];
+                $qtyInt = (int) round($qtyFloat);
+                if (abs($qtyFloat - $qtyInt) > 0.00001) {
+                    throw new Exception('รายการที่ต้องมี Serial ต้องรับเป็นจำนวนเต็ม (GR Item #' . $grItemId . ')');
+                }
+
+                $manualSerialText = trim((string)($rows[$grItemId]['serials'] ?? ''));
+                $serials = [];
+                if ($manualSerialText !== '') {
+                    $manualLines = preg_split("/\r\n|\n|\r/", $manualSerialText, -1, PREG_SPLIT_NO_EMPTY);
+                    $serials = array_values(array_filter(array_map('trim', $manualLines), fn($s) => $s !== ''));
+                } else {
+                    $serials = $existingSerials;
+                }
+
+                if (count($serials) !== $qtyInt) {
+                    throw new Exception('รายการนี้ต้องกรอก Serial ให้ครบเท่ากับจำนวนที่รับ (GR Item #' . $grItemId . ')');
+                }
+
+                $notes = "GR {$gr['gr_number']} / PO {$gr['po_number']} / BACKFILL SERIAL";
+                foreach ($serials as $sn) {
+                    $stmtCheck = $db->prepare("SELECT id FROM serials WHERE item_id = ? AND serial_number = ?");
+                    $stmtCheck->execute([$itemId, $sn]);
+                    if ($stmtCheck->fetchColumn()) {
+                        throw new Exception('Serial ซ้ำในระบบ: ' . $sn);
+                    }
+
+                    $stmtIns = $db->prepare("INSERT INTO serials (item_id, serial_number, status, location, created_by) VALUES (?, ?, 'Available', 'WH', ?)");
+                    $stmtIns->execute([$itemId, $sn, $_SESSION['user_id']]);
+                    $serialId = (int) $db->lastInsertId();
+
+                    $move = $warehouseService->recordMovement(
+                        WarehouseService::MOVE_GR_PO,
+                        $itemId,
+                        1,
+                        WarehouseService::LOC_SUPPLIER,
+                        WarehouseService::LOC_WH,
+                        'goods_receipts',
+                        $grId,
+                        $serialId,
+                        null,
+                        $notes
+                    );
+                    if (empty($move['success'])) {
+                        throw new Exception($move['error'] ?? 'บันทึก stock movement ไม่สำเร็จ');
+                    }
+                }
+
+                $stmtUpdate = $db->prepare("UPDATE gr_items SET serial_numbers = ? WHERE id = ?");
+                $stmtUpdate->execute([json_encode($serials), $grItemId]);
+                $audit->log('update', 'GR_ITEM', $grItemId, null, ['serial_numbers' => $serials]);
+
+                $processed++;
                 continue;
             }
 
+            // Case 2: backfill unlinked PO items (create item + serials if provided)
             $selectedType = trim((string)($rows[$grItemId]['item_type'] ?? ''));
             $typeForItem = in_array($selectedType, ['Device', 'Equipment', 'Vehicle', 'Consumable'], true) ? $selectedType : 'Consumable';
 
@@ -122,11 +210,6 @@ if (isPost()) {
             if ($manualSerialText !== '') {
                 $manualLines = preg_split("/\r\n|\n|\r/", $manualSerialText, -1, PREG_SPLIT_NO_EMPTY);
                 $serials = array_values(array_filter(array_map('trim', $manualLines), fn($s) => $s !== ''));
-            } elseif (!empty($row['serial_numbers'])) {
-                $decoded = json_decode((string)$row['serial_numbers'], true);
-                if (is_array($decoded)) {
-                    $serials = array_values(array_filter(array_map('trim', $decoded), fn($s) => $s !== ''));
-                }
             }
 
             $qtyFloat = (float) $row['received_qty'];
@@ -265,6 +348,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 <div class="alert alert-info">
     <div><strong>GR:</strong> <?= e($gr['gr_number']) ?> | <strong>PO:</strong> <?= e($gr['po_number']) ?> | <strong>Supplier:</strong> <?= e($gr['supplier_name']) ?></div>
     <div>รายการที่ยังไม่ผูก Item Master: <strong><?= (int)$unlinkedCount ?></strong></div>
+    <div>รายการที่ต้องกรอก Serial เพิ่ม: <strong><?= (int)$missingSerialCount ?></strong></div>
 </div>
 
 <form method="POST">
@@ -290,6 +374,19 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     </thead>
                     <tbody>
                         <?php foreach ($grItems as $idx => $r): ?>
+                        <?php
+                            $requiresSerial = ((int)($r['is_serialized'] ?? 0) === 1)
+                                || in_array(($r['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+                            $serialsExisting = [];
+                            if (!empty($r['serial_numbers'])) {
+                                $decoded = json_decode((string)$r['serial_numbers'], true);
+                                if (is_array($decoded)) {
+                                    $serialsExisting = array_values(array_filter(array_map('trim', $decoded), fn($s) => $s !== ''));
+                                }
+                            }
+                            $receivedQty = (int) round((float) $r['received_qty']);
+                            $needsSerialInput = $requiresSerial && count($serialsExisting) < $receivedQty;
+                        ?>
                         <tr>
                             <td><?= $idx + 1 ?></td>
                             <td>#<?= (int)$r['po_item_id'] ?></td>
@@ -329,7 +426,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (empty($r['item_id'])): ?>
+                                <?php if (empty($r['item_id']) || $needsSerialInput): ?>
                                     <?php
                                     $prefill = '';
                                     if (!empty($r['serial_numbers'])) {
@@ -353,7 +450,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     </div>
 
     <div class="text-end mt-3">
-        <button type="submit" class="btn btn-primary" <?= $unlinkedCount <= 0 ? 'disabled' : '' ?> onclick="return confirm('ยืนยัน Backfill? จะสร้าง Item Master + Stock Movements แบบ append-only')">
+        <button type="submit" class="btn btn-primary" <?= ($unlinkedCount <= 0 && $missingSerialCount <= 0) ? 'disabled' : '' ?> onclick="return confirm('ยืนยัน Backfill? จะสร้าง/เติมข้อมูล Serial และ Stock Movements แบบ append-only')">
             <i class="bi bi-check-circle me-1"></i>Backfill
         </button>
     </div>

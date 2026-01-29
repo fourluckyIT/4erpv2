@@ -132,47 +132,64 @@ $pageTitle = 'สร้าง Plan - 4ERP';
 require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
+<div class="planning-create">
 <div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0"><i class="bi bi-plus-circle me-2"></i>สร้าง Plan</h2>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="index.php">Planning</a></li>
-                <li class="breadcrumb-item active">สร้างใหม่</li>
-            </ol>
-        </nav>
+    <div class="col-12 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-plus-circle me-2"></i>สร้าง Plan</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="index.php">Planning</a></li>
+                    <li class="breadcrumb-item active">สร้างใหม่</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary">
+                <i class="bi bi-briefcase me-1"></i>กลับไปหน้า Job
+            </a>
+        </div>
     </div>
 </div>
 
 <!-- Job Info -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <i class="bi bi-briefcase me-2"></i>ข้อมูล Job
+<div class="card mb-4 job-card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="job-icon"><i class="bi bi-briefcase"></i></span>
+                <div>
+                    <div class="text-muted small">Job</div>
+                    <div class="fw-semibold"><?= e($job['job_number']) ?></div>
+                </div>
+            </div>
+            <a href="../jobs/view.php?id=<?= $job['id'] ?>" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-eye me-1"></i>ดูรายละเอียด
+            </a>
+        </div>
     </div>
     <div class="card-body">
-        <div class="row">
-            <div class="col-md-3">
-                <strong>Job Number:</strong><br>
-                <a href="../jobs/view.php?id=<?= $job['id'] ?>"><?= e($job['job_number']) ?></a>
+        <div class="job-summary">
+            <div class="summary-item">
+                <div class="summary-label">ลูกค้า</div>
+                <div class="summary-value"><?= e($job['customer_name']) ?></div>
             </div>
-            <div class="col-md-3">
-                <strong>ลูกค้า:</strong><br>
-                <?= e($job['customer_name']) ?>
+            <div class="summary-item">
+                <div class="summary-label">วันเริ่มงาน</div>
+                <div class="summary-value"><?= formatDate($job['plan_start_date']) ?></div>
             </div>
-            <div class="col-md-3">
-                <strong>วันเริ่มงาน:</strong><br>
-                <?= formatDate($job['plan_start_date']) ?>
+            <div class="summary-item">
+                <div class="summary-label">วันสิ้นสุด</div>
+                <div class="summary-value"><?= formatDate($job['plan_end_date']) ?></div>
             </div>
-            <div class="col-md-3">
-                <strong>วันสิ้นสุด:</strong><br>
-                <?= formatDate($job['plan_end_date']) ?>
+            <div class="summary-item">
+                <div class="summary-label">สถานะ</div>
+                <div class="summary-value"><span class="badge bg-success">Approved</span></div>
             </div>
         </div>
-        <div class="row mt-3">
-            <div class="col-12">
-                <strong>รายละเอียด:</strong><br>
-                <?= e($job['scope_short']) ?>
-            </div>
+        <div class="job-scope">
+            <div class="summary-label mb-1">รายละเอียดงาน</div>
+            <div><?= e($job['scope_short']) ?></div>
         </div>
     </div>
 </div>
@@ -182,22 +199,36 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
     
     <!-- Plan Info -->
     <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
+        <div class="col-lg-8">
+            <div class="card plan-card">
                 <div class="card-header">
                     <i class="bi bi-info-circle me-2"></i>ข้อมูล Plan
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
+                    <div class="row g-3">
+                        <div class="col-md-6">
                             <label class="form-label">วันที่วางแผน <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" name="plan_date" value="<?= date('Y-m-d') ?>" required>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6">
                             <label class="form-label">หมายเหตุ</label>
                             <textarea class="form-control" name="notes" rows="2"></textarea>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card plan-tips">
+                <div class="card-header">
+                    <i class="bi bi-lightbulb me-2"></i>ขั้นตอนวางแผน
+                </div>
+                <div class="card-body">
+                    <ol class="plan-steps mb-0">
+                        <li>เลือก Resource ให้ครบตามงาน</li>
+                        <li>ตรวจสอบรายการที่เลือก</li>
+                        <li>กดสร้าง Plan แล้วไปยืนยัน</li>
+                    </ol>
                 </div>
             </div>
         </div>
@@ -235,10 +266,10 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                 </li>
             </ul>
 
-    <div class="tab-content" id="resourceTabsContent">
+            <div class="tab-content" id="resourceTabsContent">
         <!-- Manpower Tab -->
         <div class="tab-pane fade show active" id="manpower" role="tabpanel">
-            <div class="card">
+            <div class="card resource-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-people me-2"></i>เลือกบุคลากร (Manpower)</span>
                     <div>
@@ -251,13 +282,13 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     <div class="text-center py-4">
                         <i class="bi bi-person-x text-muted" style="font-size: 2rem;"></i>
                         <p class="text-muted mt-2">ยังไม่มีบุคลากรในระบบ</p>
-                        <a href="<?= BASE_URL ?>/modules/admin/people.php" class="btn btn-sm btn-outline-primary">เพิ่มบุคลากร</a>
+                        <a href="<?= BASE_URL ?>/modules/master/people.php" class="btn btn-sm btn-outline-primary">เพิ่มบุคลากร</a>
                     </div>
                     <?php else: ?>
-                    <div class="row">
+                    <div class="row resource-grid">
                         <?php foreach ($people as $person): ?>
                         <div class="col-md-4 col-lg-3 mb-2">
-                            <div class="form-check">
+                            <div class="form-check resource-option">
                                 <input class="form-check-input resource-check" type="checkbox" name="people[]" 
                                        value="<?= $person['id'] ?>" id="person_<?= $person['id'] ?>" data-type="manpower">
                                 <label class="form-check-label" for="person_<?= $person['id'] ?>">
@@ -277,7 +308,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
         <!-- Device Tab -->
         <div class="tab-pane fade" id="device" role="tabpanel">
-            <div class="card">
+            <div class="card resource-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-cpu me-2"></i>เลือกอุปกรณ์ (Device) - ต้องมี Serial</span>
                     <div>
@@ -293,10 +324,10 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <a href="<?= BASE_URL ?>/modules/admin/items.php" class="btn btn-sm btn-outline-primary">เพิ่มอุปกรณ์</a>
                     </div>
                     <?php else: ?>
-                    <div class="row">
+                    <div class="row resource-grid">
                         <?php foreach ($devices as $d): ?>
                         <div class="col-md-4 col-lg-3 mb-2">
-                            <div class="form-check">
+                            <div class="form-check resource-option">
                                 <input class="form-check-input resource-check" type="checkbox" name="devices[]" 
                                        value="<?= $d['id'] ?>" id="device_<?= $d['id'] ?>" data-type="device">
                                 <label class="form-check-label" for="device_<?= $d['id'] ?>">
@@ -314,7 +345,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
         <!-- Equipment Tab -->
         <div class="tab-pane fade" id="equipment" role="tabpanel">
-            <div class="card">
+            <div class="card resource-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-tools me-2"></i>เลือกอุปกรณ์ (Equipment) - ต้องมี Serial</span>
                     <div>
@@ -329,10 +360,10 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <p class="text-muted mt-2">ยังไม่มี Equipment ที่ว่าง</p>
                     </div>
                     <?php else: ?>
-                    <div class="row">
+                    <div class="row resource-grid">
                         <?php foreach ($equipment as $eq): ?>
                         <div class="col-md-4 col-lg-3 mb-2">
-                            <div class="form-check">
+                            <div class="form-check resource-option">
                                 <input class="form-check-input resource-check" type="checkbox" name="equipment[]" 
                                        value="<?= $eq['id'] ?>" id="equip_<?= $eq['id'] ?>" data-type="equipment">
                                 <label class="form-check-label" for="equip_<?= $eq['id'] ?>">
@@ -350,7 +381,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 
         <!-- Consumable Tab -->
         <div class="tab-pane fade" id="consumable" role="tabpanel">
-            <div class="card">
+            <div class="card resource-card">
                 <div class="card-header">
                     <i class="bi bi-box me-2"></i>เลือกวัสดุสิ้นเปลือง (Consumable) - ระบุจำนวน
                 </div>
@@ -361,7 +392,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <p class="text-muted mt-2">ยังไม่มีวัสดุสิ้นเปลือง</p>
                     </div>
                     <?php else: ?>
-                    <table class="table table-sm">
+                    <table class="table table-sm table-hover align-middle">
                         <thead>
                             <tr>
                                 <th>รหัส</th>
@@ -394,10 +425,12 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         
         <!-- Right Column: Selected Items Panel -->
         <div class="col-lg-4">
-            <div class="card sticky-top" style="top: 70px;">
-                <div class="card-header bg-success text-white">
-                    <i class="bi bi-check2-square me-2"></i>รายการที่เลือก
-                    <span class="badge bg-light text-dark ms-2" id="total-selected">0</span>
+            <div class="card sticky-top selected-panel" style="top: 70px;">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-check2-square me-2"></i>รายการที่เลือก</div>
+                        <span class="badge bg-primary" id="total-selected">0</span>
+                    </div>
                 </div>
                 <div class="card-body p-0" style="max-height: 500px; overflow-y: auto;">
                     <!-- Selected Manpower -->
@@ -451,6 +484,8 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary btn-lg">ยกเลิก</a>
     </div>
 </form>
+
+</div>
 
 <script>
 // Update badge counts and selected panel
@@ -598,5 +633,105 @@ document.querySelectorAll('.consumable-qty').forEach(input => {
 
 updateCounts();
 </script>
+
+<style>
+.planning-create .job-card .card-header {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+}
+.planning-create .job-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--primary-light);
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+.planning-create .job-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+.planning-create .summary-item {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    padding: 10px 12px;
+}
+.planning-create .summary-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+}
+.planning-create .summary-value {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+.planning-create .job-scope {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: var(--border-radius);
+    border: 1px dashed var(--gray-200);
+    background: var(--gray-50);
+}
+.planning-create .plan-card .card-header,
+.planning-create .plan-tips .card-header {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+}
+.planning-create .plan-steps {
+    padding-left: 18px;
+    margin-bottom: 0;
+    color: var(--gray-700);
+}
+.planning-create .nav-tabs {
+    border-bottom: 0;
+    gap: 8px;
+}
+.planning-create .nav-tabs .nav-link {
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    color: var(--gray-600);
+    border-radius: 12px;
+    padding: 8px 12px;
+}
+.planning-create .nav-tabs .nav-link.active {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: var(--primary);
+    box-shadow: var(--shadow);
+}
+.planning-create .resource-card .card-header {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+}
+.planning-create .resource-grid {
+    row-gap: 12px;
+}
+.planning-create .resource-option {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--white);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    height: 100%;
+}
+.planning-create .resource-option:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow);
+    transform: translateY(-1px);
+}
+.planning-create .resource-option .form-check-input {
+    margin-top: 3px;
+}
+.planning-create .selected-panel .card-header {
+    background: linear-gradient(135deg, #e9fbf2, #e5f5ff);
+    border-bottom: 1px solid var(--gray-200);
+}
+</style>
 
 <?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

@@ -135,6 +135,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </nav>
         </div>
         <div class="d-flex gap-2">
+            <a href="index.php" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>กลับ
+            </a>
             <?php if ($route['status'] === 'Draft'): ?>
             <form method="POST" class="d-inline">
                 <input type="hidden" name="action" value="confirm">

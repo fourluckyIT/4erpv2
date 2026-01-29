@@ -45,7 +45,8 @@ if (!$gr) {
 
 // Get items
 $items = $db->prepare("
-    SELECT gri.*, poi.description, poi.qty as po_qty, poi.unit, i.code as item_code
+    SELECT gri.*, poi.description, poi.qty as po_qty, poi.unit, 
+           i.code as item_code, i.item_type, i.is_serialized
     FROM gr_items gri
     JOIN po_items poi ON gri.po_item_id = poi.id
     LEFT JOIN items i ON poi.item_id = i.id
@@ -55,10 +56,27 @@ $items->execute([$id]);
 $items = $items->fetchAll();
 
 $needsBackfill = false;
+$needsSerialBackfill = false;
+$missingSerialRows = [];
 foreach ($items as $it) {
     if (empty($it['item_code'])) {
         $needsBackfill = true;
-        break;
+    }
+    $requiresSerial = ((int)($it['is_serialized'] ?? 0) === 1)
+        || in_array(($it['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+    if ($requiresSerial) {
+        $serials = [];
+        if (!empty($it['serial_numbers'])) {
+            $decoded = json_decode((string)$it['serial_numbers'], true);
+            if (is_array($decoded)) {
+                $serials = $decoded;
+            }
+        }
+        $receivedQty = (int) $it['received_qty'];
+        if (count($serials) < $receivedQty) {
+            $needsSerialBackfill = true;
+            $missingSerialRows[] = $it['description'] ?? ($it['item_code'] ?? 'Unknown');
+        }
     }
 }
 
@@ -149,7 +167,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <i class="bi bi-check-circle me-1"></i>ยืนยันการรับ
             </button>
         </form>
-        <?php if ($needsBackfill && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
+        <?php if (($needsBackfill || $needsSerialBackfill) && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
             <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary ms-2">
                 <i class="bi bi-tools me-1"></i>Backfill
             </a>
@@ -158,13 +176,21 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 <?php endif; ?>
 
-<?php if ($gr['status'] !== 'Draft' && $needsBackfill && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
+<?php if ($gr['status'] !== 'Draft' && ($needsBackfill || $needsSerialBackfill) && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
 <div class="card mb-4">
     <div class="card-body">
         <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary">
             <i class="bi bi-tools me-1"></i>Backfill
         </a>
     </div>
+</div>
+<?php endif; ?>
+
+<?php if ($needsSerialBackfill): ?>
+<div class="alert alert-warning">
+    <strong>Serial ยังไม่ครบ:</strong> รายการที่ต้องใส่ Serial คือ
+    <?= e(implode(', ', array_unique(array_filter($missingSerialRows)))) ?>.
+    กดปุ่ม <strong>Backfill</strong> เพื่อกรอก Serial ให้ครบตามจำนวนที่รับ
 </div>
 <?php endif; ?>
 
