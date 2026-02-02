@@ -151,7 +151,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             </button>
             <?php endif; ?>
             
-            <?php if ($plan['status'] === 'Confirmed'): ?>
+            <?php if ($plan['status'] === 'Confirmed' && ($auth->isAdmin() || $auth->hasRole(ROLE_PLANNER) || $auth->hasRole(ROLE_MANAGER))): ?>
             <a href="../logistics/routes/create.php?plan_id=<?= $plan['id'] ?>" class="btn btn-primary">
                 <i class="bi bi-signpost-2 me-1"></i>สร้าง Route
             </a>

@@ -100,16 +100,22 @@ function getStatValue($db, $code) {
     }
 }
 
-// Get recent audit logs
+// Get recent audit logs (hide Draft jobs for non-admin)
 $recentLogs = [];
+$canSeeDraftActivity = $auth->isAdmin();
 try {
-    $stmt = $db->query("
-        SELECT a.*, u.full_name 
+    $sql = "
+        SELECT a.*, a.action_name AS action, u.full_name,
+               j.status AS job_status
         FROM audit_logs a 
-        LEFT JOIN users u ON a.user_id = u.id 
-        ORDER BY a.created_at DESC 
-        LIMIT 5
-    ");
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN jobs j ON a.entity_type = 'JOB' AND a.entity_id = j.id
+    ";
+    if (!$canSeeDraftActivity) {
+        $sql .= " WHERE (a.entity_type <> 'JOB' OR j.status <> 'Draft' OR j.status IS NULL) ";
+    }
+    $sql .= " ORDER BY a.created_at DESC LIMIT 5 ";
+    $stmt = $db->query($sql);
     $recentLogs = $stmt->fetchAll();
 } catch (Exception $e) {
     // Table might not exist yet
@@ -466,6 +472,11 @@ $pageTitle = $currentRoleInfo['label'];
                                             <?= e($log['action'] ?? '') ?> <?= e($log['entity_type'] ?? '') ?>
                                             <?php if ($log['entity_id']): ?>
                                             <code><?= e($log['entity_id']) ?></code>
+                                            <?php endif; ?>
+                                            <?php if (!empty($log['job_status'])): ?>
+                                            <span class="badge badge-<?= strtolower(str_replace(' ', '-', $log['job_status'])) ?> ms-2">
+                                                <?= e($log['job_status']) ?>
+                                            </span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
