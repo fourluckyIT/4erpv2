@@ -303,6 +303,20 @@ body {
     background: var(--gray-100);
 }
 
+.header-back-btn {
+    padding: 16px 24px;
+    min-width: 96px;
+    height: 56px;
+    border: none;
+    background: var(--gray-100);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.header-back-btn:hover {
+    background: var(--gray-200);
+    transform: translateY(-1px);
+}
+
 .header-icon-btn .badge {
     position: absolute;
     top: 4px;
