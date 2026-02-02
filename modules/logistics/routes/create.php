@@ -11,6 +11,11 @@ require_once __DIR__ . '/../../../core/Plan.php';
 $auth = new Auth();
 $auth->requireAuth();
 
+if (!$auth->isAdmin() && !$auth->hasRole(ROLE_PLANNER) && !$auth->hasRole(ROLE_MANAGER)) {
+    setFlash('error', 'ไม่มีสิทธิ์สร้าง Route');
+    redirect(BASE_URL . '/modules/planning/');
+}
+
 $routeModel = new Route();
 $planModel = new Plan();
 $db = getDB();

@@ -129,6 +129,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">หน้าหลัก</a></li>
                     <li class="breadcrumb-item"><a href="index.php">Routes</a></li>
                     <li class="breadcrumb-item active"><?= e($route['route_number']) ?></li>
                 </ol>

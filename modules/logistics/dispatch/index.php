@@ -5,23 +5,44 @@
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
-require_once __DIR__ . '/../../../core/Dispatch.php';
 
 $auth = new Auth();
 $auth->requireAuth();
 
-$dispatchModel = new Dispatch();
+$db = getDB();
 
-// Get plans ready for dispatch
-$plansReady = $dispatchModel->getPlansReadyForDispatch();
+// Get routes ready for release (status = Confirmed)
+$routesReady = $db->query("
+    SELECT r.id, r.route_number, r.route_date, r.driver_name,
+           p.job_id, j.job_number, j.scope_short, 
+           c.name as customer_name, s.name as site_name
+    FROM routes r 
+    JOIN plans p ON r.plan_id = p.id
+    JOIN jobs j ON p.job_id = j.id 
+    JOIN customers c ON j.customer_id = c.id 
+    LEFT JOIN sites s ON j.site_id = s.id
+    WHERE r.status = 'Confirmed' 
+    ORDER BY r.route_date ASC
+    LIMIT 10
+")->fetchAll();
 
-// Get existing dispatch notes
+// Get dispatched routes
 $statusFilter = get('status', '');
-$filters = [];
+$whereClause = "r.status IN ('Dispatched', 'InProgress', 'Returned', 'WHReceived', 'Cancelled')";
 if ($statusFilter) {
-    $filters['status'] = $statusFilter;
+    $whereClause = "r.status = " . $db->quote($statusFilter);
 }
-$dispatches = $dispatchModel->getList($filters);
+$dispatchedRoutes = $db->query("
+    SELECT r.id, r.route_number, r.route_date, r.status, r.dispatched_at,
+           p.job_id, j.job_number, c.name as customer_name
+    FROM routes r 
+    JOIN plans p ON r.plan_id = p.id
+    JOIN jobs j ON p.job_id = j.id 
+    JOIN customers c ON j.customer_id = c.id 
+    WHERE {$whereClause}
+    ORDER BY r.dispatched_at DESC
+    LIMIT 50
+")->fetchAll();
 
 $pageTitle = 'Dispatch - 4ERP';
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
@@ -30,54 +51,57 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 <div class="row mb-4">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="mb-0"><i class="bi bi-truck me-2"></i>Dispatch (จัดส่ง)</h2>
+            <h2 class="mb-0"><i class="bi bi-send me-2"></i>ปล่อย Route</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">หน้าหลัก</a></li>
-                    <li class="breadcrumb-item"><a href="../">Logistics</a></li>
-                    <li class="breadcrumb-item active">Dispatch</li>
+                    <li class="breadcrumb-item active">ปล่อย Route</li>
                 </ol>
             </nav>
         </div>
+        <a href="<?= BASE_URL ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับหน้าหลัก
+        </a>
     </div>
 </div>
 
-<!-- Plans Ready for Dispatch -->
-<?php if (!empty($plansReady)): ?>
+<!-- Routes Ready for Release -->
+<?php if (!empty($routesReady)): ?>
 <div class="card mb-4 border-success">
-    <div class="card-header bg-success text-white">
-        <i class="bi bi-box-seam me-2"></i>Plans พร้อมจัดส่ง (<?= count($plansReady) ?>)
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-signpost-2 me-2"></i>Route รอปล่อย (<?= count($routesReady) ?>)</span>
+        <a href="release.php" class="btn btn-sm btn-light">ปล่อยทั้งหมด</a>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Plan Number</th>
+                        <th>Route</th>
                         <th>Job</th>
                         <th>ลูกค้า</th>
-                        <th>รายละเอียด</th>
+                        <th>วันที่</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($plansReady as $plan): ?>
+                    <?php foreach ($routesReady as $route): ?>
                     <tr>
                         <td>
-                            <a href="../../planning/view.php?id=<?= $plan['id'] ?>">
-                                <strong><?= e($plan['plan_number']) ?></strong>
+                            <a href="../routes/view.php?id=<?= $route['id'] ?>">
+                                <strong><?= e($route['route_number']) ?></strong>
                             </a>
                         </td>
                         <td>
-                            <a href="../../jobs/view.php?id=<?= $plan['job_id'] ?>">
-                                <?= e($plan['job_number']) ?>
+                            <a href="../../jobs/view.php?id=<?= $route['job_id'] ?>">
+                                <?= e($route['job_number']) ?>
                             </a>
                         </td>
-                        <td><?= e($plan['customer_name']) ?></td>
-                        <td><?= e(mb_substr($plan['scope_short'], 0, 40)) ?><?= mb_strlen($plan['scope_short']) > 40 ? '...' : '' ?></td>
+                        <td><?= e($route['customer_name']) ?></td>
+                        <td><?= formatDate($route['route_date']) ?></td>
                         <td>
-                            <a href="create.php?plan_id=<?= $plan['id'] ?>" class="btn btn-sm btn-primary">
-                                <i class="bi bi-truck me-1"></i>สร้าง Dispatch
+                            <a href="release.php" class="btn btn-sm btn-success">
+                                <i class="bi bi-send me-1"></i>ปล่อย
                             </a>
                         </td>
                     </tr>
@@ -96,10 +120,11 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <div class="col-md-3">
                 <select class="form-select" name="status">
                     <option value="">-- ทุกสถานะ --</option>
-                    <option value="Draft" <?= $statusFilter === 'Draft' ? 'selected' : '' ?>>Draft</option>
-                    <option value="Dispatched" <?= $statusFilter === 'Dispatched' ? 'selected' : '' ?>>Dispatched</option>
-                    <option value="Delivered" <?= $statusFilter === 'Delivered' ? 'selected' : '' ?>>Delivered</option>
-                    <option value="Cancelled" <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                    <option value="Dispatched" <?= $statusFilter === 'Dispatched' ? 'selected' : '' ?>>ปล่อยแล้ว</option>
+                    <option value="InProgress" <?= $statusFilter === 'InProgress' ? 'selected' : '' ?>>กำลังดำเนินการ</option>
+                    <option value="Returned" <?= $statusFilter === 'Returned' ? 'selected' : '' ?>>คืนของแล้ว</option>
+                    <option value="WHReceived" <?= $statusFilter === 'WHReceived' ? 'selected' : '' ?>>รับเข้าคลังแล้ว</option>
+                    <option value="Cancelled" <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>>ยกเลิก</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -110,61 +135,61 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     </div>
 </div>
 
-<!-- Dispatch Notes List -->
+<!-- Dispatched Routes List -->
 <div class="card">
     <div class="card-header">
-        <i class="bi bi-list-check me-2"></i>Dispatch Notes ทั้งหมด
+        <i class="bi bi-list-check me-2"></i>Route ที่ปล่อยแล้ว
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>DO Number</th>
-                        <th>Plan</th>
+                        <th>Route</th>
                         <th>Job</th>
                         <th>ลูกค้า</th>
-                        <th>วันที่จัดส่ง</th>
+                        <th>วันที่ปล่อย</th>
                         <th>สถานะ</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($dispatches)): ?>
-                    <tr><td colspan="7" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>
+                    <?php if (empty($dispatchedRoutes)): ?>
+                    <tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>
                     <?php else: ?>
-                    <?php foreach ($dispatches as $d): ?>
+                    <?php foreach ($dispatchedRoutes as $r): ?>
                     <tr>
                         <td>
-                            <a href="view.php?id=<?= $d['id'] ?>">
-                                <strong><?= e($d['do_number']) ?></strong>
+                            <a href="../routes/view.php?id=<?= $r['id'] ?>">
+                                <strong><?= e($r['route_number']) ?></strong>
                             </a>
                         </td>
                         <td>
-                            <a href="../../planning/view.php?id=<?= $d['plan_id'] ?>" class="text-decoration-none">
-                                <?= e($d['plan_number']) ?>
+                            <a href="../../jobs/view.php?id=<?= $r['job_id'] ?>">
+                                <?= e($r['job_number']) ?>
                             </a>
                         </td>
-                        <td><?= e($d['job_number']) ?></td>
-                        <td><?= e($d['customer_name']) ?></td>
-                        <td><?= formatDate($d['dispatch_date']) ?></td>
+                        <td><?= e($r['customer_name']) ?></td>
+                        <td><?= $r['dispatched_at'] ? formatDate($r['dispatched_at'], 'd/m/Y H:i') : formatDate($r['route_date']) ?></td>
                         <td>
-                            <span class="badge bg-<?= match($d['status']) {
-                                'Draft' => 'secondary',
+                            <span class="badge bg-<?= match($r['status']) {
                                 'Dispatched' => 'primary',
-                                'Delivered' => 'success',
+                                'InProgress' => 'info',
+                                'Returned' => 'warning text-dark',
+                                'WHReceived' => 'success',
                                 'Cancelled' => 'danger',
                                 default => 'secondary'
-                            } ?>"><?= match($d['status']) {
-                                'Draft' => 'แบบร่าง',
-                                'Dispatched' => 'จัดส่งแล้ว',
-                                'Delivered' => 'ถึงแล้ว',
+                            } ?>"><?= match($r['status']) {
+                                'Dispatched' => 'ปล่อยแล้ว',
+                                'InProgress' => 'กำลังดำเนินการ',
+                                'Returned' => 'คืนของแล้ว',
+                                'WHReceived' => 'รับเข้าคลังแล้ว',
                                 'Cancelled' => 'ยกเลิก',
-                                default => $d['status']
+                                default => $r['status']
                             } ?></span>
                         </td>
                         <td>
-                            <a href="view.php?id=<?= $d['id'] ?>" class="btn btn-sm btn-outline-primary">
+                            <a href="../routes/view.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i>
                             </a>
                         </td>
