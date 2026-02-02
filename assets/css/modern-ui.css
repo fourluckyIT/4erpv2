@@ -90,6 +90,22 @@ body {
     min-height: 100vh;
 }
 
+/* Sidebar Backdrop (mobile) */
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 90;
+}
+
+.sidebar-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* Sidebar */
 .sidebar {
     width: var(--sidebar-width);
@@ -99,9 +115,27 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, transform 0.3s ease;
     z-index: 100;
+    -webkit-user-select: none;
+    user-select: none;
 }
+
+ .sidebar * {
+     -webkit-user-select: none;
+     user-select: none;
+ }
+
+ .sidebar a {
+     text-decoration: none;
+     -webkit-user-drag: none;
+ }
+
+ .sidebar a:hover,
+ .sidebar a:focus,
+ .sidebar a:active {
+     text-decoration: none;
+ }
 
 .sidebar.collapsed {
     width: var(--sidebar-collapsed);
@@ -211,6 +245,17 @@ body {
     margin-left: var(--sidebar-width);
     transition: margin-left 0.3s ease;
 }
+
+ .main-content a,
+ .main-content a:visited {
+     text-decoration: none;
+ }
+
+ .main-content a:hover,
+ .main-content a:focus,
+ .main-content a:active {
+     text-decoration: none;
+ }
 
 .sidebar.collapsed + .main-content {
     margin-left: var(--sidebar-collapsed);
@@ -694,6 +739,16 @@ body {
 .table-container {
     overflow-x: auto;
 }
+
+ .table a,
+ .table a:visited {
+     text-decoration: none;
+ }
+
+ .table a:hover,
+ .table a:focus {
+     text-decoration: none;
+ }
 
 .table {
     width: 100%;
@@ -1552,8 +1607,13 @@ body {
 }
 
 .breadcrumb-item a:hover {
-    text-decoration: underline;
+    text-decoration: none;
 }
+
+ .breadcrumb-item a:visited {
+     color: var(--primary);
+     text-decoration: none;
+ }
 
 .breadcrumb-item.active {
     color: var(--gray-500);
@@ -1729,10 +1789,12 @@ body {
 @media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
+        pointer-events: none;
     }
     
     .sidebar.open {
         transform: translateX(0);
+        pointer-events: auto;
     }
     
     .main-content {

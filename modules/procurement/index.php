@@ -60,226 +60,204 @@ $recentPOs = $db->query("
 ")->fetchAll();
 
 $pageTitle = 'Procurement - 4ERP';
+$showQuickActions = $canViewPR || $canCreatePR || $canViewPO || $canCreatePO || $canViewGR;
+$recentPrCol = $canViewPO ? 'col-6' : 'col-12';
+$recentPoCol = $canViewPR ? 'col-6' : 'col-12';
 require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0">
-            <i class="bi bi-cart3 me-2"></i>Procurement
-        </h2>
-        <p class="text-muted mb-0">จัดซื้อ-จัดจ้าง</p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-cart3" style="color: var(--primary);"></i> Procurement
+        </h1>
+        <p class="page-subtitle">จัดซื้อ-จัดจ้าง</p>
+    </div>
+    <div class="d-flex gap-2">
+        <?php if ($canCreatePR): ?>
+        <a href="pr/create.php" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> สร้าง PR
+        </a>
+        <?php endif; ?>
+        <?php if ($canCreatePO): ?>
+        <a href="po/create.php" class="btn btn-info text-white">
+            <i class="bi bi-plus-circle"></i> สร้าง PO
+        </a>
+        <?php endif; ?>
     </div>
 </div>
 
-<!-- Stats Cards (Minimalist) -->
-<div class="row mb-4 g-3">
+<?php if ($canViewPR || $canViewPO || $canViewGR): ?>
+<!-- Stats Cards -->
+<div class="stat-cards">
     <?php if ($canViewPR): ?>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body py-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-3 p-2" style="background: var(--primary-light);">
-                        <i class="bi bi-file-text fs-4" style="color: var(--primary);"></i>
-                    </div>
-                    <div>
-                        <div class="fs-4 fw-semibold"><?= (int)$prStats['pending'] ?></div>
-                        <div class="text-muted small">PR รออนุมัติ</div>
-                    </div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon primary"><i class="bi bi-file-text" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int)$prStats['pending'] ?></div>
+            <div class="stat-label">PR รออนุมัติ</div>
         </div>
     </div>
     <?php endif; ?>
     <?php if ($canViewPO): ?>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body py-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-3 p-2" style="background: var(--info-light);">
-                        <i class="bi bi-receipt fs-4" style="color: var(--info);"></i>
-                    </div>
-                    <div>
-                        <div class="fs-4 fw-semibold"><?= (int)$poStats['pending'] ?></div>
-                        <div class="text-muted small">PO รออนุมัติ</div>
-                    </div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon info"><i class="bi bi-receipt" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int)$poStats['pending'] ?></div>
+            <div class="stat-label">PO รออนุมัติ</div>
         </div>
     </div>
     <?php endif; ?>
     <?php if ($canViewGR): ?>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body py-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-3 p-2" style="background: var(--success-light);">
-                        <i class="bi bi-box-seam fs-4" style="color: var(--success);"></i>
-                    </div>
-                    <div>
-                        <div class="fs-4 fw-semibold"><?= (int)$grStats['total'] ?></div>
-                        <div class="text-muted small">GR ทั้งหมด</div>
-                    </div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon success"><i class="bi bi-box-seam" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int)$grStats['total'] ?></div>
+            <div class="stat-label">GR ทั้งหมด</div>
         </div>
     </div>
     <?php endif; ?>
 </div>
+<?php endif; ?>
 
-<!-- Quick Actions (Minimalist) -->
-<div class="row mb-4 g-3">
-    <?php if ($canViewPR): ?>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-file-text" style="color: var(--primary);"></i>
-                    <span class="fw-semibold">Purchase Request</span>
-                </div>
-                <div class="text-muted small mb-3">
-                    <?= (int)$prStats['total'] ?> ทั้งหมด · <?= (int)$prStats['draft'] ?> แบบร่าง · <?= (int)$prStats['approved'] ?> อนุมัติ
-                </div>
-                <div class="d-flex gap-2">
-                    <a href="pr/" class="btn btn-sm" style="background: var(--primary); color: white;">รายการ PR</a>
-                    <?php if ($canCreatePR): ?>
-                    <a href="pr/create.php" class="btn btn-sm btn-outline-secondary">+ สร้าง</a>
-                    <?php endif; ?>
-                </div>
+<div class="widgets-grid">
+    <?php if ($showQuickActions): ?>
+    <div class="widget col-12">
+        <div class="card-header">
+            <div class="card-title"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</div>
+        </div>
+        <div class="card-body">
+            <div class="quick-actions">
+                <?php if ($canViewPR): ?>
+                <a href="pr/" class="quick-action">
+                    <div class="quick-action-icon"><i class="bi bi-file-text"></i></div>
+                    <div class="quick-action-label">รายการ PR</div>
+                </a>
+                <?php endif; ?>
+                <?php if ($canCreatePR): ?>
+                <a href="pr/create.php" class="quick-action">
+                    <div class="quick-action-icon"><i class="bi bi-plus-circle"></i></div>
+                    <div class="quick-action-label">สร้าง PR</div>
+                </a>
+                <?php endif; ?>
+                <?php if ($canViewPO): ?>
+                <a href="po/" class="quick-action">
+                    <div class="quick-action-icon"><i class="bi bi-receipt"></i></div>
+                    <div class="quick-action-label">รายการ PO</div>
+                </a>
+                <?php endif; ?>
+                <?php if ($canCreatePO): ?>
+                <a href="po/create.php" class="quick-action">
+                    <div class="quick-action-icon"><i class="bi bi-plus-circle"></i></div>
+                    <div class="quick-action-label">สร้าง PO</div>
+                </a>
+                <?php endif; ?>
+                <?php if ($canViewGR): ?>
+                <a href="gr/" class="quick-action">
+                    <div class="quick-action-icon"><i class="bi bi-box-seam"></i></div>
+                    <div class="quick-action-label">รายการ GR</div>
+                </a>
+                <?php endif; ?>
+            </div>
+            <div class="d-flex flex-wrap gap-3 mt-3 small text-muted">
+                <?php if ($canViewPR): ?>
+                <span>PR: <?= (int)$prStats['total'] ?> ทั้งหมด · <?= (int)$prStats['draft'] ?> แบบร่าง</span>
+                <?php endif; ?>
+                <?php if ($canViewPO): ?>
+                <span>PO: <?= (int)$poStats['total'] ?> ทั้งหมด · <?= (int)$poStats['approved'] ?> รอรับ</span>
+                <?php endif; ?>
+                <?php if ($canViewGR): ?>
+                <span>GR: <?= (int)$grStats['total'] ?> ทั้งหมด</span>
+                <?php endif; ?>
             </div>
         </div>
     </div>
     <?php endif; ?>
-    <?php if ($canViewPO): ?>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-receipt" style="color: var(--info);"></i>
-                    <span class="fw-semibold">Purchase Order</span>
-                </div>
-                <div class="text-muted small mb-3">
-                    <?= (int)$poStats['total'] ?> ทั้งหมด · <?= (int)$poStats['approved'] ?> รอรับ
-                </div>
-                <div class="d-flex gap-2">
-                    <a href="po/" class="btn btn-sm" style="background: var(--info); color: white;">รายการ PO</a>
-                    <?php if ($canCreatePO): ?>
-                    <a href="po/create.php" class="btn btn-sm btn-outline-secondary">+ สร้าง</a>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-    <?php if ($canViewGR): ?>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-box-seam" style="color: var(--success);"></i>
-                    <span class="fw-semibold">Goods Receipt</span>
-                </div>
-                <div class="text-muted small mb-3">
-                    <?= (int)$grStats['total'] ?> ทั้งหมด
-                </div>
-                <a href="gr/" class="btn btn-sm" style="background: var(--success); color: white;">รายการ GR</a>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-</div>
 
-<div class="row g-3">
     <?php if ($canViewPR): ?>
-    <!-- Recent PRs -->
-    <div class="col-md-6 mb-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header border-0 bg-transparent">
-                <i class="bi bi-clock-history me-2 text-muted"></i><span class="fw-semibold">PR ล่าสุด</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="fw-medium">เลขที่</th>
-                                <th class="fw-medium">ผู้ขอ</th>
-                                <th class="fw-medium">สถานะ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($recentPRs)): ?>
-                            <tr><td colspan="3" class="text-center text-muted py-4">ไม่มีข้อมูล</td></tr>
-                            <?php else: ?>
-                            <?php foreach ($recentPRs as $pr): ?>
-                            <tr>
-                                <td>
-                                    <a href="pr/view.php?id=<?= $pr['id'] ?>" class="text-decoration-none fw-medium"><?= e($pr['pr_number']) ?></a>
-                                </td>
-                                <td class="text-muted"><?= e($pr['requester_name']) ?></td>
-                                <td>
-                                    <span class="badge rounded-pill bg-<?= match($pr['status']) {
-                                        'Draft' => 'secondary',
-                                        'Submitted' => 'warning text-dark',
-                                        'Approved' => 'success',
-                                        'Rejected' => 'danger',
-                                        default => 'secondary'
-                                    } ?>"><?= e($pr['status']) ?></span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+    <div class="widget <?= $recentPrCol ?>">
+        <div class="card-header">
+            <div class="card-title"><i class="bi bi-clock-history me-2"></i>PR ล่าสุด</div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="fw-medium">เลขที่</th>
+                            <th class="fw-medium">ผู้ขอ</th>
+                            <th class="fw-medium">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($recentPRs)): ?>
+                        <tr><td colspan="3" class="text-center text-muted py-4">ไม่มีข้อมูล</td></tr>
+                        <?php else: ?>
+                        <?php foreach ($recentPRs as $pr): ?>
+                        <tr>
+                            <td>
+                                <a href="pr/view.php?id=<?= $pr['id'] ?>" class="text-decoration-none fw-medium"><?= e($pr['pr_number']) ?></a>
+                            </td>
+                            <td class="text-muted"><?= e($pr['requester_name']) ?></td>
+                            <td>
+                                <span class="badge rounded-pill bg-<?= match($pr['status']) {
+                                    'Draft' => 'secondary',
+                                    'Submitted' => 'warning text-dark',
+                                    'Approved' => 'success',
+                                    'Rejected' => 'danger',
+                                    default => 'secondary'
+                                } ?>"><?= e($pr['status']) ?></span>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
     <?php endif; ?>
     
     <?php if ($canViewPO): ?>
-    <!-- Recent POs -->
-    <div class="col-md-6 mb-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header border-0 bg-transparent">
-                <i class="bi bi-clock-history me-2 text-muted"></i><span class="fw-semibold">PO ล่าสุด</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="fw-medium">เลขที่</th>
-                                <th class="fw-medium">ผู้ขาย</th>
-                                <th class="fw-medium">สถานะ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($recentPOs)): ?>
-                            <tr><td colspan="3" class="text-center text-muted py-4">ไม่มีข้อมูล</td></tr>
-                            <?php else: ?>
-                            <?php foreach ($recentPOs as $po): ?>
-                            <tr>
-                                <td>
-                                    <a href="po/view.php?id=<?= $po['id'] ?>" class="text-decoration-none fw-medium"><?= e($po['po_number']) ?></a>
-                                </td>
-                                <td class="text-muted"><?= e($po['supplier_name']) ?></td>
-                                <td>
-                                    <span class="badge rounded-pill bg-<?= match($po['status']) {
-                                        'Draft' => 'secondary',
-                                        'Submitted' => 'warning text-dark',
-                                        'Approved' => 'primary',
-                                        'Partially Received' => 'info',
-                                        'Received' => 'success',
-                                        default => 'secondary'
-                                    } ?>"><?= e($po['status']) ?></span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+    <div class="widget <?= $recentPoCol ?>">
+        <div class="card-header">
+            <div class="card-title"><i class="bi bi-clock-history me-2"></i>PO ล่าสุด</div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="fw-medium">เลขที่</th>
+                            <th class="fw-medium">ผู้ขาย</th>
+                            <th class="fw-medium">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($recentPOs)): ?>
+                        <tr><td colspan="3" class="text-center text-muted py-4">ไม่มีข้อมูล</td></tr>
+                        <?php else: ?>
+                        <?php foreach ($recentPOs as $po): ?>
+                        <tr>
+                            <td>
+                                <a href="po/view.php?id=<?= $po['id'] ?>" class="text-decoration-none fw-medium"><?= e($po['po_number']) ?></a>
+                            </td>
+                            <td class="text-muted"><?= e($po['supplier_name']) ?></td>
+                            <td>
+                                <span class="badge rounded-pill bg-<?= match($po['status']) {
+                                    'Draft' => 'secondary',
+                                    'Submitted' => 'warning text-dark',
+                                    'Approved' => 'primary',
+                                    'Partially Received' => 'info',
+                                    'Received' => 'success',
+                                    default => 'secondary'
+                                } ?>"><?= e($po['status']) ?></span>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

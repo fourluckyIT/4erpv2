@@ -23,14 +23,56 @@
         }
     }, 5000);
 
-    // Sidebar toggle persistence
+    // Sidebar toggle: collapse on desktop, slide-in on mobile
     const sidebar = document.getElementById('sidebar');
-    if (localStorage.getItem('sidebarCollapsed') === 'true') {
-        sidebar.classList.add('collapsed');
+    const sidebarBackdrop = (() => {
+        const el = document.createElement('div');
+        el.className = 'sidebar-backdrop';
+        document.body.appendChild(el);
+        return el;
+    })();
+    const isMobileViewport = () => window.matchMedia('(max-width: 1024px)').matches;
+
+    function setMobileOpen(open) {
+        if (!sidebar) return;
+        sidebar.classList.toggle('open', open);
+        sidebarBackdrop.classList.toggle('show', open);
     }
-    document.querySelector('.header-toggle')?.addEventListener('click', function() {
-        sidebar.classList.toggle('collapsed');
-        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+
+    function syncSidebarState() {
+        if (!sidebar) return;
+        if (isMobileViewport()) {
+            sidebar.classList.remove('collapsed');
+            setMobileOpen(false);
+        } else if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+            setMobileOpen(false);
+        } else {
+            sidebar.classList.remove('collapsed');
+            setMobileOpen(false);
+        }
+    }
+
+    syncSidebarState();
+    window.addEventListener('resize', syncSidebarState);
+
+    document.addEventListener('click', function(event) {
+        const toggleBtn = event.target.closest('.header-toggle');
+        if (!toggleBtn || !sidebar) return;
+        event.preventDefault();
+        if (isMobileViewport()) {
+            setMobileOpen(!sidebar.classList.contains('open'));
+        } else {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+        }
+    });
+
+    sidebarBackdrop.addEventListener('click', () => setMobileOpen(false));
+    sidebar?.addEventListener('click', (e) => {
+        if (isMobileViewport() && e.target.closest('.nav-item')) {
+            setMobileOpen(false);
+        }
     });
     </script>
 </body>

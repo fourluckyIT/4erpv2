@@ -37,7 +37,7 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
 ?>
 <header class="header">
     <div class="header-left">
-        <button class="header-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+        <button class="header-toggle" type="button">
             <i class="bi bi-list" style="font-size: 1.25rem;"></i>
         </button>
         <nav class="header-breadcrumb">
