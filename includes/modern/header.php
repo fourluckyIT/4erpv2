@@ -91,6 +91,10 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
                 </div>
             </div>
         </div>
+
+        <button class="header-icon-btn header-back-btn" id="globalBackBtn" title="Back" onclick="goBackSmart(event)">
+            <i class="bi bi-arrow-left" style="font-size: 1.1rem;"></i>
+        </button>
         
         <!-- User Dropdown Menu -->
         <div class="user-dropdown-menu" id="userDropdownMenu" style="display: none; position: absolute; right: 24px; top: 56px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow-lg); min-width: 200px; z-index: 1000;">
@@ -121,6 +125,25 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
 let notificationsLoaded = false;
 const notifyBadge = document.getElementById('notifyBadge');
 const notificationList = document.getElementById('notificationList');
+
+function goBackSmart(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const ref = document.referrer || '';
+    const sameOriginRef = ref && ref.startsWith(window.location.origin);
+    if (sameOriginRef) {
+        window.location.href = ref;
+        return;
+    }
+
+    if (window.history.length > 1) {
+        window.history.back();
+        return;
+    }
+
+    window.location.href = `${BASE_URL}/index.php`;
+}
 
 function formatNotificationTime(value) {
     if (!value) return '';
@@ -209,6 +232,40 @@ async function loadNotifications() {
     }
 }
 
+let notificationPollTimer = null;
+let notificationPollInFlight = false;
+const NOTIFICATION_POLL_INTERVAL_MS = 15000;
+
+async function pollNotifications() {
+    if (notificationPollInFlight) return;
+    if (document.hidden) return;
+
+    notificationPollInFlight = true;
+    try {
+        const dropdown = document.getElementById('notificationDropdown');
+        const isOpen = dropdown && dropdown.style.display !== 'none';
+        if (isOpen) {
+            await loadNotifications();
+        } else {
+            await refreshNotificationBadge();
+        }
+    } catch (e) {
+    } finally {
+        notificationPollInFlight = false;
+    }
+}
+
+function startNotificationPolling() {
+    if (notificationPollTimer) return;
+    notificationPollTimer = setInterval(pollNotifications, NOTIFICATION_POLL_INTERVAL_MS);
+}
+
+function stopNotificationPolling() {
+    if (!notificationPollTimer) return;
+    clearInterval(notificationPollTimer);
+    notificationPollTimer = null;
+}
+
 document.getElementById('userDropdown').addEventListener('click', function(e) {
     e.stopPropagation();
     const menu = document.getElementById('userDropdownMenu');
@@ -241,4 +298,14 @@ document.getElementById('notificationMarkAll')?.addEventListener('click', async 
 });
 
 refreshNotificationBadge();
+startNotificationPolling();
+
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopNotificationPolling();
+        return;
+    }
+    pollNotifications();
+    startNotificationPolling();
+});
 </script>

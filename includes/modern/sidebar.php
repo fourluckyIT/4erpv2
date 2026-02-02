@@ -21,6 +21,33 @@ try {
     // Tables might not exist
 }
 
+// Core visibility (align with RBAC; fallback to role matrix where permissions are not defined)
+$canViewJobs = $rbac->can('view', 'JOB');
+$canViewPlanning = $rbac->can('view', 'PLAN')
+    || $rbac->can('create', 'PLAN')
+    || $auth->hasRole(ROLE_PLANNER)
+    || $auth->hasRole(ROLE_MANAGER)
+    || $auth->isAdmin();
+$canReleaseRoute = $rbac->can('dispatch', 'JOB')
+    || $auth->hasRole(ROLE_PLANNER)
+    || $auth->hasRole(ROLE_WAREHOUSE)
+    || $auth->isAdmin();
+$showOperations = $canViewJobs || $canViewPlanning || $canReleaseRoute;
+
+// Procurement visibility (align with RBAC)
+$canViewPR = $rbac->can('view', 'PR');
+$canCreatePR = $rbac->can('create', 'PR');
+$canViewPO = $rbac->can('view', 'PO');
+$canCreatePO = $rbac->can('create', 'PO');
+$canViewGR = $auth->isAdmin() || $auth->hasRole(ROLE_WAREHOUSE);
+$showProcurement = $canViewPR || $canCreatePR || $canViewPO || $canCreatePO || $canViewGR;
+
+// Other modules
+$canViewWarehouse = $rbac->can('view', 'WH') || $auth->hasRole(ROLE_WAREHOUSE) || $auth->isAdmin();
+$canViewAccounting = $rbac->can('view', 'INVOICE') || $auth->hasRole(ROLE_ACCOUNTANT) || $auth->isAdmin();
+$canViewHRM = $auth->hasRole(ROLE_HRM) || $auth->isAdmin() || $auth->hasRole(ROLE_MANAGER);
+$canViewAdmin = $auth->isAdmin();
+
 // Role color mapping
 $roleColors = [
     'ADM' => '#7C3AED',
@@ -49,9 +76,10 @@ $roleColor = $roleColors[$primaryRole] ?? '#4F46E5';
             </a>
         </div>
 
+        <?php if ($showOperations): ?>
         <div class="nav-section">
             <div class="nav-section-title">Operations</div>
-            <?php if ($rbac->can('view', 'JOB')): ?>
+            <?php if ($canViewJobs): ?>
             <a href="<?= BASE_URL ?>/modules/jobs/" class="nav-item">
                 <i class="bi bi-briefcase nav-icon"></i>
                 <span class="nav-text">Jobs</span>
@@ -60,40 +88,35 @@ $roleColor = $roleColors[$primaryRole] ?? '#4F46E5';
                 <?php endif; ?>
             </a>
             <?php endif; ?>
+            <?php if ($canViewPlanning): ?>
             <a href="<?= BASE_URL ?>/modules/planning/" class="nav-item">
                 <i class="bi bi-calendar3 nav-icon"></i>
                 <span class="nav-text">Planning</span>
             </a>
-            <a href="<?= BASE_URL ?>/modules/logistics/dispatch/" class="nav-item">
-                <i class="bi bi-truck nav-icon"></i>
-                <span class="nav-text">Logistics</span>
+            <?php endif; ?>
+            <?php if ($canReleaseRoute): ?>
+            <a href="<?= BASE_URL ?>/modules/logistics/dispatch/release.php" class="nav-item">
+                <i class="bi bi-send nav-icon"></i>
+                <span class="nav-text">ปล่อย Route</span>
             </a>
+            <?php endif; ?>
         </div>
+        <?php endif; ?>
 
+        <?php if ($showProcurement): ?>
         <div class="nav-section">
             <div class="nav-section-title">Procurement</div>
-            <?php if ($rbac->can('view', 'PR')): ?>
-            <a href="<?= BASE_URL ?>/modules/procurement/pr/" class="nav-item">
-                <i class="bi bi-file-text nav-icon"></i>
-                <span class="nav-text">PR - ใบขอซื้อ</span>
+            <a href="<?= BASE_URL ?>/modules/procurement/" class="nav-item">
+                <i class="bi bi-cart3 nav-icon"></i>
+                <span class="nav-text">Procurement</span>
                 <?php if ($pendingPRCount > 0): ?>
                 <span class="nav-badge"><?= $pendingPRCount ?></span>
                 <?php endif; ?>
             </a>
-            <?php endif; ?>
-            <?php if ($rbac->can('view', 'PO')): ?>
-            <a href="<?= BASE_URL ?>/modules/procurement/po/" class="nav-item">
-                <i class="bi bi-cart-check nav-icon"></i>
-                <span class="nav-text">PO - ใบสั่งซื้อ</span>
-            </a>
-            <?php endif; ?>
-            <a href="<?= BASE_URL ?>/modules/procurement/gr/" class="nav-item">
-                <i class="bi bi-box-arrow-in-down nav-icon"></i>
-                <span class="nav-text">GR - รับเข้า</span>
-            </a>
         </div>
+        <?php endif; ?>
 
-        <?php if ($rbac->can('view', 'WH') || $auth->hasRole(ROLE_WAREHOUSE) || $auth->isAdmin()): ?>
+        <?php if ($canViewWarehouse): ?>
         <div class="nav-section">
             <div class="nav-section-title">Warehouse</div>
             <a href="<?= BASE_URL ?>/modules/warehouse/" class="nav-item">
@@ -107,7 +130,7 @@ $roleColor = $roleColors[$primaryRole] ?? '#4F46E5';
         </div>
         <?php endif; ?>
 
-        <?php if ($rbac->can('view', 'INVOICE') || $auth->hasRole(ROLE_ACCOUNTANT) || $auth->isAdmin()): ?>
+        <?php if ($canViewAccounting): ?>
         <div class="nav-section">
             <div class="nav-section-title">Accounting</div>
             <a href="<?= BASE_URL ?>/modules/accounting/invoices/" class="nav-item">
@@ -121,7 +144,7 @@ $roleColor = $roleColors[$primaryRole] ?? '#4F46E5';
         </div>
         <?php endif; ?>
 
-        <?php if ($auth->hasRole(ROLE_HRM) || $auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
+        <?php if ($canViewHRM): ?>
         <div class="nav-section">
             <div class="nav-section-title">HRM</div>
             <a href="<?= BASE_URL ?>/modules/hrm/people/" class="nav-item">
@@ -135,7 +158,7 @@ $roleColor = $roleColors[$primaryRole] ?? '#4F46E5';
         </div>
         <?php endif; ?>
 
-        <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
+        <?php if ($canViewAdmin): ?>
         <div class="nav-section">
             <div class="nav-section-title">Admin</div>
             <a href="<?= BASE_URL ?>/modules/admin/users.php" class="nav-item">
