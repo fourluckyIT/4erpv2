@@ -67,6 +67,8 @@ foreach ($poRows as $poRow) {
     }
 }
 $hasActivePo = $activePo !== null;
+$canViewPo = $rbac->can('view', 'PO');
+$canCreatePo = $rbac->can('create', 'PO');
 
 // Handle actions
 if (isPost()) {
@@ -222,8 +224,21 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="../">Procurement</a></li>
-                    <li class="breadcrumb-item"><a href="index.php">PR</a></li>
+                    <?php $canBreadcrumbLinks = ($auth->isAdmin() || $auth->hasRole(ROLE_PURCHASE) || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_ACCOUNTANT)); ?>
+                    <li class="breadcrumb-item">
+                        <?php if ($canBreadcrumbLinks): ?>
+                            <a href="../">Procurement</a>
+                        <?php else: ?>
+                            <span>Procurement</span>
+                        <?php endif; ?>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <?php if ($canBreadcrumbLinks): ?>
+                            <a href="index.php">PR</a>
+                        <?php else: ?>
+                            <span>PR</span>
+                        <?php endif; ?>
+                    </li>
                     <li class="breadcrumb-item active"><?= e($pr['pr_number']) ?></li>
                 </ol>
             </nav>
@@ -266,16 +281,22 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             
             <?php if ($pr['status'] === 'Approved'): ?>
                 <?php if ($hasActivePo): ?>
-                    <button type="button" class="btn btn-info text-white" disabled>
-                        <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
-                    </button>
+                    <?php if ($canViewPo): ?>
+                        <a href="../po/view.php?id=<?= $activePo['id'] ?>" class="btn btn-info text-white">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>เปิด PO
+                        </a>
+                    <?php endif; ?>
                     <span class="text-muted ms-2">
-                        มี PO แล้ว: <a href="../po/view.php?id=<?= $activePo['id'] ?>" class="text-decoration-none"><?= e($activePo['po_number']) ?></a>
+                        มี PO แล้ว: <span class="text-decoration-none"><?= e($activePo['po_number']) ?></span>
                     </span>
                 <?php else: ?>
-                    <a href="../po/create.php?pr_id=<?= $id ?>" class="btn btn-info text-white">
-                        <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
-                    </a>
+                    <?php if ($canCreatePo): ?>
+                        <a href="../po/create.php?pr_id=<?= $id ?>" class="btn btn-info text-white">
+                            <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
+                        </a>
+                    <?php else: ?>
+                        <span class="text-muted">ยังไม่มี PO</span>
+                    <?php endif; ?>
                 <?php endif; ?>
             <?php endif; ?>
         </form>
