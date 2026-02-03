@@ -59,7 +59,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="<?= BASE_URL ?>" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับหน้าหลัก
         </a>
     </div>
@@ -129,7 +129,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-primary">กรอง</button>
-                <a href="index.php" class="btn btn-outline-secondary">ล้าง</a>
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">ล้าง</a>
             </div>
         </form>
     </div>

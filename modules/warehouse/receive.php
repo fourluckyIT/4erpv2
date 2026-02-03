@@ -85,7 +85,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             </h2>
             <p class="text-muted">บันทึกการรับสินค้าเข้าคลัง</p>
         </div>
-        <a href="movements.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back to Movements
         </a>
     </div>
@@ -148,7 +148,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     </div>
                     
                     <div class="d-flex justify-content-between">
-                        <a href="movements.php" class="btn btn-outline-secondary">Cancel</a>
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancel</a>
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check-lg me-1"></i>Record Receipt
                         </button>

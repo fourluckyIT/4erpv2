@@ -141,7 +141,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <a href="create.php" class="btn btn-outline-primary me-2">
                 <i class="bi bi-box me-1"></i>PR สินค้า
             </a>
-            <a href="index.php" class="btn btn-outline-secondary">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>กลับ
             </a>
         </div>

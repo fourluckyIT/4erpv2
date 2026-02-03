@@ -58,7 +58,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <a href="edit.php?people_id=<?= $peopleId ?>" class="btn btn-primary">
                 <i class="bi bi-plus-circle me-1"></i>เพิ่มเงินเดือน
             </a>
-            <a href="../people/view.php?id=<?= $peopleId ?>" class="btn btn-outline-secondary">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>กลับ
             </a>
         </div>

@@ -136,7 +136,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <hr>
             
             <div class="d-flex justify-content-between">
-                <a href="index.php" class="btn btn-outline-secondary">
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>ยกเลิก
                 </a>
                 <button type="submit" class="btn btn-primary">

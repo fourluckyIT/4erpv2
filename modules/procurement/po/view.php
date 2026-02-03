@@ -166,6 +166,17 @@ if (isPost()) {
 }
 
 $pageTitle = "PO: {$po['po_number']} - 4ERP";
+$canSubmitPo = $po['status'] === 'Draft'
+    && ($rbac->can('create', 'PO') || $auth->hasRole(ROLE_PURCHASE) || $auth->isAdmin());
+$canApprovePo = $po['status'] === 'Submitted' && $rbac->can('approve', 'PO', $po['status']);
+$canCancelDraft = $po['status'] === 'Draft'
+    && ($rbac->can('create', 'PO') || $auth->hasRole(ROLE_PURCHASE) || $auth->isAdmin());
+$canCancelSubmitted = $po['status'] === 'Submitted' && $rbac->can('approve', 'PO', $po['status']);
+$canReceiveGr = in_array($po['status'], ['Approved', 'Partially Received'], true)
+    && ($auth->hasRole(ROLE_WAREHOUSE) || $auth->isAdmin());
+$canManageManpower = $po['po_type'] === 'Manpower' && $po['status'] === 'Approved'
+    && ($auth->hasRole(ROLE_HRM) || $auth->isAdmin());
+$showActions = $canSubmitPo || $canApprovePo || $canCancelDraft || $canCancelSubmitted || $canReceiveGr || $canManageManpower;
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
@@ -211,20 +222,20 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="index.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>
 </div>
 
 <!-- Actions -->
-<?php if (!in_array($po['status'], ['Cancelled', 'Received'])): ?>
+<?php if ($showActions): ?>
 <div class="card mb-4">
     <div class="card-body">
         <form method="POST" class="d-inline">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
 
-            <?php if ($po['status'] === 'Draft'): ?>
+            <?php if ($canSubmitPo): ?>
             <button type="submit" name="action" value="submit" class="btn btn-primary" onclick="return confirm('ยืนยันส่งอนุมัติ?')">
                 <i class="bi bi-send me-1"></i>ส่งอนุมัติ
             </button>
@@ -234,7 +245,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </button>
             <?php endif; ?>
 
-            <?php if ($po['status'] === 'Submitted' && $rbac->can('approve', 'PO', $po['status'])): ?>
+            <?php if ($canApprovePo): ?>
             <button type="submit" name="action" value="approve" class="btn btn-success" onclick="return confirm('ยืนยันอนุมัติ?')">
                 <i class="bi bi-check-circle me-1"></i>อนุมัติ
             </button>
@@ -244,13 +255,13 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </button>
             <?php endif; ?>
 
-            <?php if (in_array($po['status'], ['Approved', 'Partially Received'])): ?>
+            <?php if ($canReceiveGr): ?>
             <a href="../gr/create.php?po_id=<?= $id ?>" class="btn btn-info text-white">
                 <i class="bi bi-box-seam me-1"></i>รับของ (GR)
             </a>
             <?php endif; ?>
 
-            <?php if ($po['po_type'] === 'Manpower' && $po['status'] === 'Approved'): ?>
+            <?php if ($canManageManpower): ?>
             <a href="manpower.php?id=<?= $id ?>" class="btn btn-warning">
                 <i class="bi bi-people me-1"></i>จัดการแรงงาน
             </a>

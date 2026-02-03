@@ -31,6 +31,15 @@ if (!$route) {
 $items = $routeModel->getItems($id);
 $photoStatus = $photoModel->getCompletionStatus($id);
 $allPhotos = $photoModel->getAllPhotos($id);
+$itemsCount = count($items);
+$photoRequiredTotal = 0;
+$photoUploadedTotal = 0;
+foreach ($photoStatus as $status) {
+    $photoRequiredTotal += (int) ($status['required'] ?? 0);
+    $photoUploadedTotal += (int) ($status['count'] ?? 0);
+}
+$driverLabel = trim(($route['driver_name'] ?? '') . ' ' . (!empty($route['driver_phone']) ? '(' . $route['driver_phone'] . ')' : ''));
+$driverLabel = $driverLabel !== '' ? $driverLabel : '-';
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -120,80 +129,126 @@ $pageTitle = 'Route: ' . $route['route_number'] . ' - 4ERP';
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2 class="mb-0">
-                <i class="bi bi-signpost-2 me-2"></i><?= e($route['route_number']) ?>
-                <?= getStatusBadge($route['status']) ?>
-            </h2>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">หน้าหลัก</a></li>
-                    <li class="breadcrumb-item"><a href="index.php">Routes</a></li>
-                    <li class="breadcrumb-item active"><?= e($route['route_number']) ?></li>
-                </ol>
-            </nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-signpost-2" style="color: var(--primary);"></i>
+            <?= e($route['route_number']) ?>
+        </h1>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <?= getStatusBadge($route['status']) ?>
+            <span class="text-muted">Job: <a href="../../jobs/view.php?id=<?= $route['job_id'] ?>"><?= e($route['job_number']) ?></a></span>
+            <span class="text-muted">| ลูกค้า: <?= e($route['customer_name']) ?></span>
         </div>
-        <div class="d-flex gap-2">
-            <a href="index.php" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>กลับ
-            </a>
-            <?php if ($route['status'] === 'Draft'): ?>
-            <form method="POST" class="d-inline">
-                <input type="hidden" name="action" value="confirm">
-                <button type="submit" class="btn btn-info">
-                    <i class="bi bi-check-circle me-1"></i>Confirm
-                </button>
-            </form>
-            <?php endif; ?>
-            
-            <?php if ($route['status'] === 'Confirmed'): ?>
-            <form method="POST" class="d-inline">
-                <input type="hidden" name="action" value="dispatch">
-                <button type="submit" class="btn btn-primary" 
-                        <?= !$photoStatus['Dispatch']['complete'] ? 'disabled' : '' ?>>
-                    <i class="bi bi-truck me-1"></i>Dispatch
-                    <?php if (!$photoStatus['Dispatch']['complete']): ?>
-                    <small>(ต้องอัพโหลดรูป)</small>
-                    <?php endif; ?>
-                </button>
-            </form>
-            <?php endif; ?>
-            
-            <?php if ($route['status'] === 'Dispatched'): ?>
-            <form method="POST" class="d-inline">
-                <input type="hidden" name="action" value="start_progress">
-                <button type="submit" class="btn btn-warning"
-                        <?= !$photoStatus['Receive']['complete'] ? 'disabled' : '' ?>>
-                    <i class="bi bi-play-circle me-1"></i>เริ่มงาน
-                    <?php if (!$photoStatus['Receive']['complete']): ?>
-                    <small>(ต้องอัพโหลดรูป)</small>
-                    <?php endif; ?>
-                </button>
-            </form>
-            <?php endif; ?>
-            
-            <?php if (in_array($route['status'], ['Dispatched', 'InProgress'])): ?>
-            <a href="return.php?id=<?= $id ?>" class="btn btn-info">
-                <i class="bi bi-box-arrow-in-left me-1"></i>รับคืน (WH)
-            </a>
-            <?php endif; ?>
-            
-            <?php if ($route['status'] === 'Returned'): ?>
-            <form method="POST" class="d-inline">
-                <input type="hidden" name="action" value="wh_receive">
-                <button type="submit" class="btn btn-success">
-                    <i class="bi bi-box-seam me-1"></i>คลังรับ
-                </button>
-            </form>
-            <?php endif; ?>
-            
-            <?php if (in_array($route['status'], ['Draft', 'Confirmed', 'Dispatched'])): ?>
-            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
-                <i class="bi bi-x-circle me-1"></i>ยกเลิก
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">หน้าหลัก</a></li>
+                <li class="breadcrumb-item"><a href="index.php">Routes</a></li>
+                <li class="breadcrumb-item active"><?= e($route['route_number']) ?></li>
+            </ol>
+        </nav>
+    </div>
+    <div class="page-header-actions">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับ
+        </a>
+        <?php if ($route['status'] === 'Draft'): ?>
+        <form method="POST" class="d-inline">
+            <input type="hidden" name="action" value="confirm">
+            <button type="submit" class="btn btn-info">
+                <i class="bi bi-check-circle me-1"></i>Confirm
             </button>
-            <?php endif; ?>
+        </form>
+        <?php endif; ?>
+
+        <?php if ($route['status'] === 'Confirmed'): ?>
+        <form method="POST" class="d-inline">
+            <input type="hidden" name="action" value="dispatch">
+            <button type="submit" class="btn btn-primary" 
+                    <?= !$photoStatus['Dispatch']['complete'] ? 'disabled' : '' ?>>
+                <i class="bi bi-truck me-1"></i>Dispatch
+                <?php if (!$photoStatus['Dispatch']['complete']): ?>
+                <small>(ต้องอัพโหลดรูป)</small>
+                <?php endif; ?>
+            </button>
+        </form>
+        <?php endif; ?>
+
+        <?php if ($route['status'] === 'Dispatched'): ?>
+        <form method="POST" class="d-inline">
+            <input type="hidden" name="action" value="start_progress">
+            <button type="submit" class="btn btn-warning"
+                    <?= !$photoStatus['Receive']['complete'] ? 'disabled' : '' ?>>
+                <i class="bi bi-play-circle me-1"></i>เริ่มงาน
+                <?php if (!$photoStatus['Receive']['complete']): ?>
+                <small>(ต้องอัพโหลดรูป)</small>
+                <?php endif; ?>
+            </button>
+        </form>
+        <?php endif; ?>
+
+        <?php if (in_array($route['status'], ['Dispatched', 'InProgress'])): ?>
+        <a href="return.php?id=<?= $id ?>" class="btn btn-info">
+            <i class="bi bi-box-arrow-in-left me-1"></i>รับคืน (WH)
+        </a>
+        <?php endif; ?>
+
+        <?php if ($route['status'] === 'Returned'): ?>
+        <form method="POST" class="d-inline">
+            <input type="hidden" name="action" value="wh_receive">
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-box-seam me-1"></i>คลังรับ
+            </button>
+        </form>
+        <?php endif; ?>
+
+        <?php if (in_array($route['status'], ['Draft', 'Confirmed', 'Dispatched'])): ?>
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
+            <i class="bi bi-x-circle me-1"></i>ยกเลิก
+        </button>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="d-flex flex-wrap align-items-center gap-4">
+            <div class="d-flex align-items-center gap-2">
+                <div class="rounded-3 p-2" style="background: var(--primary-light);">
+                    <i class="bi bi-box text-primary" style="font-size: 1.25rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold fs-5"><?= number_format($itemsCount) ?></div>
+                    <div class="text-muted small">รายการใน Route</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="rounded-3 p-2" style="background: var(--info-light, #e0f7fa);">
+                    <i class="bi bi-camera text-info" style="font-size: 1.25rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold fs-5"><?= number_format($photoUploadedTotal) ?>/<?= number_format($photoRequiredTotal) ?></div>
+                    <div class="text-muted small">หลักฐานรูปภาพ</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="rounded-3 p-2" style="background: var(--warning-light, #fff8e1);">
+                    <i class="bi bi-calendar-event text-warning" style="font-size: 1.25rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold fs-5"><?= formatDate($route['route_date']) ?></div>
+                    <div class="text-muted small">วันที่จัดส่ง</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="rounded-3 p-2" style="background: var(--success-light, #e8f5e9);">
+                    <i class="bi bi-person-badge text-success" style="font-size: 1.25rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold fs-5"><?= e($driverLabel) ?></div>
+                    <div class="text-muted small">คนขับ</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -228,140 +283,136 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 <?php endif; ?>
 
-<div class="row">
-    <!-- Route Info -->
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="bi bi-info-circle me-2"></i>ข้อมูล Route
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless">
-                    <tr>
-                        <th width="35%">Route Number:</th>
-                        <td><strong><?= e($route['route_number']) ?></strong></td>
-                    </tr>
-                    <tr>
-                        <th>Plan:</th>
-                        <td><a href="../../planning/view.php?id=<?= $route['plan_id'] ?>"><?= e($route['plan_number']) ?></a></td>
-                    </tr>
-                    <tr>
-                        <th>Job:</th>
-                        <td><a href="../../jobs/view.php?id=<?= $route['job_id'] ?>"><?= e($route['job_number']) ?></a></td>
-                    </tr>
-                    <tr>
-                        <th>ลูกค้า:</th>
-                        <td><?= e($route['customer_name']) ?></td>
-                    </tr>
-                    <tr>
-                        <th>วันที่:</th>
-                        <td><?= formatDate($route['route_date']) ?></td>
-                    </tr>
-                    <tr>
-                        <th>ปลายทาง:</th>
-                        <td><?= e($route['destination'] ?? '-') ?></td>
-                    </tr>
-                    <tr>
-                        <th>รถ:</th>
-                        <td><?= $route['vehicle_serial'] ? e($route['vehicle_serial'] . ' - ' . $route['vehicle_name']) : '-' ?></td>
-                    </tr>
-                    <tr>
-                        <th>Supplier:</th>
-                        <td><?= e($route['supplier_name'] ?? '-') ?></td>
-                    </tr>
-                    <tr>
-                        <th>คนขับ:</th>
-                        <td><?= e($route['driver_name'] ?? '-') ?> <?= $route['driver_phone'] ? '(' . e($route['driver_phone']) . ')' : '' ?></td>
-                    </tr>
-                    <?php if (!empty($route['notes'])): ?>
-                    <tr>
-                        <th>หมายเหตุ:</th>
-                        <td><?= nl2br(e($route['notes'])) ?></td>
-                    </tr>
-                    <?php endif; ?>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Route Items -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="bi bi-box me-2"></i>รายการใน Route (<?= count($items) ?>)
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>ประเภท</th>
-                            <th>รายการ</th>
-                            <th>สภาพออก</th>
-                            <th>สภาพเข้า</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($items)): ?>
-                        <tr><td colspan="4" class="text-center text-muted py-3">ไม่มีรายการ</td></tr>
-                        <?php else: ?>
-                        <?php foreach ($items as $item): ?>
-                        <tr>
-                            <td>
-                                <span class="badge bg-<?= match($item['item_type']) {
-                                    'Manpower' => 'success',
-                                    'Device' => 'primary',
-                                    'Equipment' => 'info',
-                                    'Vehicle' => 'warning',
-                                    'Consumable' => 'secondary',
-                                    default => 'secondary'
-                                } ?>"><?= e($item['item_type']) ?></span>
-                            </td>
-                            <td>
-                                <?php if (!empty($item['serial_id'])): ?>
-                                <strong><?= e($item['serial_number']) ?></strong><br>
-                                <small class="text-muted"><?= e($item['item_code']) ?> - <?= e($item['item_name']) ?></small>
-                                <?php elseif (!empty($item['people_id'])): ?>
-                                <strong><?= e($item['people_code']) ?></strong> - <?= e($item['people_name']) ?>
-                                <?php if (!empty($item['position'])): ?>
-                                <small class="text-muted">(<?= e($item['position']) ?>)</small>
-                                <?php endif; ?>
-                                <?php else: ?>
-                                <strong><?= e($item['item_code'] ?? '') ?></strong> - <?= e($item['item_name'] ?? '') ?>
-                                <?php if (!empty($item['quantity'])): ?>
-                                <small class="text-muted">(จำนวน: <?= e($item['quantity']) ?>)</small>
-                                <?php endif; ?>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if (!empty($item['condition_out'])): ?>
-                                <span class="badge bg-<?= match($item['condition_out']) {
-                                    'Good' => 'success',
-                                    'Fair' => 'warning',
-                                    'Damaged' => 'danger',
-                                    default => 'secondary'
-                                } ?>"><?= e($item['condition_out']) ?></span>
-                                <?php else: ?>-<?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if (!empty($item['condition_in'])): ?>
-                                <span class="badge bg-<?= match($item['condition_in']) {
-                                    'Good' => 'success',
-                                    'Fair' => 'warning',
-                                    'Damaged' => 'danger',
-                                    'Lost' => 'dark',
-                                    default => 'secondary'
-                                } ?>"><?= e($item['condition_in']) ?></span>
-                                <?php else: ?>-<?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<!-- Route Info - Horizontal Layout -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-info-circle me-2"></i>ข้อมูล Route</span>
     </div>
-    
-    <!-- Photos -->
-    <div class="col-md-6">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-borderless mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-muted small fw-normal">Route Number</th>
+                        <th class="text-muted small fw-normal">Plan</th>
+                        <th class="text-muted small fw-normal">Job</th>
+                        <th class="text-muted small fw-normal">ลูกค้า</th>
+                        <th class="text-muted small fw-normal">ปลายทาง</th>
+                        <th class="text-muted small fw-normal">รถ</th>
+                        <th class="text-muted small fw-normal">Supplier</th>
+                        <th class="text-muted small fw-normal">คนขับ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-semibold"><?= e($route['route_number']) ?></td>
+                        <td><a href="../../planning/view.php?id=<?= $route['plan_id'] ?>" class="text-primary"><?= e($route['plan_number']) ?></a></td>
+                        <td><a href="../../jobs/view.php?id=<?= $route['job_id'] ?>" class="text-primary"><?= e($route['job_number']) ?></a></td>
+                        <td><?= e($route['customer_name']) ?></td>
+                        <td><?= e($route['destination'] ?? '-') ?></td>
+                        <td><?= $route['vehicle_serial'] ? e($route['vehicle_serial']) : '-' ?></td>
+                        <td><?= e($route['supplier_name'] ?? '-') ?></td>
+                        <td><?= e($driverLabel) ?></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <?php if (!empty($route['notes'])): ?>
+        <div class="px-3 pb-3">
+            <div class="text-muted small">หมายเหตุ</div>
+            <div><?= nl2br(e($route['notes'])) ?></div>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Route Items -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-box me-2"></i>รายการใน Route</span>
+        <span class="badge bg-secondary"><?= $itemsCount ?></span>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>ประเภท</th>
+                    <th>รายการ</th>
+                    <th class="text-center">Qty</th>
+                    <th>สภาพออก</th>
+                    <th>สภาพเข้า</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($items)): ?>
+                <tr><td colspan="5" class="text-center text-muted py-3">ไม่มีรายการ</td></tr>
+                <?php else: ?>
+                <?php foreach ($items as $item): ?>
+                <?php
+                    $qtyDisplay = !empty($item['quantity']) ? (float)$item['quantity'] : null;
+                ?>
+                <tr>
+                    <td>
+                        <span class="badge bg-<?= match($item['item_type']) {
+                            'Manpower' => 'success',
+                            'Device' => 'primary',
+                            'Equipment' => 'info',
+                            'Vehicle' => 'warning',
+                            'Consumable' => 'secondary',
+                            default => 'secondary'
+                        } ?>"><?= e($item['item_type']) ?></span>
+                    </td>
+                    <td>
+                        <?php if (!empty($item['serial_id'])): ?>
+                        <strong><?= e($item['serial_number']) ?></strong><br>
+                        <small class="text-muted"><?= e($item['item_code']) ?> - <?= e($item['item_name']) ?></small>
+                        <?php elseif (!empty($item['people_id'])): ?>
+                        <strong><?= e($item['people_code']) ?></strong> - <?= e($item['people_name']) ?>
+                        <?php if (!empty($item['position'])): ?>
+                        <small class="text-muted">(<?= e($item['position']) ?>)</small>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        <strong><?= e($item['item_code'] ?? '') ?></strong> - <?= e($item['item_name'] ?? '') ?>
+                        <?php endif; ?>
+                    </td>
+                    <td class="text-center">
+                        <?= $qtyDisplay !== null ? formatNumber($qtyDisplay, $qtyDisplay == (int)$qtyDisplay ? 0 : 2) : '-' ?>
+                    </td>
+                    <td>
+                        <?php if (!empty($item['condition_out'])): ?>
+                        <span class="badge bg-<?= match($item['condition_out']) {
+                            'Good' => 'success',
+                            'Fair' => 'warning',
+                            'Damaged' => 'danger',
+                            default => 'secondary'
+                        } ?>"><?= e($item['condition_out']) ?></span>
+                        <?php else: ?>-<?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if (!empty($item['condition_in'])): ?>
+                        <span class="badge bg-<?= match($item['condition_in']) {
+                            'Good' => 'success',
+                            'Fair' => 'warning',
+                            'Damaged' => 'danger',
+                            'Lost' => 'dark',
+                            default => 'secondary'
+                        } ?>"><?= e($item['condition_in']) ?></span>
+                        <?php else: ?>-<?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Photos -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-images me-2"></i>หลักฐานรูปภาพ
+    </div>
+    <div class="card-body">
         <?php 
         $eventTypes = [
             'Dispatch' => ['icon' => 'truck', 'label' => 'รูปตอนส่งออก', 'color' => 'primary'],
@@ -369,24 +420,35 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             'Return' => ['icon' => 'box-arrow-in-left', 'label' => 'รูปตอนรับคืน', 'color' => 'warning'],
             'POSCheck' => ['icon' => 'clipboard-check', 'label' => 'รูป POS Check', 'color' => 'success']
         ];
-        
-        foreach ($eventTypes as $eventType => $config): 
-            $photos = $allPhotos[$eventType] ?? [];
-            $status = $photoStatus[$eventType];
         ?>
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>
-                    <i class="bi bi-<?= $config['icon'] ?> me-2"></i><?= $config['label'] ?>
-                    <span class="badge bg-<?= $status['complete'] ? 'success' : 'secondary' ?>">
-                        <?= $status['count'] ?>/<?= $status['required'] ?>
-                    </span>
-                </span>
-                <?php if ($status['complete']): ?>
-                <span class="badge bg-success"><i class="bi bi-check"></i> ครบแล้ว</span>
-                <?php endif; ?>
-            </div>
-            <div class="card-body">
+        <ul class="nav nav-tabs" id="photoTabs" role="tablist">
+            <?php $tabIndex = 0; ?>
+            <?php foreach ($eventTypes as $eventType => $config): 
+                $status = $photoStatus[$eventType];
+                $tabId = strtolower($eventType);
+            ?>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link <?= $tabIndex === 0 ? 'active' : '' ?>" id="tab-<?= $tabId ?>" data-bs-toggle="tab" data-bs-target="#pane-<?= $tabId ?>" type="button" role="tab">
+                    <i class="bi bi-<?= $config['icon'] ?> me-1"></i><?= $config['label'] ?>
+                    <span class="badge bg-<?= $status['complete'] ? 'success' : 'secondary' ?> ms-1"><?= $status['count'] ?>/<?= $status['required'] ?></span>
+                </button>
+            </li>
+            <?php $tabIndex++; endforeach; ?>
+        </ul>
+        <div class="tab-content pt-3">
+            <?php $paneIndex = 0; ?>
+            <?php foreach ($eventTypes as $eventType => $config): 
+                $photos = $allPhotos[$eventType] ?? [];
+                $status = $photoStatus[$eventType];
+                $tabId = strtolower($eventType);
+            ?>
+            <div class="tab-pane fade <?= $paneIndex === 0 ? 'show active' : '' ?>" id="pane-<?= $tabId ?>" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="text-muted small">สถานะ: <?= $status['complete'] ? 'ครบแล้ว' : 'ยังไม่ครบ' ?></div>
+                    <?php if ($status['complete']): ?>
+                    <span class="badge bg-success"><i class="bi bi-check"></i> ครบแล้ว</span>
+                    <?php endif; ?>
+                </div>
                 <div class="row g-2">
                     <?php for ($seq = 1; $seq <= 4; $seq++): 
                         $photo = null;
@@ -401,12 +463,12 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <?php if ($photo): ?>
                         <div class="position-relative">
                             <img src="<?= BASE_URL . '/' . $photo['file_path'] ?>" 
-                                 class="img-thumbnail" style="width: 100%; height: 80px; object-fit: cover;">
+                                 class="img-thumbnail" style="width: 100%; height: 90px; object-fit: cover;">
                             <span class="position-absolute top-0 start-0 badge bg-dark"><?= $seq ?></span>
                         </div>
                         <?php else: ?>
                         <div class="border rounded d-flex align-items-center justify-content-center" 
-                             style="height: 80px; background: #f8f9fa; cursor: pointer;"
+                             style="height: 90px; background: #f8f9fa; cursor: pointer;"
                              onclick="openUploadModal('<?= $eventType ?>', <?= $seq ?>)">
                             <div class="text-center text-muted">
                                 <i class="bi bi-camera fs-4"></i><br>
@@ -418,8 +480,8 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <?php endfor; ?>
                 </div>
             </div>
+            <?php $paneIndex++; endforeach; ?>
         </div>
-        <?php endforeach; ?>
     </div>
 </div>
 

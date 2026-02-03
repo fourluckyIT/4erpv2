@@ -180,6 +180,9 @@ if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WARE
     }
 }
 
+$showDispatchWidget = $auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WAREHOUSE);
+$quickActionsCol = $showDispatchWidget ? 'col-6' : 'col-12';
+
 // Helper function to format time
 function timeAgo($datetime) {
     $time = strtotime($datetime);
@@ -295,7 +298,7 @@ $pageTitle = $currentRoleInfo['label'];
                     $actionWidget = array_filter($enabledWidgets, fn($w) => $w['category'] === 'action');
                     if (!empty($actionWidget)):
                     ?>
-                    <div class="widget col-4">
+                    <div class="widget <?= e($quickActionsCol) ?>">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-lightning"></i> Quick Actions</h3>
                         </div>
@@ -330,9 +333,9 @@ $pageTitle = $currentRoleInfo['label'];
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WAREHOUSE)): ?>
+                    <?php if ($showDispatchWidget): ?>
                     <!-- Dispatch Widget (WH/Admin/Manager) -->
-                    <div class="widget col-4">
+                    <div class="widget col-6">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-truck"></i> Dispatch จาก Route</h3>
                             <a href="<?= BASE_URL ?>/modules/logistics/routes/index.php?status=Confirmed" class="btn btn-sm btn-outline">
@@ -379,7 +382,7 @@ $pageTitle = $currentRoleInfo['label'];
 
                     <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
                     <!-- System Health (Admin/Manager) -->
-                    <div class="widget col-8">
+                    <div class="widget col-12">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-heart-pulse"></i> System Health</h3>
                             <span class="badge badge-approved">All Systems Operational</span>
@@ -411,7 +414,7 @@ $pageTitle = $currentRoleInfo['label'];
                     </div>
                     <?php else: ?>
                     <!-- My Jobs Widget (Non-Admin) -->
-                    <div class="widget col-8">
+                    <div class="widget col-12">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-briefcase"></i> Recent Jobs</h3>
                             <a href="<?= BASE_URL ?>/modules/jobs/" class="btn btn-sm btn-outline">View All</a>

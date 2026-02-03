@@ -146,7 +146,7 @@ $roles = $rbac->getAllRoles();
             <i class="bi bi-plus-circle me-1"></i>Add User
         </a>
         <?php else: ?>
-        <a href="users.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back
         </a>
         <?php endif; ?>

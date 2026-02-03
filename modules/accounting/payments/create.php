@@ -65,7 +65,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </h2>
             <p class="text-muted">บันทึกการรับชำระเงิน</p>
         </div>
-        <a href="index.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back to List
         </a>
     </div>
@@ -122,7 +122,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     </div>
                     
                     <div class="d-flex justify-content-between">
-                        <a href="<?= $invoice ? '/4erpv2/modules/accounting/invoices/view.php?id=' . $invoice['id'] : 'index.php' ?>" 
+                        <a href="javascript:history.back()" 
                            class="btn btn-outline-secondary">Cancel</a>
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check-lg me-1"></i>Record Payment

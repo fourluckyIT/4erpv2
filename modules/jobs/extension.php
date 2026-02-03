@@ -284,7 +284,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             <button type="submit" class="btn btn-warning">
                                 <i class="bi bi-send me-1"></i>ส่งคำขอ Extension
                             </button>
-                            <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary">
+                            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left me-1"></i>กลับ
                             </a>
                         </div>

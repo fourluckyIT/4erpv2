@@ -45,7 +45,9 @@ if ($prId) {
     ");
     $stmt->execute([$prId]);
     $existingPo = $stmt->fetch();
-    if ($existingPo && $existingPo['status'] !== 'Cancelled') {
+    $existingPoStatus = trim((string) ($existingPo['status'] ?? ''));
+    $existingPoInactive = in_array(strtoupper($existingPoStatus), ['CANCELLED', 'CANCELED', 'VOIDED'], true);
+    if ($existingPo && !$existingPoInactive) {
         setFlash('error', 'PR นี้มี PO แล้ว: ' . $existingPo['po_number']);
         redirect("../pr/view.php?id=$prId");
     }
@@ -240,7 +242,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="index.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>
@@ -376,7 +378,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     <!-- Summary & Actions -->
     <div class="row">
         <div class="col-md-6">
-            <a href="index.php" class="btn btn-outline-secondary">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>ยกเลิก
             </a>
         </div>

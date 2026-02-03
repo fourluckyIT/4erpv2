@@ -128,7 +128,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <?php if ($action === 'list'): ?>
             <a href="?action=add" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>เพิ่ม Site</a>
             <?php else: ?>
-            <a href="sites.php" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>กลับ</a>
+            <a href="javascript:history.back()" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>กลับ</a>
             <?php endif; ?>
         </div>
     </div>

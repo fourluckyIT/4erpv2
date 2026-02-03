@@ -66,7 +66,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             </h2>
             <p class="text-muted">รายละเอียดการเคลื่อนไหวสินค้า</p>
         </div>
-        <a href="movements.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back to List
         </a>
     </div>

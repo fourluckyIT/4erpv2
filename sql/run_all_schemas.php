@@ -27,6 +27,7 @@ $schemas = [
     'schema_m11_compliance.sql',
     // Patches
     'schema_patch_route_dispatch_reminders.sql',
+    'schema_patch_route_permissions.sql',
 ];
 
 echo "=== Running ERP v2 Schema Files ===\n\n";

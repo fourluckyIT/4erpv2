@@ -5,7 +5,9 @@
       "Bash(php -r:*)",
       "WebFetch(domain:localhost)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(/Applications/MAMP/Library/bin/mysql80/bin/mysql:*)"
     ]
   }
 }

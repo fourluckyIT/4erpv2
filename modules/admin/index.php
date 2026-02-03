@@ -135,6 +135,18 @@ $logCount = $db->query("SELECT COUNT(*) FROM audit_logs WHERE DATE(created_at) =
             </div>
         </a>
     </div>
+
+    <?php if ($auth->isAdmin()): ?>
+    <div class="col-md-6 col-lg-4 mb-3">
+        <a href="dashboard-config/" class="card text-decoration-none">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-sliders text-primary" style="font-size: 3rem;"></i>
+                <h5 class="mt-3 mb-1 text-dark">Dashboard Config</h5>
+                <p class="text-muted mb-0">Configure widgets by role</p>
+            </div>
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/../../includes/modern/layout_end.php'; ?>

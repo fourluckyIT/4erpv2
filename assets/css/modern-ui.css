@@ -347,6 +347,16 @@ body {
     font-size: 0.9rem;
 }
 
+.header-jobs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
 .header-icon-btn {
     position: relative;
     background: none;

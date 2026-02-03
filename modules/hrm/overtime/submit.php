@@ -115,7 +115,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="index.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>
@@ -190,7 +190,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <button type="submit" class="btn btn-success">
                     <i class="bi bi-check-circle me-1"></i>บันทึก
                 </button>
-                <a href="index.php" class="btn btn-outline-secondary">ยกเลิก</a>
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">ยกเลิก</a>
             </div>
         </div>
     </div>

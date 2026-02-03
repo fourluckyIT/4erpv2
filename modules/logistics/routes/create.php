@@ -48,13 +48,20 @@ foreach ($existingRoutes as $route) {
     $routesWithItems[] = $route;
 }
 
+$activeRoutes = [];
+$cancelledRoutes = [];
+foreach ($routesWithItems as $route) {
+    if (($route['status'] ?? '') === 'Cancelled') {
+        $cancelledRoutes[] = $route;
+    } else {
+        $activeRoutes[] = $route;
+    }
+}
+
 // Get all assigned serials/people in existing routes
 $assignedSerialIds = [];
 $assignedPeopleIds = [];
-foreach ($routesWithItems as $route) {
-    if (($route['status'] ?? '') === 'Cancelled') {
-        continue;
-    }
+foreach ($activeRoutes as $route) {
     foreach ($route['items'] as $item) {
         if ($item['serial_id']) $assignedSerialIds[] = $item['serial_id'];
         if ($item['people_id']) $assignedPeopleIds[] = $item['people_id'];
@@ -168,7 +175,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="../../planning/view.php?id=<?= $planId ?>" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>
@@ -406,7 +413,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     <!-- Right Column: Existing Routes -->
     <div class="col-lg-6">
         <div class="sticky-top" style="top: 70px;">
-            <?php if (empty($routesWithItems)): ?>
+            <?php if (empty($activeRoutes) && empty($cancelledRoutes)): ?>
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="bi bi-truck text-muted" style="font-size: 3rem;"></i>
@@ -415,14 +422,40 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </div>
             </div>
             <?php else: ?>
-            <?php foreach ($routesWithItems as $route): ?>
+                <?php if (!empty($cancelledRoutes)): ?>
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-x-circle me-2"></i>Route ที่ยกเลิก (<?= count($cancelledRoutes) ?>)</span>
+                        <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#cancelledRoutesModal">
+                            ดูทั้งหมด
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-muted small">สรุป Route ที่ยกเลิกล่าสุด</div>
+                        <ul class="list-group list-group-flush mt-2">
+                            <?php foreach (array_slice($cancelledRoutes, 0, 3) as $cRoute): ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong><?= e($cRoute['route_number']) ?></strong>
+                                    <span class="text-muted ms-2"><?= formatDate($cRoute['route_date']) ?></span>
+                                </div>
+                                <a href="view.php?id=<?= (int) $cRoute['id'] ?>" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+            <?php foreach ($activeRoutes as $route): ?>
             <div class="card mb-3 route-card" data-route-id="<?= $route['id'] ?>">
                 <div class="card-header bg-<?= match($route['status']) {
                     'Draft' => 'secondary',
                     'Confirmed' => 'info',
                     'Dispatched' => 'warning',
                     'Delivered' => 'success',
-                    'Cancelled' => 'danger',
                     default => 'secondary'
                 } ?> text-white d-flex justify-content-between align-items-center">
                     <div>
@@ -524,6 +557,49 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         </div>
     </div>
 </div>
+
+<?php if (!empty($cancelledRoutes)): ?>
+<div class="modal fade" id="cancelledRoutesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Route ที่ยกเลิก</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>วันที่</th>
+                                <th>ปลายทาง</th>
+                                <th>เหตุผลยกเลิก</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($cancelledRoutes as $cRoute): ?>
+                            <tr>
+                                <td><strong><?= e($cRoute['route_number']) ?></strong></td>
+                                <td><?= formatDate($cRoute['route_date']) ?></td>
+                                <td><?= e($cRoute['destination'] ?? '-') ?></td>
+                                <td><?= e($cRoute['cancel_reason'] ?? '-') ?></td>
+                                <td class="text-end">
+                                    <a href="view.php?id=<?= (int) $cRoute['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                        ดูรายละเอียด
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Add Supplier Modal -->
 <div class="modal fade" id="addSupplierModal" tabindex="-1">

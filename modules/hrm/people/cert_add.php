@@ -133,7 +133,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="view.php?id=<?= $peopleId ?>" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>
@@ -152,7 +152,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>ข้อมูลใบรับรอง</span>
-                    <a href="<?= BASE_URL ?>/modules/settings/cert_types.php" class="btn btn-sm btn-outline-secondary" target="_blank">
+                    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary" target="_blank">
                         <i class="bi bi-gear me-1"></i>จัดการประเภทใบรับรอง
                     </a>
                 </div>
@@ -229,7 +229,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <button type="submit" class="btn btn-success">
                         <i class="bi bi-check-circle me-1"></i>บันทึก
                     </button>
-                    <a href="view.php?id=<?= $peopleId ?>" class="btn btn-outline-secondary">ยกเลิก</a>
+                    <a href="javascript:history.back()" class="btn btn-outline-secondary">ยกเลิก</a>
                 </div>
                 <?php if ($editId): ?>
                 <button type="submit" name="action" value="delete" class="btn btn-outline-danger"

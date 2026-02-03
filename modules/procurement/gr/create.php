@@ -41,7 +41,7 @@ if (!$po) {
 
 // Get PO items with remaining qty
 $poItems = $db->prepare("
-    SELECT poi.*, i.code as item_code, i.is_serialized,
+    SELECT poi.*, i.code as item_code, i.is_serialized, i.item_type as existing_item_type,
            (poi.qty - poi.received_qty) as remaining_qty
     FROM po_items poi
     LEFT JOIN items i ON poi.item_id = i.id
@@ -146,7 +146,8 @@ if (isPost()) {
                 ]);
                 $next = (int) $stmtMax->fetchColumn();
                 $next = $next + 1;
-                $newCode = $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+                $baseCode = $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+                $newCode = ensureUniqueItemCode($db, $baseCode);
 
                 $newName = trim((string)($poItemRow['description'] ?? ''));
                 if ($newName === '') {
@@ -170,7 +171,11 @@ if (isPost()) {
                 $itemId = (int) $db->lastInsertId();
 
                 $db->prepare("UPDATE po_items SET item_id = ? WHERE id = ?")->execute([$itemId, $poItemId]);
-                $audit->log('link_item', 'PO_ITEM', $poItemId, null, ['item_id' => $itemId, 'item_code' => $newCode]);
+                $auditData = ['item_id' => $itemId, 'item_code' => $newCode];
+                if ($newCode !== $baseCode) {
+                    $auditData['base_code'] = $baseCode;
+                }
+                $audit->log('link_item', 'PO_ITEM', $poItemId, null, $auditData);
             }
 
             if ($itemId > 0) {
@@ -330,7 +335,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </nav>
         </div>
         <div>
-            <a href="../po/view.php?id=<?= $poId ?>" class="btn btn-outline-secondary">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>กลับ PO
             </a>
         </div>
@@ -404,9 +409,14 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                        min="0" max="<?= $item['remaining_qty'] ?>" step="0.01">
                             </td>
                             <td>
-                                <select class="form-select form-select-sm" name="items[<?= $item['id'] ?>][item_type]">
+                                <?php 
+                                // Pre-select based on existing item_type or default to empty
+                                $currentType = $item['existing_item_type'] ?? '';
+                                ?>
+                                <select class="form-select form-select-sm" name="items[<?= $item['id'] ?>][item_type]" required>
+                                    <option value="">-- เลือกประเภท --</option>
                                     <?php foreach ($itemTypes as $t): ?>
-                                    <option value="<?= e($t['code']) ?>"><?= e($t['name']) ?></option>
+                                    <option value="<?= e($t['code']) ?>" <?= $currentType === $t['code'] ? 'selected' : '' ?>><?= e($t['name']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </td>

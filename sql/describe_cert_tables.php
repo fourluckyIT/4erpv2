@@ -17,7 +17,6 @@ function describeTable(PDO $pdo, string $table): void {
     echo "\n";
 }
 
-describeTable($pdo, 'people_certs');
-describeTable($pdo, 'job_required_certs');
 describeTable($pdo, 'people_certificates');
+describeTable($pdo, 'job_required_certs');
 describeTable($pdo, 'serial_certificates');

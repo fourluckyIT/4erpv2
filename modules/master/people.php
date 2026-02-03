@@ -80,12 +80,13 @@ if (isPost()) {
     } elseif ($formAction === 'add_cert') {
         $peopleId = (int) post('people_id');
         $stmt = $db->prepare("
-            INSERT INTO people_certs (people_id, cert_name, cert_number, issued_by, issued_date, expiry_date)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO people_certificates (people_id, certificate_type, certificate_number, issuer, issue_date, expiry_date, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, 'Valid', ?)
         ");
         $stmt->execute([
             $peopleId, sanitize(post('cert_name')), sanitize(post('cert_number')),
-            sanitize(post('issued_by')), post('issued_date') ?: null, post('expiry_date') ?: null
+            sanitize(post('issued_by')), post('issued_date') ?: null, post('expiry_date') ?: null,
+            $_SESSION['user_id']
         ]);
         setFlash('success', 'เพิ่มใบรับรองเรียบร้อย');
         redirect("people.php?action=edit&id=$peopleId");
@@ -105,7 +106,7 @@ if ($action === 'edit' && $id) {
     if (!$person) { setFlash('error', 'ไม่พบข้อมูล'); redirect('people.php'); }
     
     // Get certs
-    $certs = $db->prepare("SELECT * FROM people_certs WHERE people_id = ? AND is_active = 1 ORDER BY expiry_date");
+    $certs = $db->prepare("SELECT *, certificate_type as cert_name, certificate_number as cert_number, issuer as issued_by, issue_date as issued_date FROM people_certificates WHERE people_id = ? AND status != 'Revoked' ORDER BY expiry_date");
     $certs->execute([$id]);
     $certs = $certs->fetchAll();
 }
@@ -152,7 +153,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <?php if ($action === 'list'): ?>
             <a href="?action=add" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>เพิ่มบุคลากร</a>
             <?php else: ?>
-            <a href="people.php" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>กลับ</a>
+            <a href="javascript:history.back()" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>กลับ</a>
             <?php endif; ?>
         </div>
     </div>

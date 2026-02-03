@@ -70,11 +70,16 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0">
-            <i class="bi bi-arrow-left-right me-2"></i>Stock Movements
-        </h2>
-        <p class="text-muted">ประวัติการเคลื่อนไหวสินค้า</p>
+    <div class="col-12 d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-arrow-left-right me-2"></i>Stock Movements
+            </h2>
+            <p class="text-muted">ประวัติการเคลื่อนไหวสินค้า</p>
+        </div>
+        <a href="index.php" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>กลับคลัง
+        </a>
     </div>
 </div>
 
@@ -114,7 +119,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                 <button type="submit" class="btn btn-primary me-2">
                     <i class="bi bi-search"></i> Filter
                 </button>
-                <a href="movements.php" class="btn btn-outline-secondary">Reset</a>
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">Reset</a>
             </div>
         </form>
     </div>

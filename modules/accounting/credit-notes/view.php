@@ -57,7 +57,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </h2>
             <p class="text-muted">ใบลดหนี้ (Credit Note)</p>
         </div>
-        <a href="/4erpv2/modules/accounting/invoices/view.php?id=<?= $cn['invoice_id'] ?>" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back to Invoice
         </a>
     </div>

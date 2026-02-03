@@ -57,10 +57,13 @@ $items = $items->fetchAll();
 
 $needsBackfill = false;
 $needsSerialBackfill = false;
+$hasLinkedItems = false;
 $missingSerialRows = [];
 foreach ($items as $it) {
     if (empty($it['item_code'])) {
         $needsBackfill = true;
+    } else {
+        $hasLinkedItems = true;
     }
     $requiresSerial = ((int)($it['is_serialized'] ?? 0) === 1)
         || in_array(($it['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
@@ -79,6 +82,13 @@ foreach ($items as $it) {
         }
     }
 }
+
+// Permissions / UI flags
+$backfillRoles = ['ADM', 'PUR', 'WH', 'MGR'];
+$canBackfill = !empty(array_intersect($backfillRoles, $_SESSION['roles'] ?? []));
+$canConfirm = $gr['status'] === 'Draft';
+$showBackfill = ($needsBackfill || $needsSerialBackfill || $hasLinkedItems) && $canBackfill;
+$showActions = $canConfirm || $showBackfill;
 
 // Handle actions
 if (isPost()) {
@@ -132,56 +142,48 @@ $pageTitle = "GR: {$gr['gr_number']} - 4ERP";
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2 class="mb-0">
-                <i class="bi bi-box-seam me-2"></i><?= e($gr['gr_number']) ?>
-                <span class="badge bg-<?= $gr['status'] === 'Confirmed' ? 'success' : 'secondary' ?> ms-2">
-                    <?= $gr['status'] === 'Confirmed' ? 'ยืนยันแล้ว' : 'แบบร่าง' ?>
-                </span>
-            </h2>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="../">Procurement</a></li>
-                    <li class="breadcrumb-item"><a href="index.php">GR</a></li>
-                    <li class="breadcrumb-item active"><?= e($gr['gr_number']) ?></li>
-                </ol>
-            </nav>
-        </div>
-        <div>
-            <a href="index.php" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>กลับ
-            </a>
-        </div>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-box-seam" style="color: var(--primary);"></i> <?= e($gr['gr_number']) ?>
+            <span class="badge bg-<?= $gr['status'] === 'Confirmed' ? 'success' : 'secondary' ?> ms-2">
+                <?= $gr['status'] === 'Confirmed' ? 'ยืนยันแล้ว' : 'แบบร่าง' ?>
+            </span>
+        </h1>
+        <nav aria-label="breadcrumb" class="page-subtitle">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="../">Procurement</a></li>
+                <li class="breadcrumb-item"><a href="index.php">GR</a></li>
+                <li class="breadcrumb-item active"><?= e($gr['gr_number']) ?></li>
+            </ol>
+        </nav>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> กลับ
+        </a>
     </div>
 </div>
 
 <!-- Actions -->
-<?php if ($gr['status'] === 'Draft'): ?>
+<?php if ($showActions): ?>
 <div class="card mb-4">
     <div class="card-body">
-        <form method="POST" class="d-inline">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <button type="submit" name="action" value="confirm" class="btn btn-success" onclick="return confirm('ยืนยันการรับสินค้า?')">
-                <i class="bi bi-check-circle me-1"></i>ยืนยันการรับ
-            </button>
-        </form>
-        <?php if (($needsBackfill || $needsSerialBackfill) && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
-            <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary ms-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <form method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <?php if ($canConfirm): ?>
+                <button type="submit" name="action" value="confirm" class="btn btn-success" onclick="return confirm('ยืนยันการรับสินค้า?')">
+                    <i class="bi bi-check-circle me-1"></i>ยืนยันการรับ
+                </button>
+                <?php endif; ?>
+            </form>
+            <?php if ($showBackfill): ?>
+            <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary">
                 <i class="bi bi-tools me-1"></i>Backfill
             </a>
-        <?php endif; ?>
-    </div>
-</div>
-<?php endif; ?>
-
-<?php if ($gr['status'] !== 'Draft' && ($needsBackfill || $needsSerialBackfill) && (in_array('ADM', $_SESSION['roles'] ?? [], true) || in_array('MGR', $_SESSION['roles'] ?? [], true) || in_array('WH', $_SESSION['roles'] ?? [], true))): ?>
-<div class="card mb-4">
-    <div class="card-body">
-        <a href="backfill.php?gr_id=<?= (int)$id ?>" class="btn btn-outline-primary">
-            <i class="bi bi-tools me-1"></i>Backfill
-        </a>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 <?php endif; ?>

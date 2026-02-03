@@ -43,7 +43,7 @@ foreach ($stockSummary as $s) {
 $recentMovements = [];
 try {
     $recentMovements = $db->query("
-        SELECT sm.*, i.name as item_name, s.serial_number,
+        SELECT sm.*, i.name as item_name, s.serial_number, s.status as serial_status,
                u.full_name as created_by_name
         FROM stock_movements sm
         LEFT JOIN items i ON sm.item_id = i.id
@@ -200,6 +200,19 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         font-weight: 600;
         font-size: 0.75rem;
     }
+    .wh-reserved-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 6px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #9a3412;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+    }
     @media (max-width: 992px) {
         .wh-hero-grid {
             grid-template-columns: 1fr;
@@ -339,7 +352,12 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                                     <span class="wh-movement-pill bg-<?= $badge ?> text-white"><?= e($m['movement_type']) ?></span>
                                 </td>
                                 <td><?= e($m['item_name'] ?? '-') ?></td>
-                                <td><?= e($m['serial_number'] ?? '-') ?></td>
+                                <td>
+                                    <?= e($m['serial_number'] ?? '-') ?>
+                                    <?php if (in_array(($m['serial_status'] ?? ''), ['Reserved', 'Allocated'], true)): ?>
+                                        <span class="wh-reserved-badge"><i class="bi bi-check-circle-fill"></i> จอง</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= formatNumber($m['qty'] ?? 0, 0) ?></td>
                                 <td><?= e($m['created_by_name'] ?? '-') ?></td>
                             </tr>

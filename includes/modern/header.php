@@ -5,6 +5,7 @@
  */
 
 $auth = $auth ?? new Auth();
+$rbac = $rbac ?? new RBAC();
 $currentUser = $auth->getCurrentUser();
 $userRoles = $auth->getCurrentRoles();
 $primaryRole = $userRoles[0] ?? 'SAL';
@@ -36,6 +37,13 @@ $roleClass = $roleClasses[$primaryRole] ?? 'role-sal';
 $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
 
 $backUrl = $backUrl ?? (BASE_URL . '/index.php');
+$canViewJobs = $rbac->can('view', 'JOB')
+    || $auth->isAdmin()
+    || $auth->hasRole(ROLE_SALE)
+    || $auth->hasRole(ROLE_PLANNER)
+    || $auth->hasRole(ROLE_MANAGER)
+    || $auth->hasRole(ROLE_ACCOUNTANT)
+    || $auth->hasRole(ROLE_WAREHOUSE);
 ?>
 <header class="header">
     <div class="header-left">
@@ -58,6 +66,12 @@ $backUrl = $backUrl ?? (BASE_URL . '/index.php');
     </div>
     
     <div class="header-right">
+        <?php if ($canViewJobs): ?>
+        <a href="<?= BASE_URL ?>/modules/jobs/" class="btn btn-outline-primary btn-sm header-jobs-btn">
+            <i class="bi bi-briefcase"></i>
+            <span>Jobs</span>
+        </a>
+        <?php endif; ?>
         <div class="header-search">
             <i class="bi bi-search"></i>
             <input type="text" placeholder="ค้นหา..." id="globalSearch">

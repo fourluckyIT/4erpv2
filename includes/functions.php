@@ -170,6 +170,34 @@ function sanitize(string $input): string {
 }
 
 /**
+ * Ensure item code is unique by appending -1, -2, ... if needed
+ */
+function ensureUniqueItemCode(PDO $db, string $baseCode): string {
+    $baseCode = trim($baseCode);
+    if ($baseCode === '') {
+        return $baseCode;
+    }
+
+    $stmt = $db->prepare("SELECT code FROM items WHERE code = ? OR code LIKE ?");
+    $stmt->execute([$baseCode, $baseCode . '-%']);
+    $existing = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!$existing) {
+        return $baseCode;
+    }
+
+    $maxSuffix = 0;
+    $pattern = '/^' . preg_quote($baseCode, '/') . '-(\d+)$/';
+    foreach ($existing as $code) {
+        if (preg_match($pattern, (string) $code, $matches)) {
+            $maxSuffix = max($maxSuffix, (int) $matches[1]);
+        }
+    }
+
+    return $baseCode . '-' . ($maxSuffix + 1);
+}
+
+/**
  * Get base URL
  */
 function baseUrl(): string {

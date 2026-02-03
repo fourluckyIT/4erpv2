@@ -96,7 +96,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                 </ol>
             </nav>
         </div>
-        <a href="view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>

@@ -271,7 +271,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <button type="submit" class="btn btn-success btn-lg">
                         <i class="bi bi-check-lg me-1"></i>ยืนยันรับคืน
                     </button>
-                    <a href="<?= BASE_URL ?>/modules/logistics/routes/create.php?id=<?= $routeId ?>" class="btn btn-outline-secondary">
+                    <a href="javascript:history.back()" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i>กลับ
                     </a>
                 </div>

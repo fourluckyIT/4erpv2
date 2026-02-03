@@ -144,7 +144,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         </p>
     </div>
     <div class="col-md-4 text-end">
-        <a href="view.php?id=<?= $id ?>" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
     </div>
@@ -309,7 +309,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         </div>
         <div class="card-footer">
             <div class="d-flex justify-content-between">
-                <a href="view.php?id=<?= $id ?>" class="btn btn-outline-secondary">
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>ยกเลิก
                 </a>
                 <button type="submit" class="btn btn-primary">

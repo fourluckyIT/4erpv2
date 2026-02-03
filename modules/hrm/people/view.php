@@ -97,7 +97,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             <a href="edit.php?id=<?= $id ?>" class="btn btn-primary">
                 <i class="bi bi-pencil me-1"></i>แก้ไข
             </a>
-            <a href="index.php" class="btn btn-outline-secondary">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>กลับ
             </a>
         </div>
@@ -432,7 +432,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <?php endif; ?>
                     </td>
                     <td>
-                        <a href="cert_add.php?people_id=<?= $id ?>&edit=<?= $cert['id'] ?>" class="btn btn-sm btn-outline-secondary" title="แก้ไข">
+                        <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary" title="แก้ไข">
                             <i class="bi bi-pencil"></i>
                         </a>
                     </td>

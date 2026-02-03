@@ -100,7 +100,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </h2>
             <p class="text-muted">รายละเอียดใบแจ้งหนี้</p>
         </div>
-        <a href="index.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back to List
         </a>
     </div>

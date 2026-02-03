@@ -104,7 +104,7 @@ $permissions = $rbac->getAllPermissions();
             </nav>
         </div>
         <?php if ($action !== 'list'): ?>
-        <a href="permissions.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back
         </a>
         <?php endif; ?>

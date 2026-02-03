@@ -136,7 +136,7 @@ $unboundUsers = $db->query("
             <i class="bi bi-plus-circle me-1"></i>New Binding
         </a>
         <?php else: ?>
-        <a href="line_bindings.php" class="btn btn-outline-secondary">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back
         </a>
         <?php endif; ?>

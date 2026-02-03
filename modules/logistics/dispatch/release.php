@@ -263,26 +263,17 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 
 <div class="card mb-4">
-    <div class="card-header">
-        <i class="bi bi-filter me-2"></i>กรองข้อมูล
-    </div>
     <div class="card-body">
-        <form method="GET" class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label">เดือน (Route Date)</label>
-                <input type="month" name="month" class="form-control" value="<?= e($month) ?>">
-            </div>
-            <div class="col-md-5">
-                <div class="text-muted small mt-2">สรุปงานวางแผนที่รอปล่อย Route ตามเดือนที่เลือก</div>
-            </div>
-            <div class="col-md-3">
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary flex-fill">
-                        <i class="bi bi-search me-1"></i>กรอง
-                    </button>
-                    <a href="release.php" class="btn btn-outline-secondary">ล้าง</a>
-                </div>
-            </div>
+        <form method="GET" class="d-flex align-items-center gap-2 flex-wrap">
+            <i class="bi bi-calendar3 text-muted"></i>
+            <input type="month" name="month" class="form-control" style="width: auto;" value="<?= e($month) ?>">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search me-1"></i>กรอง
+            </button>
+            <a href="release.php" class="btn btn-outline-secondary">ล้าง</a>
+            <span class="text-muted small ms-auto">
+                สรุปงานวางแผนที่รอปล่อย Route ตามเดือนที่เลือก
+            </span>
         </form>
     </div>
 </div>

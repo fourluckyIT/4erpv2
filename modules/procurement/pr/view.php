@@ -61,14 +61,21 @@ $poStmt->execute([$id]);
 $poRows = $poStmt->fetchAll();
 $activePo = null;
 foreach ($poRows as $poRow) {
-    if ($poRow['status'] !== 'Cancelled') {
+    $poStatus = trim((string) ($poRow['status'] ?? ''));
+    $isInactivePo = in_array(strtoupper($poStatus), ['CANCELLED', 'CANCELED', 'VOIDED'], true);
+    if (!$isInactivePo) {
         $activePo = $poRow;
         break;
     }
 }
 $hasActivePo = $activePo !== null;
-$canViewPo = $rbac->can('view', 'PO');
-$canCreatePo = $rbac->can('create', 'PO');
+$prStatus = trim((string) ($pr['status'] ?? ''));
+$isApproved = strcasecmp($prStatus, 'Approved') === 0;
+$roleCodes = array_map('strtoupper', $auth->getCurrentRoles() ?? []);
+$hasPurchaseRole = in_array('PUR', $roleCodes, true) || in_array('PURCHASE', $roleCodes, true);
+$hasManagerRole = in_array('MGR', $roleCodes, true) || in_array('MANAGER', $roleCodes, true);
+$canViewPo = $rbac->can('view', 'PO') || $hasPurchaseRole || $hasManagerRole || $auth->isAdmin();
+$canCreatePo = $rbac->can('create', 'PO') || $hasPurchaseRole || $hasManagerRole || $auth->isAdmin();
 
 // Handle actions
 if (isPost()) {
@@ -244,7 +251,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </nav>
         </div>
         <div>
-            <a href="index.php" class="btn btn-outline-secondary">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>กลับ
             </a>
         </div>
@@ -279,7 +286,11 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </button>
             <?php endif; ?>
             
-            <?php if ($pr['status'] === 'Approved'): ?>
+            <?php 
+            // Check if PR is approved (robust check)
+            $statusApproved = ($isApproved || strtoupper(trim($pr['status'])) === 'APPROVED');
+            ?>
+            <?php if ($statusApproved): ?>
                 <?php if ($hasActivePo): ?>
                     <?php if ($canViewPo): ?>
                         <a href="../po/view.php?id=<?= $activePo['id'] ?>" class="btn btn-info text-white">
@@ -291,13 +302,18 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     </span>
                 <?php else: ?>
                     <?php if ($canCreatePo): ?>
-                        <a href="../po/create.php?pr_id=<?= $id ?>" class="btn btn-info text-white">
+                        <a href="../po/create.php?pr_id=<?= $id ?>" class="btn btn-primary">
                             <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
                         </a>
                     <?php else: ?>
-                        <span class="text-muted">ยังไม่มี PO</span>
+                        <span class="text-muted">ยังไม่มี PO (ไม่มีสิทธิ์สร้าง PO)</span>
                     <?php endif; ?>
                 <?php endif; ?>
+            <?php elseif ($canCreatePo): ?>
+                <button type="button" class="btn btn-outline-secondary" disabled>
+                    <i class="bi bi-plus-circle me-1"></i>สร้าง PO จาก PR นี้
+                </button>
+                <span class="text-muted ms-2">ต้องอนุมัติ PR ก่อน</span>
             <?php endif; ?>
         </form>
     </div>
