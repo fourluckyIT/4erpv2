@@ -124,12 +124,12 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
     <div class="col-md-8 mb-4">
         <?php if ($selectedRole): ?>
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>
+            <div class="card-header d-flex align-items-center">
+                <span class="ms-auto text-end">
                     <i class="bi bi-key me-2"></i>
                     Permissions for: <strong><?= e($selectedRole['code']) ?> - <?= e($selectedRole['name']) ?></strong>
                 </span>
-                <span class="badge bg-primary"><?= count($rolePermissions) ?> / <?= count($allPermissions) ?> permissions</span>
+                <span class="badge bg-primary ms-2"><?= count($rolePermissions) ?> / <?= count($allPermissions) ?> permissions</span>
             </div>
             <div class="card-body">
                 <?php if ($selectedRole['description']): ?>

@@ -387,9 +387,10 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             </span>
                         </td>
                         <td>
-                            <span class="badge bg-<?= ($i['source'] ?? 'MASTER') === 'GR' ? 'success' : 'secondary' ?>">
-                                <?= e($i['source'] ?? 'MASTER') ?>
-                            </span>
+                            <?php $src = $i['source'] ?? 'MASTER'; ?>
+                            <small class="<?= $src === 'GR' ? 'text-success' : 'text-muted' ?>">
+                                <?= $src === 'GR' ? '● GR' : '○ Master' ?>
+                            </small>
                         </td>
                         <td>
                             <?php if ((int) ($i['is_serialized'] ?? 0) === 1): ?>

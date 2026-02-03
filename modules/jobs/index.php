@@ -77,13 +77,13 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 <!-- Filters -->
 <div class="card mb-4">
     <div class="card-body">
-        <form method="GET" action="" class="row g-3">
-            <div class="col-md-3">
+        <form method="GET" action="" class="row g-3 align-items-end">
+            <div class="col-lg-5 col-md-6">
                 <label class="form-label">ค้นหา</label>
                 <input type="text" class="form-control" name="search" 
                        value="<?= e($filters['search'] ?? '') ?>" placeholder="เลขงาน, ชื่อลูกค้า...">
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-4 col-md-6">
                 <label class="form-label">สถานะ</label>
                 <select class="form-select" name="status">
                     <option value="">-- ทั้งหมด --</option>
@@ -94,8 +94,8 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary me-2">
+            <div class="col-lg-3 col-md-12 d-flex flex-wrap gap-2 justify-content-lg-end">
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-search"></i> ค้นหา
                 </button>
                 <a href="index.php" class="btn btn-outline-secondary">ล้าง</a>
@@ -115,14 +115,14 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         </div>
         <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
-                        <th>เลขงาน</th>
+                        <th class="text-nowrap">เลขงาน</th>
                         <th>ลูกค้า</th>
                         <th>รายละเอียด</th>
                         <th>ประเภท</th>
-                        <th>วันที่</th>
+                        <th class="text-nowrap">วันที่</th>
                         <th>สถานะ</th>
                         <th>Sale</th>
                         <th></th>
@@ -138,7 +138,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         </td>
                         <td><?= e($j['customer_name']) ?></td>
                         <td>
-                            <span class="text-truncate d-inline-block" style="max-width: 200px;">
+                            <span class="text-truncate d-inline-block" style="max-width: 260px;">
                                 <?= e($j['scope_short']) ?>
                             </span>
                         </td>
