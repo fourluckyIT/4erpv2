@@ -289,7 +289,7 @@ if (isPost()) {
 
             // Create item master
             $costPrice = (float)($row['unit_price'] ?? 0);
-            $stmtNew = $db->prepare("INSERT INTO items (code, name, item_type, unit, is_serialized, cost_price, is_active, created_by) VALUES (?, ?, ?, ?, ?, ?, 1, ?)");
+            $stmtNew = $db->prepare("INSERT INTO items (code, name, item_type, unit, is_serialized, cost_price, is_active, source, created_by) VALUES (?, ?, ?, ?, ?, ?, 1, 'GR', ?)");
             $stmtNew->execute([
                 $newCode,
                 $newName,

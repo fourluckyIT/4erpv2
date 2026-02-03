@@ -137,6 +137,12 @@ $suppliers = $db->query("SELECT id, code, name FROM suppliers WHERE is_active = 
 
 // List
 $search = get('search', '');
+$sortBy = get('sort', 'created_at');
+$sortDir = get('dir', 'DESC');
+$allowedSorts = ['code' => 'i.code', 'name' => 'i.name', 'item_type' => 'i.item_type', 'created_at' => 'i.created_at', 'source' => 'i.source'];
+$orderCol = $allowedSorts[$sortBy] ?? 'i.created_at';
+$orderDir = strtoupper($sortDir) === 'ASC' ? 'ASC' : 'DESC';
+
 $where = 'i.is_active = 1';
 $params = [];
 
@@ -185,7 +191,7 @@ $items = $db->prepare("
     LEFT JOIN ($usageSubquery) um ON um.item_id = i.id
     LEFT JOIN ($reservedSubquery) rq ON rq.item_id = i.id
     WHERE $where
-    ORDER BY i.item_type, i.code
+    ORDER BY $orderCol $orderDir, i.code
 ");
 $items->execute($params);
 $items = $items->fetchAll();
@@ -350,14 +356,13 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                     <tr>
-                        <th>รหัส</th>
+                        <th><a href="?sort=code&dir=<?= $sortBy === 'code' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">รหัส <?= $sortBy === 'code' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
                         <th>ชื่อ</th>
-                        <th>ประเภท</th>
-                        <th>Brand</th>
+                        <th><a href="?sort=item_type&dir=<?= $sortBy === 'item_type' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">ประเภท <?= $sortBy === 'item_type' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
+                        <th><a href="?sort=source&dir=<?= $sortBy === 'source' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">ที่มา <?= $sortBy === 'source' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
                         <th>Serial</th>
-                        <th>กำลังใช้งาน</th>
-                        <th>จอง</th>
-                        <th>ราคาเช่า/วัน</th>
+                        <th>ใช้งาน/จอง</th>
+                        <th><a href="?sort=created_at&dir=<?= $sortBy === 'created_at' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">สร้างเมื่อ <?= $sortBy === 'created_at' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -372,39 +377,41 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     ?>
                     <tr>
                         <td><strong><?= e($i['code']) ?></strong></td>
-                        <td><?= e($i['name']) ?></td>
+                        <td>
+                            <?= e($i['name']) ?>
+                            <?php if ($i['brand']): ?><br><small class="text-muted"><?= e($i['brand']) ?></small><?php endif; ?>
+                        </td>
                         <td>
                             <span class="badge bg-<?= match($i['item_type']) { 'Device' => 'primary', 'Equipment' => 'info', 'Vehicle' => 'warning', default => 'secondary' } ?>">
                                 <?= e($i['item_type']) ?>
                             </span>
                         </td>
-                        <td><?= e($i['brand'] ?? '') ?></td>
+                        <td>
+                            <span class="badge bg-<?= ($i['source'] ?? 'MASTER') === 'GR' ? 'success' : 'secondary' ?>">
+                                <?= e($i['source'] ?? 'MASTER') ?>
+                            </span>
+                        </td>
                         <td>
                             <?php if ((int) ($i['is_serialized'] ?? 0) === 1): ?>
-                            <span class="badge bg-success"><?= number_format((int) ($i['serial_count'] ?? 0)) ?> units</span>
+                            <span class="badge bg-success"><?= number_format((int) ($i['serial_count'] ?? 0)) ?></span>
                             <?php else: ?>
                             <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if ((int) ($i['is_serialized'] ?? 0) === 1): ?>
-                                <?php if ((int) ($i['in_use_count'] ?? 0) > 0): ?>
-                                    <span class="badge bg-warning text-dark"><?= number_format((int) $i['in_use_count']) ?></span>
-                                <?php else: ?>
-                                    <span class="text-muted">0</span>
-                                <?php endif; ?>
+                            <?php 
+                            $inUse = (int) ($i['in_use_count'] ?? 0);
+                            $reserved = $reservedQty > 0 ? formatNumber($reservedQty, $reservedDecimals) : '0';
+                            ?>
+                            <?php if ($inUse > 0 || $reservedQty > 0): ?>
+                                <span class="text-warning"><?= $inUse ?></span> / <span class="text-info"><?= $reserved ?></span>
                             <?php else: ?>
                                 <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if ($reservedQty > 0): ?>
-                                <span class="badge bg-warning text-dark"><?= formatNumber($reservedQty, $reservedDecimals) ?></span>
-                            <?php else: ?>
-                                <span class="text-muted">0</span>
-                            <?php endif; ?>
+                            <small class="text-muted"><?= date('d/m/y H:i', strtotime($i['created_at'])) ?></small>
                         </td>
-                        <td><?= formatNumber($i['rental_price_day'] ?? 0) ?></td>
                         <td>
                             <a href="?action=edit&id=<?= $i['id'] ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-pencil"></i>
