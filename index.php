@@ -104,6 +104,8 @@ function getStatValue($db, $code) {
 $recentLogs = [];
 $canSeeDraftActivity = $auth->isAdmin();
 try {
+    $conditions = [];
+    $params = [];
     $sql = "
         SELECT a.*, a.action_name AS action, u.full_name,
                j.status AS job_status
@@ -111,11 +113,20 @@ try {
         LEFT JOIN users u ON a.user_id = u.id
         LEFT JOIN jobs j ON a.entity_type = 'JOB' AND a.entity_id = j.id
     ";
+    if (!$auth->isAdmin()) {
+        $conditions[] = "a.action_name NOT IN ('" . AUDIT_ACTION_LOGIN . "','" . AUDIT_ACTION_LOGOUT . "')";
+        $conditions[] = "a.user_id = :user_id";
+        $params['user_id'] = (int) ($currentUser['id'] ?? ($_SESSION['user_id'] ?? 0));
+    }
     if (!$canSeeDraftActivity) {
-        $sql .= " WHERE (a.entity_type <> 'JOB' OR j.status <> 'Draft' OR j.status IS NULL) ";
+        $conditions[] = "(a.entity_type <> 'JOB' OR j.status <> 'Draft' OR j.status IS NULL)";
+    }
+    if (!empty($conditions)) {
+        $sql .= " WHERE " . implode(' AND ', $conditions) . " ";
     }
     $sql .= " ORDER BY a.created_at DESC LIMIT 5 ";
-    $stmt = $db->query($sql);
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     $recentLogs = $stmt->fetchAll();
 } catch (Exception $e) {
     // Table might not exist yet
@@ -251,11 +262,6 @@ $pageTitle = $currentRoleInfo['label'];
                         <p class="page-subtitle"><?= e($currentRoleInfo['desc']) ?></p>
                     </div>
                     <div style="display: flex; gap: 12px;">
-                        <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
-                        <a href="<?= BASE_URL ?>/modules/admin/dashboard-config/" class="btn btn-outline">
-                            <i class="bi bi-sliders"></i> Dashboard Config
-                        </a>
-                        <?php endif; ?>
                         <button class="btn btn-primary" onclick="window.print()">
                             <i class="bi bi-download"></i> Export Report
                         </button>
@@ -270,12 +276,12 @@ $pageTitle = $currentRoleInfo['label'];
                 <div class="stat-cards">
                     <?php foreach ($statWidgets as $widget): ?>
                     <div class="stat-card">
-                        <div class="stat-icon <?= e($widget['icon_bg_color'] ?? 'primary') ?>">
-                            <i class="<?= e($widget['icon']) ?>" style="font-size: 1.5rem;"></i>
+                        <div class="stat-icon <?= e((string)($widget['icon_bg_color'] ?? 'primary')) ?>">
+                            <i class="<?= e((string)($widget['icon'] ?? 'bi bi-grid')) ?>" style="font-size: 1.5rem;"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value"><?= getStatValue($db, $widget['code']) ?></div>
-                            <div class="stat-label"><?= e($widget['name']) ?></div>
+                            <div class="stat-label"><?= e((string)($widget['name'] ?? '')) ?></div>
                         </div>
                     </div>
                     <?php endforeach; ?>

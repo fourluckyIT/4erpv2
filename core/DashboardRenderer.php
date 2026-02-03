@@ -239,19 +239,31 @@ class DashboardRenderer
      */
     private function getRecentActivity(): array
     {
-        $stmt = $this->db->query("
-            SELECT a.*, u.full_name 
-            FROM audit_logs a 
-            LEFT JOIN users u ON a.user_id = u.id 
-            ORDER BY a.created_at DESC 
-            LIMIT 5
-        ");
+        $sql = "
+            SELECT a.*, u.full_name
+            FROM audit_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+        ";
+        $params = [];
+        if ($this->roleCode !== 'ADM') {
+            $sql .= " WHERE a.action_name NOT IN ('" . AUDIT_ACTION_LOGIN . "','" . AUDIT_ACTION_LOGOUT . "') ";
+            $userId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($userId > 0) {
+                $sql .= " AND a.user_id = :user_id ";
+                $params['user_id'] = $userId;
+            }
+        }
+        $sql .= " ORDER BY a.created_at DESC LIMIT 5 ";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         
         $logs = [];
         while ($row = $stmt->fetch()) {
+            $action = $row['action_name'] ?? ($row['action'] ?? '');
+            $name = $row['full_name'] ?? 'System';
             $logs[] = [
                 'time' => $this->formatTime($row['created_at']),
-                'content' => "<strong>{$row['full_name']}</strong> {$row['action']} {$row['entity_type']}"
+                'content' => "<strong>{$name}</strong> {$action} {$row['entity_type']}"
             ];
         }
         

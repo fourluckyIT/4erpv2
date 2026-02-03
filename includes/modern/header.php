@@ -34,10 +34,12 @@ $roleClasses = [
 
 $roleClass = $roleClasses[$primaryRole] ?? 'role-sal';
 $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
+
+$backUrl = $backUrl ?? (BASE_URL . '/index.php');
 ?>
 <header class="header">
     <div class="header-left">
-        <button class="header-toggle" type="button">
+        <button class="header-toggle" type="button" onclick="toggleSidebar(event)">
             <i class="bi bi-list" style="font-size: 1.25rem;"></i>
         </button>
         <nav class="header-breadcrumb">
@@ -92,10 +94,6 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
             </div>
         </div>
 
-        <button class="header-icon-btn header-back-btn" id="globalBackBtn" title="Back" onclick="goBackSmart(event)">
-            <i class="bi bi-arrow-left" style="font-size: 1.1rem;"></i>
-        </button>
-        
         <!-- User Dropdown Menu -->
         <div class="user-dropdown-menu" id="userDropdownMenu" style="display: none; position: absolute; right: 24px; top: 56px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow-lg); min-width: 200px; z-index: 1000;">
             <div style="padding: 12px 16px; border-bottom: 1px solid var(--gray-200);">
@@ -122,28 +120,112 @@ $initials = strtoupper(substr($currentUser['full_name'] ?? 'U', 0, 2));
 </header>
 
 <script>
+window.toggleSidebar = function(event) {
+    event?.preventDefault();
+};
+
+(function initSidebarToggle() {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    if (document.querySelector('.sidebar-backdrop')) return;
+
+    const sidebarBackdrop = document.createElement('div');
+    sidebarBackdrop.className = 'sidebar-backdrop';
+    document.body.appendChild(sidebarBackdrop);
+
+    const isMobileViewport = () => {
+        const width = Math.max(
+            document.documentElement?.clientWidth || 0,
+            window.innerWidth || 0
+        );
+        return width <= 1024;
+    };
+
+    function setMobileOpen(open) {
+        sidebar.classList.toggle('open', open);
+        sidebarBackdrop.classList.toggle('show', open);
+        document.body.classList.toggle('sidebar-open', open);
+    }
+
+    function syncSidebarState() {
+        if (isMobileViewport()) {
+            sidebar.classList.remove('collapsed');
+            setMobileOpen(false);
+        } else if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+            setMobileOpen(false);
+        } else {
+            sidebar.classList.remove('collapsed');
+            setMobileOpen(false);
+        }
+    }
+
+    syncSidebarState();
+    window.addEventListener('resize', syncSidebarState);
+
+    window.toggleSidebar = function(event) {
+        event?.preventDefault();
+        if (isMobileViewport()) {
+            setMobileOpen(!sidebar.classList.contains('open'));
+        } else {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+        }
+    };
+
+    sidebarBackdrop.addEventListener('click', () => setMobileOpen(false));
+    document.addEventListener('keydown', (e) => {
+        if (!isMobileViewport()) return;
+        if (e.key === 'Escape') setMobileOpen(false);
+    });
+    sidebar.addEventListener('click', (e) => {
+        if (isMobileViewport() && e.target.closest('.nav-item')) {
+            setMobileOpen(false);
+        }
+    });
+})();
+
 let notificationsLoaded = false;
 const notifyBadge = document.getElementById('notifyBadge');
 const notificationList = document.getElementById('notificationList');
 
-function goBackSmart(event) {
+function goBackFallback(event) {
     event?.preventDefault();
     event?.stopPropagation();
 
-    const ref = document.referrer || '';
-    const sameOriginRef = ref && ref.startsWith(window.location.origin);
-    if (sameOriginRef) {
-        window.location.href = ref;
-        return;
-    }
-
-    if (window.history.length > 1) {
-        window.history.back();
-        return;
-    }
-
-    window.location.href = `${BASE_URL}/index.php`;
+    const btn = document.getElementById('globalBackBtn');
+    const url = btn?.getAttribute('href') || `${BASE_URL}/index.php`;
+    window.location.href = url;
 }
+
+function placeGlobalBackButton() {
+    const btn = document.getElementById('globalBackBtn');
+    if (!btn) return;
+
+    const pageHeader = document.querySelector('.page-header');
+    if (!pageHeader) return;
+
+    let actions = pageHeader.querySelector('.page-header-actions');
+    if (!actions) {
+        actions = pageHeader.querySelector(':scope > div:last-child');
+        if (!actions || actions === btn || actions.contains(btn)) {
+            actions = document.createElement('div');
+            pageHeader.appendChild(actions);
+        }
+        actions.classList.add('page-header-actions');
+    }
+
+    if (btn.parentElement !== actions) {
+        actions.appendChild(btn);
+    }
+
+    const primaryAction = actions.querySelector('.btn-primary, .btn.btn-primary');
+    if (primaryAction && btn.previousElementSibling !== primaryAction) {
+        primaryAction.insertAdjacentElement('afterend', btn);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', placeGlobalBackButton);
 
 function formatNotificationTime(value) {
     if (!value) return '';
