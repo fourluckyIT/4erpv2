@@ -62,100 +62,73 @@ $pageTitle = 'People Management - 4ERP';
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2 class="mb-0"><i class="bi bi-people me-2"></i>People Management</h2>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">Home</a></li>
-                    <li class="breadcrumb-item active">People</li>
-                </ol>
-            </nav>
-        </div>
-        <div>
-            <a href="create.php" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>เพิ่มบุคลากร
-            </a>
-        </div>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-people" style="color: var(--primary);"></i> People
+        </h1>
+        <p class="page-subtitle">รายการบุคลากรและแรงงานทั้งหมด</p>
     </div>
+    <a href="create.php" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> เพิ่มบุคลากร
+    </a>
 </div>
 
 <!-- Stats Cards -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="mb-0"><?= $stats['total'] ?></h4>
-                        <small>ทั้งหมด</small>
-                    </div>
-                    <i class="bi bi-people fs-1 opacity-50"></i>
-                </div>
-            </div>
+<div class="stat-cards">
+    <div class="stat-card">
+        <div class="stat-icon primary"><i class="bi bi-people" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int) ($stats['total'] ?? 0) ?></div>
+            <div class="stat-label">ทั้งหมด</div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="mb-0"><?= $stats['internal'] ?></h4>
-                        <small>พนักงานประจำ</small>
-                    </div>
-                    <i class="bi bi-person-badge fs-1 opacity-50"></i>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon success"><i class="bi bi-person-badge" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int) ($stats['internal'] ?? 0) ?></div>
+            <div class="stat-label">พนักงานประจำ</div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-dark">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="mb-0"><?= $stats['external'] ?></h4>
-                        <small>แรงงานภายนอก</small>
-                    </div>
-                    <i class="bi bi-person-workspace fs-1 opacity-50"></i>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon warning"><i class="bi bi-person-workspace" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int) ($stats['external'] ?? 0) ?></div>
+            <div class="stat-label">แรงงานภายนอก</div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-info text-white">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="mb-0"><?= $stats['active'] ?></h4>
-                        <small>พร้อมใช้งาน</small>
-                    </div>
-                    <i class="bi bi-check-circle fs-1 opacity-50"></i>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon info"><i class="bi bi-check-circle" style="font-size: 1.5rem;"></i></div>
+        <div class="stat-content">
+            <div class="stat-value"><?= (int) ($stats['active'] ?? 0) ?></div>
+            <div class="stat-label">พร้อมใช้งาน</div>
         </div>
     </div>
 </div>
 
 <!-- Filters -->
 <div class="card mb-4">
-    <div class="card-body py-2">
-        <form method="GET" class="row g-2 align-items-center">
-            <div class="col-auto">
-                <div class="btn-group" role="group">
-                    <a href="?filter=all" class="btn btn-<?= $filter === 'all' ? 'primary' : 'outline-primary' ?> btn-sm">ทั้งหมด</a>
-                    <a href="?filter=internal" class="btn btn-<?= $filter === 'internal' ? 'success' : 'outline-success' ?> btn-sm">พนักงานประจำ</a>
-                    <a href="?filter=external" class="btn btn-<?= $filter === 'external' ? 'warning' : 'outline-warning' ?> btn-sm">แรงงานภายนอก</a>
-                    <a href="?filter=active" class="btn btn-<?= $filter === 'active' ? 'info' : 'outline-info' ?> btn-sm">Active</a>
-                </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-lg-3 col-md-4">
+                <label class="form-label">ตัวกรอง</label>
+                <select class="form-select" name="filter">
+                    <option value="all" <?= $filter === 'all' ? 'selected' : '' ?>>ทั้งหมด</option>
+                    <option value="internal" <?= $filter === 'internal' ? 'selected' : '' ?>>พนักงานประจำ</option>
+                    <option value="external" <?= $filter === 'external' ? 'selected' : '' ?>>แรงงานภายนอก</option>
+                    <option value="active" <?= $filter === 'active' ? 'selected' : '' ?>>Active</option>
+                    <option value="inactive" <?= $filter === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                </select>
             </div>
-            <div class="col-auto flex-grow-1">
-                <div class="input-group input-group-sm">
-                    <input type="text" class="form-control" name="search" value="<?= e($search) ?>" placeholder="ค้นหาชื่อ, รหัส, บัตร ปชช., โทร...">
-                    <button type="submit" class="btn btn-outline-secondary">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
+            <div class="col-lg-6 col-md-8">
+                <label class="form-label">ค้นหา</label>
+                <input type="text" class="form-control" name="search" value="<?= e($search) ?>" placeholder="ค้นหาชื่อ, รหัส, บัตร ปชช., โทร...">
+            </div>
+            <div class="col-lg-3 col-md-12 d-flex flex-wrap gap-2 justify-content-lg-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> ค้นหา
+                </button>
+                <a href="index.php" class="btn btn-outline-secondary">ล้าง</a>
             </div>
         </form>
     </div>
@@ -163,11 +136,12 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 
 <!-- People List -->
 <div class="card">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
                 <tr>
-                    <th>รหัส</th>
+                    <th class="text-nowrap">รหัส</th>
                     <th>ชื่อ-นามสกุล</th>
                     <th>ประเภท</th>
                     <th>ตำแหน่ง</th>
@@ -179,15 +153,22 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
             </thead>
             <tbody>
                 <?php if (empty($people)): ?>
-                <tr><td colspan="8" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <div class="mt-2">ไม่พบข้อมูล</div>
+                    </td>
+                </tr>
                 <?php else: ?>
                 <?php foreach ($people as $p): ?>
                 <tr>
-                    <td><code><?= e($p['code']) ?></code></td>
+                    <td class="text-nowrap">
+                        <span class="badge bg-light text-dark border"><?= e($p['code']) ?></span>
+                    </td>
                     <td>
-                        <strong><?= e($p['full_name']) ?></strong>
+                        <div class="fw-semibold"><?= e($p['full_name']) ?></div>
                         <?php if (!empty($p['id_card'])): ?>
-                        <br><small class="text-muted"><?= e($p['id_card']) ?></small>
+                        <small class="text-muted"><?= e($p['id_card']) ?></small>
                         <?php endif; ?>
                     </td>
                     <td>
@@ -196,7 +177,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         </span>
                     </td>
                     <td><?= e($p['position'] ?: '-') ?></td>
-                    <td><?= e($p['phone'] ?: '-') ?></td>
+                    <td class="text-nowrap"><?= e($p['phone'] ?: '-') ?></td>
                     <td><?= e($p['supplier_name'] ?: '-') ?></td>
                     <td>
                         <span class="badge bg-<?= $p['is_active'] ? 'success' : 'secondary' ?>">
@@ -204,18 +185,21 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         </span>
                     </td>
                     <td>
-                        <a href="view.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="edit.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-pencil"></i>
-                        </a>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="view.php?id=<?= $p['id'] ?>" class="btn btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="edit.php?id=<?= $p['id'] ?>" class="btn btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
-        </table>
+            </table>
+        </div>
     </div>
 </div>
 

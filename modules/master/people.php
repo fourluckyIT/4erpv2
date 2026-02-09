@@ -11,6 +11,7 @@ $auth->requireAuth();
 
 $db = getDB();
 $audit = new AuditLog();
+$docNum = new DocumentNumber();
 $action = get('action', 'list');
 $id = (int) get('id');
 $typeFilter = get('type', '');
@@ -25,12 +26,20 @@ if (isPost()) {
     $formAction = post('form_action');
     
     if ($formAction === 'create') {
-        $code = sanitize(post('code'));
-        
-        $check = $db->prepare("SELECT id FROM people WHERE code = ?");
-        $check->execute([$code]);
-        if ($check->fetch()) {
-            setFlash('error', 'รหัสบุคลากรซ้ำ');
+        $peopleType = post('people_type');
+        $docType = $peopleType === 'External' ? 'EXT' : 'EMP';
+        $code = null;
+        for ($i = 0; $i < 5; $i++) {
+            $candidate = $docNum->generate($docType);
+            $check = $db->prepare("SELECT id FROM people WHERE code = ?");
+            $check->execute([$candidate]);
+            if (!$check->fetch()) {
+                $code = $candidate;
+                break;
+            }
+        }
+        if ($code === null) {
+            setFlash('error', 'ไม่สามารถสร้างรหัสบุคลากรได้');
             redirect('people.php?action=add');
         }
         
@@ -39,7 +48,7 @@ if (isPost()) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
-            $code, sanitize(post('full_name')), post('people_type'),
+            $code, sanitize(post('full_name')), $peopleType,
             sanitize(post('position')), sanitize(post('department')),
             sanitize(post('phone')), sanitize(post('email')),
             sanitize(post('id_card')), post('address'),
@@ -233,8 +242,11 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label">รหัส <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="code" required value="<?= e($person['code'] ?? '') ?>" <?= $action === 'edit' ? 'readonly' : '' ?>>
+                        <label class="form-label">รหัส</label>
+                        <input type="text" class="form-control" value="<?= $action === 'edit' ? e($person['code'] ?? '') : 'ระบบสร้างอัตโนมัติ' ?>" readonly>
+                        <?php if ($action === 'add'): ?>
+                        <div class="form-text">กำหนด prefix/ลำดับได้ที่ Admin &gt; Document Numbers</div>
+                        <?php endif; ?>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>

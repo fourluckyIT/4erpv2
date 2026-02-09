@@ -11,6 +11,7 @@ $auth->requireAuth();
 
 $db = getDB();
 $audit = new AuditLog();
+$docNum = new DocumentNumber();
 
 // Get suppliers for external people
 $suppliers = $db->query("SELECT id, code, name FROM suppliers WHERE is_active = 1 ORDER BY name")->fetchAll();
@@ -23,12 +24,10 @@ if (isPost()) {
     }
     
     try {
-        // Generate code
+        // Generate code via DocumentNumber
         $peopleType = post('people_type');
-        $prefix = $peopleType === 'Employee' ? 'EMP' : 'EXT';
-        $stmt = $db->query("SELECT MAX(CAST(SUBSTRING(code, 5) AS UNSIGNED)) as max_num FROM people WHERE code LIKE '$prefix-%'");
-        $maxNum = $stmt->fetch()['max_num'] ?? 0;
-        $code = $prefix . '-' . str_pad($maxNum + 1, 4, '0', STR_PAD_LEFT);
+        $docType = $peopleType === 'External' ? 'EXT' : 'EMP';
+        $code = $docNum->generate($docType);
         
         $stmt = $db->prepare("
             INSERT INTO people (code, full_name, people_type, position, phone, email, id_card, supplier_id, hire_date, is_active, created_by)
@@ -93,7 +92,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <div class="col-md-6 mb-3">
                             <label class="form-label">ประเภท <span class="text-danger">*</span></label>
                             <select class="form-select" name="people_type" id="peopleType" required>
-                                <option value="Internal">พนักงานประจำ (Internal)</option>
+                                <option value="Employee">พนักงานประจำ (Employee)</option>
                                 <option value="External">แรงงานภายนอก (External)</option>
                             </select>
                         </div>
