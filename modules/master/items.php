@@ -11,9 +11,48 @@ $auth->requireAuth();
 
 $db = getDB();
 $audit = new AuditLog();
+$docNum = new DocumentNumber();
 $action = get('action', 'list');
 $id = (int) get('id');
 $typeFilter = get('type', '');
+$canDeactivate = $auth->isAdmin();
+$maintenanceRoles = [ROLE_WAREHOUSE, ROLE_MANAGER, ROLE_ADMIN, ROLE_PLANNER];
+$canMaintain = !empty(array_intersect($_SESSION['roles'] ?? [], $maintenanceRoles));
+$maintenanceEnabled = false;
+$maintenanceSchemaReady = false;
+try {
+    $colCheck = $db->prepare("
+        SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'items' AND COLUMN_NAME = 'maintenance_required'
+    ");
+    $colCheck->execute();
+    $hasItemMaintenance = ((int) $colCheck->fetchColumn()) > 0;
+
+    $tableCheck = $db->prepare("
+        SELECT COUNT(*) FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'item_maintenance_logs'
+    ");
+    $tableCheck->execute();
+    $hasLogTable = ((int) $tableCheck->fetchColumn()) > 0;
+
+    $maintenanceSchemaReady = $hasItemMaintenance;
+    $maintenanceEnabled = $hasItemMaintenance && $hasLogTable;
+} catch (Exception $e) {
+    $maintenanceEnabled = false;
+    $maintenanceSchemaReady = false;
+}
+
+function computeNextMaintenanceDate(?string $lastDate, ?int $intervalDays): ?string {
+    if (!$lastDate || !$intervalDays || $intervalDays <= 0) {
+        return null;
+    }
+    $dt = DateTime::createFromFormat('Y-m-d', $lastDate);
+    if (!$dt) {
+        return null;
+    }
+    $dt->modify('+' . $intervalDays . ' days');
+    return $dt->format('Y-m-d');
+}
 
 // Handle form submissions
 if (isPost()) {
@@ -23,12 +62,230 @@ if (isPost()) {
     }
     
     $formAction = post('form_action');
-    
-    if ($formAction === 'create') {
-        $originalCode = sanitize(post('code'));
-        $code = ensureUniqueItemCode($db, $originalCode);
+
+    if (in_array($formAction, ['maintenance_ack', 'maintenance_schedule', 'maintenance_complete'], true)) {
+        if (!$canMaintain) {
+            setFlash('error', 'คุณไม่มีสิทธิ์ดำเนินการ Maintenance');
+            redirect('items.php');
+        }
+        if (!$maintenanceEnabled) {
+            setFlash('error', 'ระบบ Maintenance ยังไม่พร้อมใช้งาน (กรุณารัน schema_patch_item_maintenance.sql)');
+            redirect('items.php');
+        }
+        $id = (int) post('id');
+        $stmt = $db->prepare("SELECT * FROM items WHERE id = ?");
+        $stmt->execute([$id]);
+        $itemRow = $stmt->fetch();
+        if (!$itemRow) {
+            setFlash('error', 'ไม่พบข้อมูล');
+            redirect('items.php');
+        }
+
+        $today = date('Y-m-d');
+        $intervalDays = (int) ($itemRow['maintenance_interval_days'] ?? 0);
+        $lastDate = $itemRow['maintenance_last_date'] ?? null;
+        $nextDate = $itemRow['maintenance_next_date'] ?? computeNextMaintenanceDate($lastDate, $intervalDays);
+
+        if ($formAction === 'maintenance_ack') {
+            $ackUntil = $itemRow['maintenance_ack_until'];
+            if ($ackUntil && $ackUntil >= $today) {
+                $ackUntilDate = new DateTime($ackUntil);
+                $ackUntilDate->modify('+7 days');
+                $newAckUntil = $ackUntilDate->format('Y-m-d');
+            } else {
+                $newAckUntil = date('Y-m-d', strtotime($today . ' +7 days'));
+            }
+
+            $db->prepare("
+                UPDATE items
+                SET maintenance_ack_at = NOW(),
+                    maintenance_ack_by = ?,
+                    maintenance_ack_until = ?
+                WHERE id = ?
+            ")->execute([$_SESSION['user_id'], $newAckUntil, $id]);
+
+            $db->prepare("
+                INSERT INTO item_maintenance_logs (item_id, action, due_date, scheduled_date, scheduled_hours, notes, created_by)
+                VALUES (?, 'ACK', ?, NULL, NULL, ?, ?)
+            ")->execute([$id, $nextDate, 'ACK: Snooze 7 days', $_SESSION['user_id']]);
+
+            $audit->log('maintenance_ack', 'ITEM', $id, null, ['ack_until' => $newAckUntil]);
+            setFlash('success', 'ACK เรียบร้อย (เลื่อนไปอีก 7 วัน)');
+            redirect('items.php?action=edit&id=' . $id);
+        }
+
+        if ($formAction === 'maintenance_schedule') {
+            $scheduledDate = post('scheduled_date');
+            $scheduledHours = (float) post('scheduled_hours', 0);
+            if (!$scheduledDate) {
+                setFlash('error', 'กรุณาระบุวันที่ซ่อมบำรุง');
+                redirect('items.php?action=edit&id=' . $id);
+            }
+
+            // Block scheduling if conflicts with existing plans
+            $conflictStmt = $db->prepare("
+                SELECT p.plan_number, p.plan_date, p.plan_end_date
+                FROM plan_assignments pa
+                JOIN plans p ON pa.plan_id = p.id
+                LEFT JOIN serials s ON pa.serial_id = s.id
+                WHERE p.status IN ('Draft', 'Confirmed')
+                  AND (pa.item_id = ? OR s.item_id = ?)
+                  AND p.plan_date <= ?
+                  AND p.plan_end_date >= ?
+                LIMIT 1
+            ");
+            $conflictStmt->execute([$id, $id, $scheduledDate, $scheduledDate]);
+            $conflict = $conflictStmt->fetch();
+            if ($conflict) {
+                setFlash('error', 'วันซ่อมทับกับแผนงาน: ' . $conflict['plan_number']);
+                redirect('items.php?action=edit&id=' . $id);
+            }
+
+            $db->prepare("
+                UPDATE items
+                SET maintenance_scheduled_date = ?,
+                    maintenance_scheduled_hours = ?,
+                    maintenance_ack_at = NOW(),
+                    maintenance_ack_by = ?,
+                    maintenance_ack_until = ?
+                WHERE id = ?
+            ")->execute([
+                $scheduledDate,
+                $scheduledHours > 0 ? $scheduledHours : null,
+                $_SESSION['user_id'],
+                $scheduledDate,
+                $id
+            ]);
+
+            $db->prepare("
+                INSERT INTO item_maintenance_logs (item_id, action, due_date, scheduled_date, scheduled_hours, notes, created_by)
+                VALUES (?, 'SCHEDULE', ?, ?, ?, ?, ?)
+            ")->execute([
+                $id,
+                $nextDate,
+                $scheduledDate,
+                $scheduledHours > 0 ? $scheduledHours : null,
+                sanitize(post('notes', '')),
+                $_SESSION['user_id']
+            ]);
+
+            $audit->log('maintenance_schedule', 'ITEM', $id, null, ['scheduled_date' => $scheduledDate, 'hours' => $scheduledHours]);
+            setFlash('success', 'บันทึกกำหนดการซ่อมบำรุงเรียบร้อย');
+            redirect('items.php?action=edit&id=' . $id);
+        }
+
+        if ($formAction === 'maintenance_complete') {
+            $completedDate = post('completed_date') ?: $today;
+            $completedHours = (float) post('completed_hours', 0);
+            if ($intervalDays <= 0) {
+                setFlash('error', 'ยังไม่ได้กำหนดรอบ Maintenance');
+                redirect('items.php?action=edit&id=' . $id);
+            }
+
+            $newNext = computeNextMaintenanceDate($completedDate, $intervalDays);
+
+            $db->prepare("
+                UPDATE items
+                SET maintenance_last_date = ?,
+                    maintenance_next_date = ?,
+                    maintenance_ack_at = NULL,
+                    maintenance_ack_by = NULL,
+                    maintenance_ack_until = NULL,
+                    maintenance_scheduled_date = NULL,
+                    maintenance_scheduled_hours = NULL,
+                    maintenance_last_notified = NULL
+                WHERE id = ?
+            ")->execute([$completedDate, $newNext, $id]);
+
+            $db->prepare("
+                INSERT INTO item_maintenance_logs (item_id, action, due_date, scheduled_date, scheduled_hours, completed_date, notes, created_by)
+                VALUES (?, 'COMPLETE', ?, NULL, ?, ?, ?, ?)
+            ")->execute([
+                $id,
+                $nextDate,
+                $completedHours > 0 ? $completedHours : null,
+                $completedDate,
+                sanitize(post('notes', '')),
+                $_SESSION['user_id']
+            ]);
+
+            $audit->log('maintenance_complete', 'ITEM', $id, null, ['completed_date' => $completedDate]);
+            setFlash('success', 'บันทึกการซ่อมบำรุงเรียบร้อย');
+            redirect('items.php?action=edit&id=' . $id);
+        }
+    }
+
+    if ($formAction === 'deactivate') {
+        if (!$canDeactivate) {
+            setFlash('error', 'คุณไม่มีสิทธิ์ปิดใช้งานรายการนี้');
+            redirect('items.php');
+        }
+        $id = (int) post('id');
+        $stmt = $db->prepare("SELECT id, code, is_active FROM items WHERE id = ?");
+        $stmt->execute([$id]);
+        $itemRow = $stmt->fetch();
+        if (!$itemRow) {
+            setFlash('error', 'ไม่พบข้อมูล');
+            redirect('items.php');
+        }
+        if ((int) $itemRow['is_active'] === 0) {
+            setFlash('info', 'รายการนี้ถูกปิดใช้งานแล้ว');
+            redirect('items.php');
+        }
+
+        $db->prepare("UPDATE items SET is_active = 0 WHERE id = ?")->execute([$id]);
+        $audit->log('deactivate', 'ITEM', $id, ['is_active' => 1], ['is_active' => 0], 'Deactivate item');
+        setFlash('success', 'ปิดใช้งานเรียบร้อย: ' . $itemRow['code']);
+        redirect('items.php');
+    } elseif ($formAction === 'create') {
         $itemType = post('item_type');
+        $docTypes = [
+            'Device' => 'DEV',
+            'Equipment' => 'EQP',
+            'Vehicle' => 'VEH',
+            'Consumable' => 'CON',
+        ];
+        $docType = $docTypes[$itemType] ?? null;
+        if ($docType === null) {
+            setFlash('error', 'ประเภทสินค้าไม่ถูกต้อง');
+            redirect('items.php?action=add');
+        }
+
+        $code = null;
+        for ($i = 0; $i < 5; $i++) {
+            $candidate = $docNum->generate($docType);
+            $check = $db->prepare("SELECT id FROM items WHERE code = ?");
+            $check->execute([$candidate]);
+            if (!$check->fetch()) {
+                $code = $candidate;
+                break;
+            }
+        }
+        if ($code === null) {
+            setFlash('error', 'ไม่สามารถสร้างรหัสสินค้าได้');
+            redirect('items.php?action=add');
+        }
         $vehicleSerial = trim(post('vehicle_serial_number', ''));
+        $maintenanceRequired = 0;
+        $maintenanceInterval = null;
+        $maintenanceLastDate = null;
+        $maintenanceNextDate = null;
+        if ($maintenanceSchemaReady) {
+            $maintenanceRequired = post('maintenance_required') ? 1 : 0;
+            if ($itemType === 'Device') {
+                $maintenanceRequired = 1;
+            }
+            $maintenanceInterval = (int) post('maintenance_interval_days', 0);
+            $maintenanceLastDate = post('maintenance_last_date') ?: null;
+            if ($maintenanceRequired && $maintenanceInterval <= 0) {
+                setFlash('error', 'กรุณาระบุรอบ Maintenance');
+                redirect('items.php?action=add');
+            }
+            if ($maintenanceRequired && !$maintenanceLastDate) {
+                $maintenanceLastDate = date('Y-m-d');
+            }
+            $maintenanceNextDate = computeNextMaintenanceDate($maintenanceLastDate, $maintenanceInterval);
+        }
 
         if ($itemType === 'Vehicle') {
             if ($vehicleSerial === '') {
@@ -50,26 +307,48 @@ if (isPost()) {
             if ($itemType === 'Vehicle') {
                 $isSerialized = 1;
             }
+            if ($itemType === 'Device') {
+                $isSerialized = 1;
+            }
 
-            $stmt = $db->prepare("
-                INSERT INTO items (code, name, item_type, category, brand, model, description, unit, is_serialized, min_stock, cost_price, rental_price_day, sale_price, supplier_id, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $code, sanitize(post('name')), $itemType,
-                sanitize(post('category')), sanitize(post('brand')), sanitize(post('model')),
-                post('description'), sanitize(post('unit', $itemType === 'Vehicle' ? 'คัน' : 'pcs')),
-                $isSerialized, (int) post('min_stock', 0),
-                (float) post('cost_price', 0), (float) post('rental_price_day', 0),
-                (float) post('sale_price', 0),
-                post('supplier_id') ?: null, $_SESSION['user_id']
-            ]);
+            if ($maintenanceSchemaReady) {
+                $stmt = $db->prepare("
+                    INSERT INTO items (code, name, item_type, category, brand, model, description, unit, is_serialized,
+                                       maintenance_required, maintenance_interval_days, maintenance_last_date, maintenance_next_date,
+                                       min_stock, cost_price, rental_price_day, sale_price, supplier_id, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $code, sanitize(post('name')), $itemType,
+                    sanitize(post('category')), sanitize(post('brand')), sanitize(post('model')),
+                    post('description'), sanitize(post('unit', $itemType === 'Vehicle' ? 'คัน' : 'pcs')),
+                    $isSerialized,
+                    $maintenanceRequired, $maintenanceInterval ?: null, $maintenanceLastDate, $maintenanceNextDate,
+                    (int) post('min_stock', 0),
+                    (float) post('cost_price', 0), (float) post('rental_price_day', 0),
+                    (float) post('sale_price', 0),
+                    post('supplier_id') ?: null, $_SESSION['user_id']
+                ]);
+            } else {
+                $stmt = $db->prepare("
+                    INSERT INTO items (code, name, item_type, category, brand, model, description, unit, is_serialized, min_stock, cost_price, rental_price_day, sale_price, supplier_id, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $code, sanitize(post('name')), $itemType,
+                    sanitize(post('category')), sanitize(post('brand')), sanitize(post('model')),
+                    post('description'), sanitize(post('unit', $itemType === 'Vehicle' ? 'คัน' : 'pcs')),
+                    $isSerialized, (int) post('min_stock', 0),
+                    (float) post('cost_price', 0), (float) post('rental_price_day', 0),
+                    (float) post('sale_price', 0),
+                    post('supplier_id') ?: null, $_SESSION['user_id']
+                ]);
+            }
             
             $newId = $db->lastInsertId();
             $auditData = ['code' => $code, 'type' => $itemType];
-            if ($code !== $originalCode) {
-                $auditData['base_code'] = $originalCode;
-            }
             $audit->log('create', 'ITEM', $newId, null, $auditData);
 
             if ($itemType === 'Vehicle') {
@@ -80,6 +359,16 @@ if (isPost()) {
                 $stmt->execute([$newId, $vehicleSerial, $_SESSION['user_id']]);
                 $serialId = $db->lastInsertId();
                 $audit->log('create', 'SERIAL', $serialId, null, ['serial_number' => $vehicleSerial, 'item_id' => $newId]);
+            }
+
+            if ($itemType === 'Device') {
+                $stmt = $db->prepare("
+                    INSERT INTO serials (item_id, serial_number, status, location, created_by)
+                    VALUES (?, ?, 'Available', 'WH', ?)
+                ");
+                $stmt->execute([$newId, $code, $_SESSION['user_id']]);
+                $serialId = $db->lastInsertId();
+                $audit->log('create', 'SERIAL', $serialId, null, ['serial_number' => $code, 'item_id' => $newId]);
             }
 
             $db->commit();
@@ -95,23 +384,95 @@ if (isPost()) {
         
     } elseif ($formAction === 'update') {
         $id = (int) post('id');
-        $stmt = $db->prepare("
-            UPDATE items SET 
-                name = ?, category = ?, brand = ?, model = ?, description = ?,
-                unit = ?, is_serialized = ?, min_stock = ?,
-                cost_price = ?, rental_price_day = ?, sale_price = ?, supplier_id = ?
-            WHERE id = ?
-        ");
-        $stmt->execute([
-            sanitize(post('name')), sanitize(post('category')),
-            sanitize(post('brand')), sanitize(post('model')), post('description'),
-            sanitize(post('unit')), post('is_serialized') ? 1 : 0,
-            (int) post('min_stock', 0), (float) post('cost_price', 0),
-            (float) post('rental_price_day', 0), (float) post('sale_price', 0),
-            post('supplier_id') ?: null, $id
-        ]);
-        
-        $audit->log('update', 'ITEM', $id);
+        $maintenanceRequired = 0;
+        $maintenanceInterval = null;
+        $maintenanceLastDate = null;
+        $maintenanceNextDate = null;
+        $itemType = '';
+        if ($maintenanceSchemaReady) {
+            $stmt = $db->prepare("SELECT item_type, maintenance_required, maintenance_interval_days, maintenance_last_date FROM items WHERE id = ?");
+            $stmt->execute([$id]);
+            $current = $stmt->fetch();
+            if (!$current) {
+                setFlash('error', 'ไม่พบข้อมูล');
+                redirect('items.php');
+            }
+            $itemType = $current['item_type'] ?? '';
+            $maintenanceRequired = (int) ($current['maintenance_required'] ?? 0);
+            $maintenanceInterval = (int) ($current['maintenance_interval_days'] ?? 0);
+            $maintenanceLastDate = $current['maintenance_last_date'] ?? null;
+            $maintenanceNextDate = computeNextMaintenanceDate($maintenanceLastDate, $maintenanceInterval);
+
+            if ($canMaintain) {
+                $maintenanceRequired = post('maintenance_required') ? 1 : 0;
+                if ($itemType === 'Device') {
+                    $maintenanceRequired = 1;
+                }
+                $maintenanceInterval = (int) post('maintenance_interval_days', 0);
+                $maintenanceLastDate = post('maintenance_last_date') ?: null;
+                if ($maintenanceRequired && $maintenanceInterval <= 0) {
+                    setFlash('error', 'กรุณาระบุรอบ Maintenance');
+                    redirect('items.php?action=edit&id=' . $id);
+                }
+                if ($maintenanceRequired && !$maintenanceLastDate) {
+                    $maintenanceLastDate = date('Y-m-d');
+                }
+                $maintenanceNextDate = computeNextMaintenanceDate($maintenanceLastDate, $maintenanceInterval);
+            }
+        }
+
+        if ($maintenanceSchemaReady) {
+            $stmt = $db->prepare("
+                UPDATE items SET 
+                    name = ?, category = ?, brand = ?, model = ?, description = ?,
+                    unit = ?, is_serialized = ?, maintenance_required = ?, maintenance_interval_days = ?, maintenance_last_date = ?, maintenance_next_date = ?,
+                    min_stock = ?,
+                    cost_price = ?, rental_price_day = ?, sale_price = ?, supplier_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                sanitize(post('name')), sanitize(post('category')),
+                sanitize(post('brand')), sanitize(post('model')), post('description'),
+                sanitize(post('unit')), post('is_serialized') ? 1 : 0,
+                $maintenanceRequired, $maintenanceInterval ?: null, $maintenanceLastDate, $maintenanceNextDate,
+                (int) post('min_stock', 0), (float) post('cost_price', 0),
+                (float) post('rental_price_day', 0), (float) post('sale_price', 0),
+                post('supplier_id') ?: null, $id
+            ]);
+        } else {
+            $stmt = $db->prepare("
+                UPDATE items SET 
+                    name = ?, category = ?, brand = ?, model = ?, description = ?,
+                    unit = ?, is_serialized = ?, min_stock = ?,
+                    cost_price = ?, rental_price_day = ?, sale_price = ?, supplier_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                sanitize(post('name')), sanitize(post('category')),
+                sanitize(post('brand')), sanitize(post('model')), post('description'),
+                sanitize(post('unit')), post('is_serialized') ? 1 : 0,
+                (int) post('min_stock', 0), (float) post('cost_price', 0),
+                (float) post('rental_price_day', 0), (float) post('sale_price', 0),
+                post('supplier_id') ?: null, $id
+            ]);
+        }
+
+        if ($canMaintain && $maintenanceSchemaReady) {
+            $audit->log('update', 'ITEM', $id, null, [
+                'maintenance_required' => $maintenanceRequired,
+                'maintenance_interval_days' => $maintenanceInterval,
+                'maintenance_last_date' => $maintenanceLastDate,
+                'maintenance_next_date' => $maintenanceNextDate
+            ]);
+            if ($maintenanceEnabled) {
+                $db->prepare("
+                    INSERT INTO item_maintenance_logs (item_id, action, due_date, notes, created_by)
+                    VALUES (?, 'UPDATE_INTERVAL', ?, ?, ?)
+                ")->execute([$id, $maintenanceNextDate, 'Update maintenance settings', $_SESSION['user_id']]);
+            }
+        } else {
+            $audit->log('update', 'ITEM', $id);
+        }
         setFlash('success', 'บันทึกเรียบร้อย');
         redirect('items.php');
     }
@@ -130,6 +491,30 @@ if ($action === 'edit' && $id) {
         $serials->execute([$id]);
         $serials = $serials->fetchAll();
     }
+
+    if ($maintenanceEnabled) {
+        $maintenanceLogs = $db->prepare("
+            SELECT l.*, u.full_name as created_by_name
+            FROM item_maintenance_logs l
+            LEFT JOIN users u ON l.created_by = u.id
+            WHERE l.item_id = ?
+            ORDER BY l.id DESC
+            LIMIT 20
+        ");
+        $maintenanceLogs->execute([$id]);
+        $maintenanceLogs = $maintenanceLogs->fetchAll();
+    } else {
+        $maintenanceLogs = [];
+    }
+}
+if ($action === 'edit' && !$id) {
+    setFlash('error', 'ไม่พบข้อมูล');
+    redirect('items.php');
+}
+if ($action === 'add') {
+    $item = [];
+    $serials = [];
+    $maintenanceLogs = [];
 }
 
 // Suppliers dropdown
@@ -211,6 +596,71 @@ if ($action === 'list') {
     $usageRows = $usageRowsStmt->fetchAll();
     foreach ($usageRows as $row) {
         $usageMax = max($usageMax, (int) ($row['use_count'] ?? 0));
+    }
+
+    if ($maintenanceEnabled) {
+        // Maintenance notifications (7-day lead, until ACK)
+        $today = date('Y-m-d');
+        $notifyCutoff = date('Y-m-d', strtotime('+7 days'));
+        $notifyItems = [];
+        foreach ($items as $row) {
+            if (empty($row['maintenance_required']) || empty($row['maintenance_next_date'])) {
+                continue;
+            }
+            if (!empty($row['maintenance_scheduled_date'])) {
+                continue;
+            }
+            if (!empty($row['maintenance_ack_until']) && $row['maintenance_ack_until'] >= $today) {
+                continue;
+            }
+            if ($row['maintenance_next_date'] <= $notifyCutoff) {
+                if (($row['maintenance_last_notified'] ?? '') !== $today) {
+                    $notifyItems[] = $row;
+                }
+            }
+        }
+
+        if (!empty($notifyItems)) {
+            $placeholders = implode(',', array_fill(0, count($maintenanceRoles), '?'));
+            $stmtUsers = $db->prepare("
+                SELECT DISTINCT u.id
+                FROM users u
+                JOIN user_roles ur ON u.id = ur.user_id
+                JOIN roles r ON ur.role_id = r.id
+                WHERE r.code IN ($placeholders)
+                AND u.is_active = 1
+            ");
+            $stmtUsers->execute($maintenanceRoles);
+            $userIds = array_map('intval', $stmtUsers->fetchAll(PDO::FETCH_COLUMN));
+
+            if (!empty($userIds)) {
+                $notification = new Notification();
+                $notifiedIds = [];
+                foreach ($notifyItems as $row) {
+                    $due = $row['maintenance_next_date'];
+                    $title = "Maintenance ใกล้ถึงรอบ: {$row['code']}";
+                    $message = "กำหนด " . formatDate($due);
+                    $priority = ($due < $today) ? Notification::PRIORITY_HIGH : Notification::PRIORITY_NORMAL;
+                    $url = "/4erpv2/modules/master/items.php?action=edit&id={$row['id']}";
+                    $notification->createBulk(
+                        $userIds,
+                        Notification::TYPE_SYSTEM,
+                        $title,
+                        $message,
+                        $url,
+                        'ITEM',
+                        (int) $row['id'],
+                        $priority
+                    );
+                    $notifiedIds[] = (int) $row['id'];
+                }
+                if (!empty($notifiedIds)) {
+                    $inPlaceholders = implode(',', array_fill(0, count($notifiedIds), '?'));
+                    $stmtUpdate = $db->prepare("UPDATE items SET maintenance_last_notified = ? WHERE id IN ($inPlaceholders)");
+                    $stmtUpdate->execute(array_merge([$today], $notifiedIds));
+                }
+            }
+        }
     }
 }
 
@@ -361,6 +811,9 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <th><a href="?sort=item_type&dir=<?= $sortBy === 'item_type' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">ประเภท <?= $sortBy === 'item_type' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
                         <th><a href="?sort=source&dir=<?= $sortBy === 'source' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">ที่มา <?= $sortBy === 'source' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
                         <th>Serial</th>
+                        <?php if ($maintenanceSchemaReady): ?>
+                        <th>Maintenance</th>
+                        <?php endif; ?>
                         <th>ใช้งาน/จอง</th>
                         <th><a href="?sort=created_at&dir=<?= $sortBy === 'created_at' && $sortDir === 'ASC' ? 'DESC' : 'ASC' ?>&type=<?= e($typeFilter) ?>&search=<?= e($search) ?>" class="text-decoration-none">สร้างเมื่อ <?= $sortBy === 'created_at' ? ($sortDir === 'ASC' ? '↑' : '↓') : '' ?></a></th>
                         <th></th>
@@ -399,6 +852,43 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
+                        <?php if ($maintenanceSchemaReady): ?>
+                        <td>
+                            <?php
+                                $mRequired = (int) ($i['maintenance_required'] ?? 0) === 1;
+                                $mNext = $i['maintenance_next_date'] ?? null;
+                                $mAckUntil = $i['maintenance_ack_until'] ?? null;
+                                $mScheduled = $i['maintenance_scheduled_date'] ?? null;
+                                $today = date('Y-m-d');
+                                if (!$mRequired) {
+                                    $mLabel = 'ไม่บังคับ';
+                                    $mBadge = 'secondary';
+                                } elseif (!$mNext) {
+                                    $mLabel = 'ยังไม่ตั้งรอบ';
+                                    $mBadge = 'secondary';
+                                } elseif ($mScheduled) {
+                                    $mLabel = 'มีนัดซ่อม';
+                                    $mBadge = 'info';
+                                } elseif ($mAckUntil && $mAckUntil >= $today) {
+                                    $mLabel = 'ACK';
+                                    $mBadge = 'warning text-dark';
+                                } elseif ($mNext < $today) {
+                                    $mLabel = 'เกินกำหนด';
+                                    $mBadge = 'danger';
+                                } elseif ($mNext <= date('Y-m-d', strtotime('+7 days'))) {
+                                    $mLabel = 'ใกล้ถึงรอบ';
+                                    $mBadge = 'warning text-dark';
+                                } else {
+                                    $mLabel = 'ปกติ';
+                                    $mBadge = 'success';
+                                }
+                            ?>
+                            <span class="badge bg-<?= $mBadge ?>"><?= $mLabel ?></span>
+                            <?php if ($mNext): ?>
+                                <div class="small text-muted"><?= formatDate($mNext) ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <?php endif; ?>
                         <td>
                             <?php 
                             $inUse = (int) ($i['in_use_count'] ?? 0);
@@ -417,6 +907,16 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             <a href="?action=edit&id=<?= $i['id'] ?>" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            <?php if ($canDeactivate): ?>
+                            <form method="POST" class="d-inline" onsubmit="return confirm('ปิดใช้งาน <?= e($i['code']) ?> ?');">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <input type="hidden" name="form_action" value="deactivate">
+                                <input type="hidden" name="id" value="<?= $i['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-slash-circle"></i>
+                                </button>
+                            </form>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -450,11 +950,11 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         <div class="form-text">เลือกประเภทเพื่อ generate รหัสอัตโนมัติ</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">รหัส <span class="text-danger">*</span></label>
+                        <label class="form-label">รหัส</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" name="code" id="itemCodeInput" required 
+                            <input type="text" class="form-control" name="code" id="itemCodeInput"
                                    value="<?= e($item['code'] ?? '') ?>" 
-                                   <?= $action === 'edit' ? 'readonly' : '' ?>
+                                   readonly
                                    placeholder="เลือกประเภทก่อน">
                             <?php if ($action === 'add'): ?>
                             <button type="button" class="btn btn-outline-secondary" id="regenerateCodeBtn" disabled>
@@ -462,7 +962,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             </button>
                             <?php endif; ?>
                         </div>
-                        <div class="form-text" id="codeHelpText">รหัสจะถูก generate อัตโนมัติเมื่อเลือกประเภท</div>
+                        <div class="form-text" id="codeHelpText">รหัสจะถูกสร้างอัตโนมัติเมื่อเลือกประเภท (ปรับ prefix/ลำดับได้ที่ Admin &gt; Document Numbers)</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">ชื่อ <span class="text-danger">*</span></label>
@@ -537,6 +1037,40 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <?php if ($maintenanceSchemaReady): ?>
+                    <div class="mb-3">
+                        <label class="form-label">Maintenance</label>
+                        <div class="border rounded p-3">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" name="maintenance_required" id="maintenanceRequired" value="1"
+                                       <?= ($item['maintenance_required'] ?? 0) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="maintenanceRequired">ต้องมีการบำรุงรักษาตามรอบ</label>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">รอบ (วัน)</label>
+                                    <input type="number" class="form-control" name="maintenance_interval_days" id="maintenanceInterval"
+                                           min="1" value="<?= e($item['maintenance_interval_days'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">บำรุงครั้งล่าสุด</label>
+                                    <input type="date" class="form-control" name="maintenance_last_date" id="maintenanceLastDate"
+                                           value="<?= e($item['maintenance_last_date'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">กำหนดถัดไป</label>
+                                    <?php $maintenanceNextPreview = $item['maintenance_next_date'] ?? computeNextMaintenanceDate($item['maintenance_last_date'] ?? null, (int) ($item['maintenance_interval_days'] ?? 0)); ?>
+                                    <input type="date" class="form-control" id="maintenanceNextDate" value="<?= e($maintenanceNextPreview ?? '') ?>" readonly>
+                                </div>
+                            </div>
+                            <div class="form-text">Device ต้องมีรอบ Maintenance</div>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="alert alert-warning">
+                        ระบบ Maintenance ยังไม่พร้อมใช้งาน (กรุณารัน <code>sql/schema_patch_item_maintenance.sql</code>)
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="mb-3">
@@ -547,6 +1081,157 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
         </form>
     </div>
 </div>
+
+<?php if ($action === 'edit' && $maintenanceSchemaReady): ?>
+<?php
+    $today = date('Y-m-d');
+    $maintenanceRequired = (int) ($item['maintenance_required'] ?? 0);
+    $maintenanceNext = $item['maintenance_next_date'] ?? null;
+    $maintenanceAckUntil = $item['maintenance_ack_until'] ?? null;
+    $maintenanceScheduledDate = $item['maintenance_scheduled_date'] ?? null;
+    $maintenanceScheduledHours = $item['maintenance_scheduled_hours'] ?? null;
+
+    if (!$maintenanceRequired) {
+        $maintenanceStatus = 'ไม่บังคับ';
+        $maintenanceBadge = 'secondary';
+    } elseif (!$maintenanceNext) {
+        $maintenanceStatus = 'ยังไม่ตั้งรอบ';
+        $maintenanceBadge = 'secondary';
+    } elseif ($maintenanceScheduledDate) {
+        $maintenanceStatus = 'มีนัดซ่อม';
+        $maintenanceBadge = 'info';
+    } elseif ($maintenanceAckUntil && $maintenanceAckUntil >= $today) {
+        $maintenanceStatus = 'ACK';
+        $maintenanceBadge = 'warning text-dark';
+    } elseif ($maintenanceNext < $today) {
+        $maintenanceStatus = 'เกินกำหนด';
+        $maintenanceBadge = 'danger';
+    } elseif ($maintenanceNext <= date('Y-m-d', strtotime('+7 days'))) {
+        $maintenanceStatus = 'ใกล้ถึงรอบ';
+        $maintenanceBadge = 'warning text-dark';
+    } else {
+        $maintenanceStatus = 'ปกติ';
+        $maintenanceBadge = 'success';
+    }
+?>
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-tools me-2"></i>Maintenance</span>
+        <span class="badge bg-<?= $maintenanceBadge ?>"><?= $maintenanceStatus ?></span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="text-muted small">รอบถัดไป</div>
+                <div class="fw-semibold"><?= $maintenanceNext ? formatDate($maintenanceNext) : '-' ?></div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">ACK ถึง</div>
+                <div class="fw-semibold"><?= $maintenanceAckUntil ? formatDate($maintenanceAckUntil) : '-' ?></div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">นัดซ่อม</div>
+                <div class="fw-semibold"><?= $maintenanceScheduledDate ? formatDate($maintenanceScheduledDate) : '-' ?></div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">ระยะเวลา</div>
+                <div class="fw-semibold"><?= $maintenanceScheduledHours ? e($maintenanceScheduledHours) . ' ชม.' : '-' ?></div>
+            </div>
+        </div>
+
+        <?php if ($canMaintain): ?>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <form method="POST" onsubmit="return confirm('ACK รอบ Maintenance (เลื่อนไป 7 วัน)?');">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="form_action" value="maintenance_ack">
+                    <input type="hidden" name="id" value="<?= $item['id'] ?>">
+                    <button type="submit" class="btn btn-outline-warning w-100">
+                        <i class="bi bi-bell-slash me-1"></i>ACK (เลื่อน 7 วัน)
+                    </button>
+                </form>
+            </div>
+            <div class="col-md-8">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="form_action" value="maintenance_schedule">
+                    <input type="hidden" name="id" value="<?= $item['id'] ?>">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <input type="date" class="form-control" name="scheduled_date" value="<?= e($maintenanceScheduledDate ?? '') ?>" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control" name="scheduled_hours" step="0.5" min="0" placeholder="ชม." value="<?= e($maintenanceScheduledHours ?? '') ?>">
+                        </div>
+                        <div class="col-md-5">
+                            <input type="text" class="form-control" name="notes" placeholder="หมายเหตุ (ถ้ามี)">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary mt-2">
+                        <i class="bi bi-calendar-check me-1"></i>บันทึกกำหนดการซ่อม
+                    </button>
+                    <div class="form-text">วันที่ซ่อมจะถูกกันไม่ให้จองใช้งานวันเดียวกัน</div>
+                </form>
+            </div>
+        </div>
+
+        <hr>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="form_action" value="maintenance_complete">
+            <input type="hidden" name="id" value="<?= $item['id'] ?>">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">วันที่ซ่อมเสร็จ</label>
+                    <input type="date" class="form-control" name="completed_date" value="<?= date('Y-m-d') ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">ใช้เวลา (ชม.)</label>
+                    <input type="number" class="form-control" name="completed_hours" step="0.5" min="0">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">หมายเหตุ</label>
+                    <input type="text" class="form-control" name="notes">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check2-circle me-1"></i>ปิดงานซ่อม
+                    </button>
+                </div>
+            </div>
+        </form>
+        <?php endif; ?>
+
+        <?php if (!empty($maintenanceLogs)): ?>
+        <div class="table-responsive mt-3">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>เวลา</th>
+                        <th>Action</th>
+                        <th>Due</th>
+                        <th>Schedule</th>
+                        <th>By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($maintenanceLogs as $log): ?>
+                    <tr>
+                        <td><?= formatDateTime($log['created_at']) ?></td>
+                        <td><?= e($log['action']) ?></td>
+                        <td><?= $log['due_date'] ? formatDate($log['due_date']) : '-' ?></td>
+                        <td><?= $log['scheduled_date'] ? formatDate($log['scheduled_date']) : '-' ?></td>
+                        <td><?= e($log['created_by_name'] ?? '-') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if ($action === 'edit' && !empty($serials)): ?>
 <div class="card mt-4">
@@ -593,6 +1278,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const codeInput = document.getElementById('itemCodeInput');
     const regenerateBtn = document.getElementById('regenerateCodeBtn');
     const codeHelpText = document.getElementById('codeHelpText');
+    const maintenanceRequired = document.getElementById('maintenanceRequired');
+    const maintenanceInterval = document.getElementById('maintenanceInterval');
+    const maintenanceLastDate = document.getElementById('maintenanceLastDate');
+    const maintenanceNextDate = document.getElementById('maintenanceNextDate');
     const isAddMode = <?= $action === 'add' ? 'true' : 'false' ?>;
 
     async function generateCode(itemType) {
@@ -605,7 +1294,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.success) {
                 codeInput.value = data.code;
-                codeHelpText.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>รหัส ${data.prefix}-XXXX (ลำดับที่ ${data.sequence})</span>`;
+                const seqText = data.sequence ? `ลำดับที่ ${data.sequence}` : 'ลำดับใหม่';
+                codeHelpText.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>รหัส ${data.code} (${seqText})</span>`;
                 if (regenerateBtn) regenerateBtn.disabled = false;
             } else {
                 codeHelpText.innerHTML = `<span class="text-danger">เกิดข้อผิดพลาด: ${data.error}</span>`;
@@ -618,6 +1308,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function syncVehicleFields() {
         const isVehicle = typeSelect && typeSelect.value === 'Vehicle';
+        const isDevice = typeSelect && typeSelect.value === 'Device';
         if (vehicleFields) {
             vehicleFields.style.display = isVehicle ? 'block' : 'none';
         }
@@ -635,6 +1326,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if (unitInput && isVehicle) {
             unitInput.value = 'คัน';
         }
+        if (maintenanceRequired) {
+            if (isDevice) {
+                maintenanceRequired.checked = true;
+                maintenanceRequired.disabled = true;
+            } else {
+                maintenanceRequired.disabled = false;
+            }
+        }
+        if (maintenanceInterval) {
+            maintenanceInterval.required = maintenanceRequired && maintenanceRequired.checked;
+        }
+    }
+
+    function updateMaintenanceNextDate() {
+        if (!maintenanceInterval || !maintenanceLastDate || !maintenanceNextDate) return;
+        const interval = parseInt(maintenanceInterval.value || '0', 10);
+        if (!interval || !maintenanceLastDate.value) {
+            maintenanceNextDate.value = '';
+            return;
+        }
+        const dt = new Date(maintenanceLastDate.value);
+        if (Number.isNaN(dt.getTime())) {
+            maintenanceNextDate.value = '';
+            return;
+        }
+        dt.setDate(dt.getDate() + interval);
+        maintenanceNextDate.value = dt.toISOString().slice(0, 10);
     }
 
     if (typeSelect) {
@@ -646,6 +1364,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         syncVehicleFields();
     }
+    if (maintenanceInterval) {
+        maintenanceInterval.addEventListener('input', updateMaintenanceNextDate);
+    }
+    if (maintenanceLastDate) {
+        maintenanceLastDate.addEventListener('change', updateMaintenanceNextDate);
+    }
+    updateMaintenanceNextDate();
 
     if (regenerateBtn) {
         regenerateBtn.addEventListener('click', function() {

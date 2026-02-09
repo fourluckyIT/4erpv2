@@ -3,10 +3,11 @@
  * API: Generate Item Code
  * Auto-generates sequential item code based on item_type
  * Format: {PREFIX}-{SEQUENCE}
- *   Device     → DEV-0001
- *   Equipment  → EQP-0001
- *   Vehicle    → VEH-0001
- *   Consumable → CON-0001
+ *   Device     → DEV-1, DEV-2, ...
+ *   Equipment  → EQP-1, EQP-2, ...
+ *   Vehicle    → VEH-1, VEH-2, ...
+ *   Consumable → CON-1, CON-2, ...
+ * If duplicate: DEV-1-1, DEV-1-2, ...
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -22,57 +23,57 @@ if (!$auth->isAuthenticated()) {
 
 $itemType = get('item_type', '');
 
-// Define prefixes for each type
-$prefixes = [
+// Define document types for each item type
+$docTypes = [
     'Device'     => 'DEV',
     'Equipment'  => 'EQP',
     'Vehicle'    => 'VEH',
     'Consumable' => 'CON',
 ];
 
-if (!isset($prefixes[$itemType])) {
+if (!isset($docTypes[$itemType])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid item_type', 'valid_types' => array_keys($prefixes)]);
+    echo json_encode(['success' => false, 'error' => 'Invalid item_type', 'valid_types' => array_keys($docTypes)]);
     exit;
 }
 
-$prefix = $prefixes[$itemType];
+$docType = $docTypes[$itemType];
 $db = getDB();
+$docNum = new DocumentNumber();
 
 try {
-    // Find the highest existing code for this prefix
-    // Pattern: PREFIX-NNNN (4 digits)
-    $stmt = $db->prepare("
-        SELECT code FROM items 
-        WHERE code LIKE :pattern 
-        ORDER BY code DESC 
-        LIMIT 1
-    ");
-    $stmt->execute(['pattern' => $prefix . '-%']);
-    $lastCode = $stmt->fetchColumn();
-    
-    $nextSeq = 1;
-    if ($lastCode) {
-        // Extract sequence number from code like "DEV-0001"
-        $parts = explode('-', $lastCode);
-        if (count($parts) >= 2) {
-            $lastSeq = (int) end($parts);
-            $nextSeq = $lastSeq + 1;
+    $newCode = null;
+    for ($i = 0; $i < 5; $i++) {
+        $candidate = $docNum->generate($docType);
+        $check = $db->prepare("SELECT 1 FROM items WHERE code = ?");
+        $check->execute([$candidate]);
+        if (!$check->fetch()) {
+            $newCode = $candidate;
+            break;
         }
     }
-    
-    // Format: PREFIX-0001
-    $newCode = sprintf('%s-%04d', $prefix, $nextSeq);
-    
-    // Double-check this code doesn't exist (edge case)
-    $newCode = ensureUniqueItemCode($db, $newCode);
+    if ($newCode === null) {
+        throw new Exception('ไม่สามารถสร้างรหัสได้');
+    }
+
+    $setting = $docNum->getSetting($docType) ?: [];
+    $prefix = $setting['prefix'] ?? ($docType . '-');
+    $padding = (int) ($setting['padding'] ?? 5);
+    $year = (int) date('Y');
+    $sequence = null;
+    if (preg_match('/(\\d+)$/', $newCode, $m)) {
+        $sequence = (int) $m[1];
+    }
     
     echo json_encode([
         'success' => true,
         'code' => $newCode,
         'item_type' => $itemType,
+        'doc_type' => $docType,
         'prefix' => $prefix,
-        'sequence' => $nextSeq
+        'sequence' => $sequence,
+        'year' => $year,
+        'padding' => $padding
     ]);
     
 } catch (Exception $e) {
