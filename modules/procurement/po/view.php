@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
+require_once __DIR__ . '/../../warehouse/WarehouseService.php';
 
 $auth = new Auth();
 $auth->requireAuth();
@@ -15,23 +16,36 @@ $audit = new AuditLog();
 $notification = new Notification();
 $id = (int) get('id');
 
+$colCheck = $db->prepare("
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+");
+$colCheck->execute(['purchase_orders', 'voided_by']);
+$hasPoVoidColumn = ((int) $colCheck->fetchColumn()) > 0;
+$colCheck->execute(['goods_receipts', 'voided_by']);
+$hasGrVoidColumn = ((int) $colCheck->fetchColumn()) > 0;
+
 if (!$id) {
     setFlash('error', 'ไม่พบข้อมูล');
     redirect('index.php');
 }
 
 // Get PO
+$voidSelect = $hasPoVoidColumn ? ", v.full_name as voided_by_name" : ", NULL as voided_by_name";
+$voidJoin = $hasPoVoidColumn ? "LEFT JOIN users v ON po.voided_by = v.id" : "";
 $stmt = $db->prepare("
     SELECT po.*,
            s.name as supplier_name, s.code as supplier_code,
            pr.pr_number,
            u.full_name as created_by_name,
            a.full_name as approved_by_name
+           {$voidSelect}
     FROM purchase_orders po
     JOIN suppliers s ON po.supplier_id = s.id
     LEFT JOIN purchase_requests pr ON po.pr_id = pr.id
     LEFT JOIN users u ON po.created_by = u.id
     LEFT JOIN users a ON po.approved_by = a.id
+    {$voidJoin}
     WHERE po.id = ?
 ");
 $stmt->execute([$id]);
@@ -40,6 +54,26 @@ $po = $stmt->fetch();
 if (!$po) {
     setFlash('error', 'ไม่พบข้อมูล');
     redirect('index.php');
+}
+
+$isManpowerPo = ($po['po_type'] ?? '') === 'Manpower';
+
+// Manpower summary (for void options)
+$manpowerSummary = [];
+$manpowerActiveTotal = 0;
+if ($isManpowerPo) {
+    $stmt = $db->prepare("
+        SELECT position, COUNT(*) as cnt
+        FROM po_manpower
+        WHERE po_id = ? AND status <> 'Cancelled'
+        GROUP BY position
+        ORDER BY position
+    ");
+    $stmt->execute([$id]);
+    $manpowerSummary = $stmt->fetchAll();
+    foreach ($manpowerSummary as $row) {
+        $manpowerActiveTotal += (int) $row['cnt'];
+    }
 }
 
 // Get items
@@ -51,6 +85,29 @@ $items = $db->prepare("
 ");
 $items->execute([$id]);
 $items = $items->fetchAll();
+
+if ($isManpowerPo && in_array($po['status'], ['Approved', 'Partially Received', 'Received'], true)) {
+    $requiredTotal = 0;
+    foreach ($items as $row) {
+        $requiredTotal += (int) ($row['qty'] ?? 0);
+    }
+
+    if ($requiredTotal > 0) {
+        if ($manpowerActiveTotal <= 0) {
+            $newStatus = 'Approved';
+        } elseif ($manpowerActiveTotal < $requiredTotal) {
+            $newStatus = 'Partially Received';
+        } else {
+            $newStatus = 'Received';
+        }
+
+        if ($newStatus !== $po['status']) {
+            $db->prepare("UPDATE purchase_orders SET status = ? WHERE id = ?")->execute([$newStatus, $id]);
+            $audit->log('update', 'PO', $id, ['status' => $po['status']], ['status' => $newStatus], 'Manpower registration sync');
+            $po['status'] = $newStatus;
+        }
+    }
+}
 
 // Get GRs
 $grs = $db->prepare("
@@ -128,9 +185,221 @@ if (isPost()) {
                 Notification::PRIORITY_NORMAL
             );
         }
+        if (($po['po_type'] ?? '') === 'Manpower') {
+            $hrStmt = $db->prepare("
+                SELECT DISTINCT u.id
+                FROM users u
+                JOIN user_roles ur ON u.id = ur.user_id
+                JOIN roles r ON ur.role_id = r.id
+                WHERE r.code = ? AND u.is_active = 1
+            ");
+            $hrStmt->execute([ROLE_HRM]);
+            $hrIds = array_map('intval', $hrStmt->fetchAll(PDO::FETCH_COLUMN));
+            if (!empty($hrIds)) {
+                $title = "PO Manpower {$po['po_number']} อนุมัติแล้ว";
+                $message = "Supplier: {$po['supplier_name']}\nกรุณาลงทะเบียนแรงงาน";
+                $url = "/4erpv2/modules/procurement/po/manpower.php?po_id={$id}";
+                $notification->createBulk(
+                    $hrIds,
+                    Notification::TYPE_SYSTEM,
+                    $title,
+                    $message,
+                    $url,
+                    'PO',
+                    $id,
+                    Notification::PRIORITY_HIGH
+                );
+            }
+        }
         setFlash('success', 'อนุมัติเรียบร้อย');
 
+    } elseif ($action === 'void' && in_array($po['status'], ['Approved', 'Partially Received', 'Received'], true)) {
+        if (!$rbac->can('void', 'PO', $po['status'])) {
+            setFlash('error', 'คุณไม่มีสิทธิ์ยกเลิกหลังอนุมัติ');
+            redirect("view.php?id=$id");
+        }
+        if (!$hasPoVoidColumn || (!$hasGrVoidColumn && $po['po_type'] !== 'Manpower')) {
+            setFlash('error', 'ยังไม่ได้อัปเดต schema สำหรับ Void (โปรดรัน schema_patch_po_void_workflow.sql)');
+            redirect("view.php?id=$id");
+        }
+
+        $reason = trim((string) post('void_reason', ''));
+        if ($reason === '') {
+            setFlash('error', 'กรุณาระบุเหตุผล');
+            redirect("view.php?id=$id");
+        }
+
+        $manpowerMode = post('manpower_void_mode', 'cancel');
+        if (!in_array($manpowerMode, ['cancel', 'transfer'], true)) {
+            $manpowerMode = 'cancel';
+        }
+
+        try {
+            $db->beginTransaction();
+
+            if ($po['po_type'] === 'Manpower') {
+                $peopleRows = $db->prepare("
+                    SELECT pm.people_id, pm.position, pm.status, p.people_type
+                    FROM po_manpower pm
+                    JOIN people p ON pm.people_id = p.id
+                    WHERE pm.po_id = ? AND pm.status <> 'Cancelled'
+                ");
+                $peopleRows->execute([$id]);
+                $peopleRows = $peopleRows->fetchAll();
+
+                $peopleIds = array_values(array_unique(array_map(
+                    fn($row) => (int) $row['people_id'],
+                    $peopleRows ?: []
+                )));
+
+                if (!empty($peopleIds)) {
+                    $placeholders = implode(',', array_fill(0, count($peopleIds), '?'));
+
+                    if ($manpowerMode === 'transfer') {
+                        $db->prepare("UPDATE people SET people_type = 'Employee', supplier_id = NULL WHERE id IN ($placeholders)")
+                            ->execute($peopleIds);
+                        $db->prepare("UPDATE po_manpower SET status = 'Ended' WHERE po_id = ? AND status <> 'Cancelled'")
+                            ->execute([$id]);
+                        $audit->log('transfer_manpower', 'PO', $id, null, [
+                            'mode' => 'transfer',
+                            'people_ids' => $peopleIds
+                        ], $reason);
+                    } else {
+                        $db->prepare("UPDATE po_manpower SET status = 'Cancelled' WHERE po_id = ? AND status <> 'Cancelled'")
+                            ->execute([$id]);
+                        $db->prepare("UPDATE people SET is_active = 0, end_date = CURDATE() WHERE id IN ($placeholders) AND people_type = 'External'")
+                            ->execute($peopleIds);
+                        $audit->log('void_manpower', 'PO', $id, null, [
+                            'mode' => 'cancel',
+                            'people_ids' => $peopleIds
+                        ], $reason);
+                    }
+                }
+            } else {
+                $warehouseService = new WarehouseService();
+
+                $grStmt = $db->prepare("
+                    SELECT id, gr_number, status
+                    FROM goods_receipts
+                    WHERE po_id = ? AND status <> 'Voided'
+                ");
+                $grStmt->execute([$id]);
+                $grRows = $grStmt->fetchAll();
+
+                foreach ($grRows as $grRow) {
+                    $grId = (int) $grRow['id'];
+
+                    $moveStmt = $db->prepare("
+                        SELECT id, item_id, qty, serial_id
+                        FROM stock_movements
+                        WHERE reference_table = 'goods_receipts'
+                          AND reference_id = ?
+                          AND movement_type = 'GR_PO'
+                          AND reverse_of_id IS NULL
+                    ");
+                    $moveStmt->execute([$grId]);
+                    $moves = $moveStmt->fetchAll();
+
+                    $itemTotals = [];
+                    $serialIds = [];
+                    foreach ($moves as $move) {
+                        $itemId = (int) $move['item_id'];
+                        $qty = (float) $move['qty'];
+                        $serialId = $move['serial_id'] !== null ? (int) $move['serial_id'] : null;
+                        if ($serialId) {
+                            $serialIds[] = $serialId;
+                        } else {
+                            $itemTotals[$itemId] = ($itemTotals[$itemId] ?? 0) + $qty;
+                        }
+                    }
+
+                    foreach ($itemTotals as $itemId => $qty) {
+                        $stmtQty = $db->prepare("SELECT quantity FROM items WHERE id = ?");
+                        $stmtQty->execute([$itemId]);
+                        $currentQty = (float) $stmtQty->fetchColumn();
+                        if ($currentQty + 0.00001 < $qty) {
+                            throw new Exception("สต็อกไม่พอสำหรับย้อน GR (Item #$itemId)");
+                        }
+                    }
+
+                    if (!empty($serialIds)) {
+                        $placeholders = implode(',', array_fill(0, count($serialIds), '?'));
+                        $stmtSerial = $db->prepare("
+                            SELECT id, status, location
+                            FROM serials
+                            WHERE id IN ($placeholders)
+                        ");
+                        $stmtSerial->execute($serialIds);
+                        $serialRows = $stmtSerial->fetchAll();
+                        foreach ($serialRows as $row) {
+                            if ($row['status'] !== 'Available' || ($row['location'] ?? '') !== 'WH') {
+                                throw new Exception('Serial ไม่อยู่ใน WH/Available (ID: ' . $row['id'] . ')');
+                            }
+                        }
+                    }
+
+                    foreach ($moves as $move) {
+                        $reverse = $warehouseService->reverseMovement((int) $move['id'], "VOID PO {$po['po_number']} / GR {$grRow['gr_number']}");
+                        if (empty($reverse['success'])) {
+                            throw new Exception($reverse['error'] ?? 'ย้อน stock movement ไม่สำเร็จ');
+                        }
+
+                        if (!empty($move['serial_id'])) {
+                            $db->prepare("
+                                UPDATE serials
+                                SET status = 'Returned', location = ?, current_job_id = NULL
+                                WHERE id = ?
+                            ")->execute([WarehouseService::LOC_SUPPLIER, (int) $move['serial_id']]);
+                        }
+                    }
+
+                    $grItems = $db->prepare("
+                        SELECT po_item_id, received_qty
+                        FROM gr_items
+                        WHERE gr_id = ?
+                    ");
+                    $grItems->execute([$grId]);
+                    foreach ($grItems->fetchAll() as $grItem) {
+                        $db->prepare("
+                            UPDATE po_items
+                            SET received_qty = GREATEST(received_qty - ?, 0)
+                            WHERE id = ?
+                        ")->execute([(float) $grItem['received_qty'], (int) $grItem['po_item_id']]);
+                    }
+
+                    $db->prepare("
+                        UPDATE goods_receipts
+                        SET status = 'Voided', voided_at = NOW(), voided_by = ?, void_reason = ?
+                        WHERE id = ?
+                    ")->execute([$_SESSION['user_id'], $reason, $grId]);
+
+                    $audit->log('void', 'GR', $grId, ['status' => $grRow['status']], ['status' => 'Voided'], $reason);
+                }
+            }
+
+            $db->prepare("
+                UPDATE purchase_orders
+                SET status = 'Voided', voided_at = NOW(), voided_by = ?, void_reason = ?
+                WHERE id = ?
+            ")->execute([$_SESSION['user_id'], $reason, $id]);
+
+            $audit->log('void', 'PO', $id, ['status' => $po['status']], ['status' => 'Voided'], $reason);
+            $notification->markReadByEntity('PO', $id, Notification::TYPE_APPROVAL_REQUEST);
+            $db->commit();
+
+            setFlash('success', 'ยกเลิก PO หลังอนุมัติเรียบร้อย');
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        }
+
     } elseif ($action === 'cancel' && in_array($po['status'], ['Draft', 'Submitted'])) {
+        if (!$rbac->can('void', 'PO', $po['status'])) {
+            setFlash('error', 'คุณไม่มีสิทธิ์ยกเลิก');
+            redirect("view.php?id=$id");
+        }
         $reason = trim((string) post('cancel_reason', ''));
         if ($reason === '') {
             setFlash('error', 'กรุณาระบุเหตุผล');
@@ -169,14 +438,15 @@ $pageTitle = "PO: {$po['po_number']} - 4ERP";
 $canSubmitPo = $po['status'] === 'Draft'
     && ($rbac->can('create', 'PO') || $auth->hasRole(ROLE_PURCHASE) || $auth->isAdmin());
 $canApprovePo = $po['status'] === 'Submitted' && $rbac->can('approve', 'PO', $po['status']);
-$canCancelDraft = $po['status'] === 'Draft'
-    && ($rbac->can('create', 'PO') || $auth->hasRole(ROLE_PURCHASE) || $auth->isAdmin());
-$canCancelSubmitted = $po['status'] === 'Submitted' && $rbac->can('approve', 'PO', $po['status']);
-$canReceiveGr = in_array($po['status'], ['Approved', 'Partially Received'], true)
+$canVoidPo = in_array($po['status'], ['Approved', 'Partially Received', 'Received'], true)
+    && $rbac->can('void', 'PO', $po['status']);
+$canCancelDraft = $po['status'] === 'Draft' && $rbac->can('void', 'PO', $po['status']);
+$canCancelSubmitted = $po['status'] === 'Submitted' && $rbac->can('void', 'PO', $po['status']);
+$canReceiveGr = !$isManpowerPo && in_array($po['status'], ['Approved', 'Partially Received'], true)
     && ($auth->hasRole(ROLE_WAREHOUSE) || $auth->isAdmin());
 $canManageManpower = $po['po_type'] === 'Manpower' && $po['status'] === 'Approved'
     && ($auth->hasRole(ROLE_HRM) || $auth->isAdmin());
-$showActions = $canSubmitPo || $canApprovePo || $canCancelDraft || $canCancelSubmitted || $canReceiveGr || $canManageManpower;
+$showActions = $canSubmitPo || $canApprovePo || $canVoidPo || $canCancelDraft || $canCancelSubmitted || $canReceiveGr || $canManageManpower;
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
@@ -192,6 +462,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     'Partially Received' => 'info',
                     'Received' => 'success',
                     'Cancelled' => 'dark',
+                    'Voided' => 'danger',
                     default => 'secondary'
                 } ?> ms-2"><?= match($po['status']) {
                     'Draft' => 'แบบร่าง',
@@ -200,6 +471,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     'Partially Received' => 'รับบางส่วน',
                     'Received' => 'รับครบ',
                     'Cancelled' => 'ยกเลิก',
+                    'Voided' => 'ยกเลิกหลังอนุมัติ',
                     default => $po['status']
                 } ?></span>
                 <span class="badge bg-<?= match($po['po_type']) {
@@ -240,7 +512,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <i class="bi bi-send me-1"></i>ส่งอนุมัติ
             </button>
             <input type="hidden" name="cancel_reason" id="cancelReasonDraft" value="">
-            <button type="button" class="btn btn-outline-danger" onclick="return promptCancelReason('cancelReasonDraft')">
+            <button type="submit" name="action" value="cancel" class="btn btn-outline-danger" onclick="return promptCancelReason('cancelReasonDraft')">
                 <i class="bi bi-x-circle me-1"></i>ยกเลิก
             </button>
             <?php endif; ?>
@@ -250,8 +522,21 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <i class="bi bi-check-circle me-1"></i>อนุมัติ
             </button>
             <input type="hidden" name="cancel_reason" id="cancelReasonSubmitted" value="">
-            <button type="button" class="btn btn-outline-danger" onclick="return promptCancelReason('cancelReasonSubmitted')">
+            <button type="submit" name="action" value="cancel" class="btn btn-outline-danger" onclick="return promptCancelReason('cancelReasonSubmitted')">
                 <i class="bi bi-x-circle me-1"></i>ยกเลิก
+            </button>
+            <?php endif; ?>
+
+            <?php if ($canVoidPo): ?>
+            <input type="hidden" name="void_reason" id="voidReason" value="">
+            <input type="hidden" name="manpower_void_mode" id="voidManpowerMode" value="cancel">
+            <button type="submit" name="action" value="void" class="btn btn-outline-danger"
+                    data-manpower-total="<?= (int) $manpowerActiveTotal ?>"
+                    data-manpower-summary="<?= e(implode(', ', array_map(function ($row) {
+                        return trim(($row['position'] ?? '-') . ' ' . (int) ($row['cnt'] ?? 0) . ' คน');
+                    }, $manpowerSummary))) ?>"
+                    onclick="return promptVoidReason(this)">
+                <i class="bi bi-x-octagon me-1"></i>ยกเลิกหลังอนุมัติ
             </button>
             <?php endif; ?>
 
@@ -345,11 +630,37 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <td><?= formatDateTime($po['approved_at']) ?></td>
                     </tr>
                     <?php endif; ?>
+                    <?php if (($po['status'] ?? '') === 'Voided' && $hasPoVoidColumn): ?>
+                    <tr>
+                        <th>ยกเลิกโดย</th>
+                        <td><?= e($po['voided_by_name'] ?? '-') ?></td>
+                    </tr>
+                    <tr>
+                        <th>วันที่ยกเลิก</th>
+                        <td><?= !empty($po['voided_at']) ? formatDateTime($po['voided_at']) : '-' ?></td>
+                    </tr>
+                    <tr>
+                        <th>เหตุผล</th>
+                        <td><?= !empty($po['void_reason']) ? nl2br(e($po['void_reason'])) : '-' ?></td>
+                    </tr>
+                    <?php endif; ?>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<?php if ($isManpowerPo): ?>
+<div class="alert alert-info">
+    <i class="bi bi-people me-2"></i>
+    PO แรงงานจัดการผ่าน HR เท่านั้น
+    <?php if ($auth->hasRole(ROLE_HRM) || $auth->isAdmin()): ?>
+        <a href="<?= BASE_URL ?>/modules/procurement/po/manpower.php?po_id=<?= $id ?>" class="btn btn-sm btn-primary ms-2">
+            ไปหน้า HR Manpower
+        </a>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <!-- Items -->
 <div class="card mb-4">
@@ -362,8 +673,8 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <th>#</th>
                         <th>รหัสสินค้า</th>
                         <th>รายละเอียด</th>
-                        <th class="text-center">จำนวน</th>
-                        <th class="text-center">รับแล้ว</th>
+                        <th class="text-center"><?= $isManpowerPo ? 'จำนวนคน' : 'จำนวน' ?></th>
+                        <th class="text-center"><?= $isManpowerPo ? 'ระยะเวลา' : 'รับแล้ว' ?></th>
                         <th>หน่วย</th>
                         <th class="text-end">ราคา/หน่วย</th>
                         <th class="text-end">รวม</th>
@@ -377,11 +688,19 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <td><?= e($item['description']) ?></td>
                         <td class="text-center"><?= formatNumber($item['qty'], 0) ?></td>
                         <td class="text-center">
-                            <?php
-                            $receivedPercent = $item['qty'] > 0 ? ($item['received_qty'] / $item['qty']) * 100 : 0;
-                            $badgeClass = $receivedPercent >= 100 ? 'success' : ($receivedPercent > 0 ? 'warning' : 'secondary');
-                            ?>
-                            <span class="badge bg-<?= $badgeClass ?>"><?= formatNumber($item['received_qty'], 0) ?></span>
+                            <?php if ($isManpowerPo): ?>
+                                <?php
+                                $durationLabel = $item['manpower_unit'] === 'Month' ? 'เดือน' : 'วัน';
+                                $durationValue = $item['manpower_duration'] !== null ? formatNumber($item['manpower_duration'], 0) : null;
+                                ?>
+                                <?= $durationValue !== null ? ($durationValue . ' ' . $durationLabel) : '-' ?>
+                            <?php else: ?>
+                                <?php
+                                $receivedPercent = $item['qty'] > 0 ? ($item['received_qty'] / $item['qty']) * 100 : 0;
+                                $badgeClass = $receivedPercent >= 100 ? 'success' : ($receivedPercent > 0 ? 'warning' : 'secondary');
+                                ?>
+                                <span class="badge bg-<?= $badgeClass ?>"><?= formatNumber($item['received_qty'], 0) ?></span>
+                            <?php endif; ?>
                         </td>
                         <td><?= e($item['unit']) ?></td>
                         <td class="text-end"><?= formatNumber($item['unit_price']) ?></td>
@@ -409,11 +728,11 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 
 <!-- Goods Receipts -->
-<?php if (!empty($grs) || in_array($po['status'], ['Approved', 'Partially Received', 'Received'])): ?>
+<?php if (!$isManpowerPo && (!empty($grs) || in_array($po['status'], ['Approved', 'Partially Received', 'Received'], true))): ?>
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-box-seam me-2"></i>การรับของ (GR)</span>
-        <?php if (in_array($po['status'], ['Approved', 'Partially Received'])): ?>
+        <?php if (in_array($po['status'], ['Approved', 'Partially Received'], true)): ?>
         <a href="../gr/create.php?po_id=<?= $id ?>" class="btn btn-sm btn-outline-info">
             <i class="bi bi-plus"></i> รับของ
         </a>
@@ -444,8 +763,16 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <td><?= formatDate($gr['received_date']) ?></td>
                     <td><?= e($gr['received_by_name']) ?></td>
                     <td>
-                        <span class="badge bg-<?= $gr['status'] === 'Confirmed' ? 'success' : 'secondary' ?>">
-                            <?= $gr['status'] === 'Confirmed' ? 'ยืนยันแล้ว' : 'แบบร่าง' ?>
+                        <span class="badge bg-<?= match($gr['status']) {
+                            'Confirmed' => 'success',
+                            'Voided' => 'danger',
+                            default => 'secondary'
+                        } ?>">
+                            <?= match($gr['status']) {
+                                'Confirmed' => 'ยืนยันแล้ว',
+                                'Voided' => 'ยกเลิก',
+                                default => 'แบบร่าง'
+                            } ?>
                         </span>
                     </td>
                     <td>
@@ -474,6 +801,32 @@ function promptCancelReason(inputId) {
     }
     const input = document.getElementById(inputId);
     if (input) input.value = reason.trim();
+    return true;
+}
+
+function promptVoidReason(button) {
+    const reason = prompt('ระบุเหตุผลยกเลิก PO หลังอนุมัติ');
+    if (reason === null) return false;
+    if (!reason.trim()) {
+        alert('กรุณาระบุเหตุผล');
+        return false;
+    }
+    const reasonInput = document.getElementById('voidReason');
+    if (reasonInput) reasonInput.value = reason.trim();
+
+    const modeInput = document.getElementById('voidManpowerMode');
+    if (!modeInput) return true;
+
+    const total = parseInt((button && button.dataset ? button.dataset.manpowerTotal : '0') || '0', 10);
+    if (total > 0) {
+        const summary = (button && button.dataset ? button.dataset.manpowerSummary : '') || '';
+        const message = `PO นี้มีแรงงานลงทะเบียน ${total} คน${summary ? '\n' + summary : ''}\n` +
+            'กด OK = ยกเลิกแรงงานทั้งหมด\nกด Cancel = โอนเป็นพนักงานภายใน';
+        const choice = confirm(message);
+        modeInput.value = choice ? 'cancel' : 'transfer';
+    } else {
+        modeInput.value = 'cancel';
+    }
     return true;
 }
 </script>

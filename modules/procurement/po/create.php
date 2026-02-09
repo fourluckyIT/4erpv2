@@ -63,8 +63,14 @@ if ($prId) {
     $prItems = $stmt->fetchAll();
 }
 
+// If PR is manpower, lock PO type to Manpower
+$prPoType = null;
+if ($pr && isset($pr['pr_type']) && strcasecmp((string) $pr['pr_type'], 'Manpower') === 0) {
+    $prPoType = 'Manpower';
+}
+
 // Get suppliers
-$suppliers = $db->query("SELECT id, code, name FROM suppliers WHERE is_active = 1 ORDER BY name")->fetchAll();
+$suppliers = $db->query("SELECT id, code, name, supplier_type FROM suppliers WHERE is_active = 1 ORDER BY name")->fetchAll();
 
 // Get catalog items for search combobox
 $catalogItems = $db->query("SELECT id, code, name, unit FROM items WHERE is_active = 1 ORDER BY code")->fetchAll();
@@ -78,6 +84,9 @@ if (isPost()) {
 
     $supplierId = (int) post('supplier_id');
     $poType = post('po_type', 'Goods');
+    if ($prPoType === 'Manpower') {
+        $poType = 'Manpower';
+    }
     $orderDate = post('order_date');
     $deliveryDate = post('delivery_date') ?: null;
     $paymentTerms = (int) post('payment_terms', 30);
@@ -92,6 +101,23 @@ if (isPost()) {
     if (!$supplierId) $errors[] = 'กรุณาเลือกผู้ขาย';
     if (!$orderDate) $errors[] = 'กรุณาระบุวันที่สั่ง';
     if (empty($items)) $errors[] = 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ';
+    if ($poType === 'Manpower') {
+        foreach ($items as $item) {
+            if (empty($item['description'])) {
+                continue;
+            }
+            $people = (float) ($item['qty'] ?? 0);
+            $duration = (float) ($item['manpower_duration'] ?? 0);
+            if ($people <= 0) {
+                $errors[] = 'กรุณาระบุจำนวนคนให้ถูกต้อง';
+                break;
+            }
+            if ($duration <= 0) {
+                $errors[] = 'กรุณาระบุจำนวนวัน/เดือนให้ถูกต้อง';
+                break;
+            }
+        }
+    }
 
     if (!empty($errors)) {
         setFlash('error', implode('<br>', $errors));
@@ -104,11 +130,27 @@ if (isPost()) {
         // Generate PO number
         $poNumber = $docNum->generate('PO');
 
+        $isManpower = $poType === 'Manpower';
+
         // Calculate totals
         $subtotal = 0;
         foreach ($items as $item) {
-            if (!empty($item['description']) && $item['qty'] > 0) {
-                $subtotal += (float)$item['qty'] * (float)$item['unit_price'];
+            if (!empty($item['description'])) {
+                $qty = (float) ($item['qty'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                $lineQty = $qty;
+
+                if ($isManpower) {
+                    $duration = (float) ($item['manpower_duration'] ?? 0);
+                    if ($qty <= 0 || $duration <= 0) {
+                        continue;
+                    }
+                    $lineQty = $qty * $duration;
+                } elseif ($qty <= 0) {
+                    continue;
+                }
+
+                $subtotal += $lineQty * $unitPrice;
             }
         }
         $vatAmount = $subtotal * ($vatRate / 100);
@@ -141,15 +183,36 @@ if (isPost()) {
 
         // Insert PO items
         $stmtItem = $db->prepare("
-            INSERT INTO po_items (po_id, pr_item_id, item_id, description, qty, unit, unit_price, amount, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO po_items
+                (po_id, pr_item_id, item_id, description, qty, unit, unit_price, amount, notes, manpower_duration, manpower_unit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         foreach ($items as $item) {
-            if (!empty($item['description']) && $item['qty'] > 0) {
-                $qty = (float)$item['qty'];
-                $unitPrice = (float)$item['unit_price'];
-                $amount = $qty * $unitPrice;
+            if (!empty($item['description'])) {
+                $qty = (float) ($item['qty'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                $duration = $isManpower ? (float) ($item['manpower_duration'] ?? 0) : null;
+                $durationUnit = $isManpower ? (string) ($item['manpower_unit'] ?? '') : '';
+
+                if ($isManpower) {
+                    if ($qty <= 0 || $duration <= 0) {
+                        continue;
+                    }
+                    $lineQty = $qty * $duration;
+                    $amount = $lineQty * $unitPrice;
+                    $unitLabel = $durationUnit === 'Month' ? 'คน-เดือน' : 'คน-วัน';
+                } else {
+                    if ($qty <= 0) {
+                        continue;
+                    }
+                    $lineQty = $qty;
+                    $amount = $lineQty * $unitPrice;
+                    $unitLabel = $item['unit'] ?? 'pcs';
+                    $duration = null;
+                    $durationUnit = null;
+                }
+
                 $itemId = isset($item['item_id']) && $item['item_id'] !== '' ? (int)$item['item_id'] : null;
                 $prItemId = isset($item['pr_item_id']) && $item['pr_item_id'] !== '' ? (int)$item['pr_item_id'] : null;
 
@@ -159,10 +222,12 @@ if (isPost()) {
                     $itemId,
                     $item['description'],
                     $qty,
-                    $item['unit'] ?? 'pcs',
+                    $unitLabel,
                     $unitPrice,
                     $amount,
-                    $item['notes'] ?? null
+                    $item['notes'] ?? null,
+                    $duration,
+                    $durationUnit ?: null
                 ]);
             }
         }
@@ -277,7 +342,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <select class="form-select" name="supplier_id" id="supplierSelect" required>
                             <option value="">-- เลือกผู้ขาย --</option>
                             <?php foreach ($suppliers as $s): ?>
-                            <option value="<?= $s['id'] ?>"><?= e($s['code']) ?> - <?= e($s['name']) ?></option>
+                            <option value="<?= $s['id'] ?>">
+                                <?= e($s['code']) ?> - <?= e($s['name']) ?> (<?= e($s['supplier_type'] ?? 'Goods') ?>)
+                            </option>
                             <?php endforeach; ?>
                         </select>
                         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSupplierModal" title="เพิ่มผู้ขายใหม่">
@@ -287,11 +354,15 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">ประเภท</label>
-                    <select class="form-select" name="po_type">
-                        <option value="Goods">สินค้า</option>
+                    <select class="form-select" name="po_type" <?= $prPoType ? 'disabled' : '' ?>>
+                        <option value="Goods" <?= $prPoType ? '' : 'selected' ?>>สินค้า</option>
                         <option value="Service">บริการ</option>
-                        <option value="Manpower">แรงงาน</option>
+                        <option value="Manpower" <?= $prPoType === 'Manpower' ? 'selected' : '' ?>>แรงงาน</option>
                     </select>
+                    <?php if ($prPoType === 'Manpower'): ?>
+                        <input type="hidden" name="po_type" value="Manpower">
+                        <div class="form-text">ล็อกตามประเภท PR Manpower</div>
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">เครดิต</label>
@@ -331,9 +402,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <tr>
                             <th width="40">#</th>
                             <th>รายละเอียด (พิมพ์ค้นหาหรือใส่เอง)</th>
-                            <th width="70" class="text-center">จำนวน</th>
-                            <th width="60" class="text-center">หน่วย</th>
-                            <th width="100" class="text-end">ราคา/หน่วย</th>
+                            <th width="70" class="text-center" id="qtyHeader">จำนวน</th>
+                            <th width="120" class="text-center" id="unitHeader">หน่วย</th>
+                            <th width="120" class="text-end" id="priceHeader">ราคา/หน่วย</th>
                             <th width="100" class="text-end">รวม</th>
                             <th width="40"></th>
                         </tr>
@@ -341,7 +412,10 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <tbody id="itemsContainer">
                         <?php if (!empty($prItems)): ?>
                             <?php foreach ($prItems as $idx => $item): ?>
-                            <tr id="item_<?= $idx ?>">
+                            <tr id="item_<?= $idx ?>"
+                                data-unit-value="<?= e($item['unit'] ?? '') ?>"
+                                data-duration-value="<?= e($item['manpower_duration'] ?? '') ?>"
+                                data-duration-unit="<?= e($item['manpower_unit'] ?? '') ?>">
                                 <td class="align-middle text-center text-muted row-num"><?= $idx + 1 ?></td>
                                 <td class="position-relative">
                                     <input type="hidden" name="items[<?= $idx ?>][pr_item_id]" value="<?= $item['id'] ?>">
@@ -349,10 +423,10 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                     <input type="text" class="form-control form-control-sm item-search" name="items[<?= $idx ?>][description]" value="<?= e($item['description']) ?>" data-idx="<?= $idx ?>" autocomplete="off" required>
                                     <div class="item-dropdown"></div>
                                 </td>
-                                <td>
+                                <td class="qty-cell">
                                     <input type="number" class="form-control form-control-sm text-center item-qty" name="items[<?= $idx ?>][qty]" value="<?= $item['qty'] ?>" step="0.01" min="0.01" onchange="calcRow(<?= $idx ?>)">
                                 </td>
-                                <td>
+                                <td class="unit-cell">
                                     <input type="text" class="form-control form-control-sm text-center item-unit" name="items[<?= $idx ?>][unit]" value="<?= e($item['unit']) ?>">
                                 </td>
                                 <td>
@@ -371,6 +445,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <?php endif; ?>
                     </tbody>
                 </table>
+            </div>
+            <div id="manpowerUnitHint" class="px-3 pb-3 small text-muted d-none">
+                Manpower: จำนวนคน (บังคับ) × ระยะเวลา (วัน/เดือน) → ระบบคำนวณยอดรวม
             </div>
         </div>
     </div>
@@ -414,12 +491,126 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 
 <script>
 const catalogItems = <?= json_encode($catalogItems) ?>;
+const manpowerDurationUnits = [
+    { value: 'Day', label: 'วัน' },
+    { value: 'Month', label: 'เดือน' }
+];
+const poTypeSelect = document.querySelector('[name="po_type"]');
+let manpowerMode = poTypeSelect?.value === 'Manpower';
 let itemIndex = <?= !empty($prItems) ? count($prItems) : 0 ?>;
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function buildUnitInput(idx, value) {
+    const safeValue = value ? escapeHtml(value) : 'pcs';
+    return `<input type="text" class="form-control form-control-sm text-center item-unit" name="items[${idx}][unit]" value="${safeValue}">`;
+}
+
+function resolveDurationUnitFromText(text) {
+    const raw = String(text || '').toLowerCase();
+    if (raw.includes('เดือน') || raw.includes('month')) return 'Month';
+    if (raw.includes('วัน') || raw.includes('day')) return 'Day';
+    if (raw.includes('คน-เดือน')) return 'Month';
+    if (raw.includes('คน-วัน')) return 'Day';
+    return '';
+}
+
+function buildDurationControls(idx, durationValue, unitValue) {
+    const safeDuration = durationValue ? escapeHtml(durationValue) : '1';
+    const unit = unitValue || 'Day';
+    return `
+        <div class="input-group input-group-sm">
+            <input type="number" class="form-control text-center item-duration" name="items[${idx}][manpower_duration]"
+                   value="${safeDuration}" min="0.01" step="0.01" onchange="calcRow(${idx})" required>
+            <select class="form-select text-center item-duration-unit" name="items[${idx}][manpower_unit]"
+                    onchange="calcRow(${idx}); handleDurationChange(${idx})" required>
+                ${manpowerDurationUnits.map(opt => `<option value="${opt.value}" ${opt.value === unit ? 'selected' : ''}>${opt.label}</option>`).join('')}
+            </select>
+        </div>
+    `;
+}
+
+function handleDurationChange(idx) {
+    const unit = document.querySelector(`[name="items[${idx}][manpower_unit]"]`)?.value || 'Day';
+    const priceInput = document.querySelector(`[name="items[${idx}][unit_price]"]`);
+    if (!priceInput) return;
+    priceInput.placeholder = unit === 'Month' ? 'ราคา/เดือน' : 'ราคา/วัน';
+}
+
+function toggleManpowerMode(enabled) {
+    manpowerMode = enabled;
+    const qtyHeader = document.getElementById('qtyHeader');
+    const unitHeader = document.getElementById('unitHeader');
+    const priceHeader = document.getElementById('priceHeader');
+    if (qtyHeader) qtyHeader.textContent = manpowerMode ? 'จำนวนคน' : 'จำนวน';
+    if (unitHeader) unitHeader.textContent = manpowerMode ? 'ระยะเวลา' : 'หน่วย';
+    if (priceHeader) priceHeader.textContent = manpowerMode ? 'ราคา/หน่วย' : 'ราคา/หน่วย';
+
+    document.querySelectorAll('#itemsContainer tr').forEach(tr => {
+        const idx = parseInt(tr.id.replace('item_', ''), 10);
+        const qtyInput = tr.querySelector('.item-qty');
+        if (qtyInput) {
+            qtyInput.min = manpowerMode ? '1' : '0.01';
+            qtyInput.step = manpowerMode ? '1' : '0.01';
+            qtyInput.placeholder = manpowerMode ? 'จำนวนคน' : '';
+            qtyInput.required = true;
+        }
+
+        const unitCell = tr.querySelector('.unit-cell');
+        if (!unitCell) return;
+
+        if (manpowerMode) {
+            const existingUnitInput = unitCell.querySelector('.item-unit');
+            if (existingUnitInput) {
+                tr.dataset.unitValue = existingUnitInput.value || 'pcs';
+            }
+            let durationValue = tr.dataset.durationValue || '1';
+            let durationUnit = tr.dataset.durationUnit || '';
+            if (!durationUnit) {
+                const parsed = resolveDurationUnitFromText(tr.dataset.unitValue || existingUnitInput?.value || '');
+                if (parsed) durationUnit = parsed;
+            }
+            durationUnit = durationUnit || 'Day';
+            unitCell.innerHTML = buildDurationControls(idx, durationValue, durationUnit);
+            handleDurationChange(idx);
+        } else {
+            const durationInput = unitCell.querySelector('.item-duration');
+            const durationUnit = unitCell.querySelector('.item-duration-unit');
+            if (durationInput) {
+                tr.dataset.durationValue = durationInput.value || '1';
+            }
+            if (durationUnit) {
+                tr.dataset.durationUnit = durationUnit.value || 'Day';
+            }
+            let unitValue = tr.dataset.unitValue;
+            if (!unitValue) {
+                const existingUnitInput = unitCell.querySelector('.item-unit');
+                if (existingUnitInput) {
+                    unitValue = existingUnitInput.value || 'pcs';
+                }
+            }
+            unitValue = unitValue || 'pcs';
+            tr.dataset.unitValue = unitValue;
+            unitCell.innerHTML = buildUnitInput(idx, unitValue);
+        }
+    });
+
+    const hint = document.getElementById('manpowerUnitHint');
+    if (hint) hint.classList.toggle('d-none', !manpowerMode);
+}
 
 function addItem() {
     const tbody = document.getElementById('itemsContainer');
     const tr = document.createElement('tr');
     tr.id = `item_${itemIndex}`;
+    const unitControl = manpowerMode ? buildDurationControls(itemIndex, '1', 'Day') : buildUnitInput(itemIndex, 'pcs');
     tr.innerHTML = `
         <td class="align-middle text-center text-muted row-num">${tbody.children.length + 1}</td>
         <td class="position-relative">
@@ -428,11 +619,11 @@ function addItem() {
             <input type="text" class="form-control form-control-sm item-search" name="items[${itemIndex}][description]" data-idx="${itemIndex}" placeholder="พิมพ์ค้นหาหรือใส่รายละเอียด..." autocomplete="off" required>
             <div class="item-dropdown"></div>
         </td>
-        <td>
+        <td class="qty-cell">
             <input type="number" class="form-control form-control-sm text-center item-qty" name="items[${itemIndex}][qty]" value="1" step="0.01" min="0.01" onchange="calcRow(${itemIndex})">
         </td>
-        <td>
-            <input type="text" class="form-control form-control-sm text-center item-unit" name="items[${itemIndex}][unit]" value="pcs">
+        <td class="unit-cell">
+            ${unitControl}
         </td>
         <td>
             <input type="number" class="form-control form-control-sm text-end item-price" name="items[${itemIndex}][unit_price]" value="0" step="0.01" min="0" onchange="calcRow(${itemIndex})">
@@ -448,6 +639,15 @@ function addItem() {
     `;
     tbody.appendChild(tr);
     initItemSearch(tr.querySelector('.item-search'));
+    if (manpowerMode) {
+        const qtyInput = tr.querySelector('.item-qty');
+        if (qtyInput) {
+            qtyInput.min = '1';
+            qtyInput.step = '1';
+            qtyInput.placeholder = 'จำนวนคน';
+        }
+        handleDurationChange(itemIndex);
+    }
     itemIndex++;
     renumberRows();
 }
@@ -471,7 +671,10 @@ function renumberRows() {
 function calcRow(idx) {
     const qty = parseFloat(document.querySelector(`[name="items[${idx}][qty]"]`)?.value) || 0;
     const price = parseFloat(document.querySelector(`[name="items[${idx}][unit_price]"]`)?.value) || 0;
-    const amount = qty * price;
+    const duration = manpowerMode
+        ? (parseFloat(document.querySelector(`[name="items[${idx}][manpower_duration]"]`)?.value) || 0)
+        : 1;
+    const amount = qty * duration * price;
     const amountEl = document.getElementById(`amount_${idx}`);
     if (amountEl) amountEl.value = formatNumber(amount);
     calculateTotals();
@@ -482,7 +685,10 @@ function calculateTotals() {
     document.querySelectorAll('#itemsContainer tr').forEach(tr => {
         const qty = parseFloat(tr.querySelector('.item-qty')?.value) || 0;
         const price = parseFloat(tr.querySelector('.item-price')?.value) || 0;
-        subtotal += qty * price;
+        const duration = manpowerMode
+            ? (parseFloat(tr.querySelector('.item-duration')?.value) || 0)
+            : 1;
+        subtotal += qty * duration * price;
     });
 
     const vatRate = parseFloat(document.getElementById('vatRate').value) || 0;
@@ -539,7 +745,10 @@ function selectCatalogItem(idx, itemId, name, unit) {
     if (tr) {
         tr.querySelector('.item-search').value = name;
         tr.querySelector('.item-id-input').value = itemId;
-        tr.querySelector('.item-unit').value = unit || 'pcs';
+        const unitEl = tr.querySelector('.item-unit');
+        if (unitEl && unitEl.tagName === 'INPUT') {
+            unitEl.value = unit || 'pcs';
+        }
         tr.querySelector('.item-dropdown').classList.remove('show');
     }
 }
@@ -550,6 +759,7 @@ async function saveNewSupplier() {
     const name = document.getElementById('newSupplierName').value.trim();
     const contact = document.getElementById('newSupplierContact').value.trim();
     const phone = document.getElementById('newSupplierPhone').value.trim();
+    const supplierType = document.getElementById('newSupplierType').value;
     const errorDiv = document.getElementById('supplierError');
 
     if (!code || !name) {
@@ -562,14 +772,14 @@ async function saveNewSupplier() {
         const response = await fetch('<?= BASE_URL ?>/modules/master/api/supplier_create.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, name, contact_person: contact, phone })
+            body: JSON.stringify({ code, name, contact_person: contact, phone, supplier_type: supplierType })
         });
         const result = await response.json();
 
         if (result.success) {
             // Add to select and select it
             const select = document.getElementById('supplierSelect');
-            const option = new Option(`${result.code} - ${result.name}`, result.id, true, true);
+            const option = new Option(`${result.code} - ${result.name} (${result.supplier_type || 'Goods'})`, result.id, true, true);
             select.appendChild(option);
             bootstrap.Modal.getInstance(document.getElementById('addSupplierModal')).hide();
         } else {
@@ -590,6 +800,16 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php if (empty($prItems)): ?>
     addItem();
     <?php endif; ?>
+    if (poTypeSelect) {
+        toggleManpowerMode(poTypeSelect.value === 'Manpower');
+        poTypeSelect.addEventListener('change', () => toggleManpowerMode(poTypeSelect.value === 'Manpower'));
+    }
+    if (manpowerMode) {
+        document.querySelectorAll('#itemsContainer tr').forEach(tr => {
+            const idx = parseInt(tr.id.replace('item_', ''), 10);
+            if (!Number.isNaN(idx)) handleDurationChange(idx);
+        });
+    }
     calculateTotals();
     renumberRows();
 
@@ -600,6 +820,11 @@ document.addEventListener('DOMContentLoaded', function() {
         this.querySelector('#newSupplierContact').value = '';
         this.querySelector('#newSupplierPhone').value = '';
         this.querySelector('#supplierError').classList.add('d-none');
+        const typeSelect = this.querySelector('#newSupplierType');
+        const poTypeSelect = document.querySelector('[name="po_type"]');
+        const defaultType = <?= $prPoType === 'Manpower' ? "'Manpower'" : "(poTypeSelect ? poTypeSelect.value : 'Goods')" ?>;
+        typeSelect.value = defaultType;
+        typeSelect.disabled = <?= $prPoType === 'Manpower' ? 'true' : 'false' ?>;
     });
 });
 </script>
@@ -615,11 +840,19 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="modal-body">
                 <div class="alert alert-danger d-none" id="supplierError"></div>
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">รหัส <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="newSupplierCode" placeholder="SUP001">
                     </div>
-                    <div class="col-md-8">
+                    <div class="col-md-3">
+                        <label class="form-label">ประเภทผู้ขาย</label>
+                        <select class="form-select" id="newSupplierType">
+                            <option value="Goods">สินค้า</option>
+                            <option value="Service">บริการ</option>
+                            <option value="Manpower">แรงงาน</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label">ชื่อผู้ขาย <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="newSupplierName" placeholder="บริษัท ABC จำกัด">
                     </div>

@@ -3,7 +3,7 @@
  * Manpower Registration from PO
  * 4ERP - Phase 4
  * 
- * Layout: Left sidebar shows positions from PO, right side shows registration form
+ * Layout: Single table for registered and remaining manpower
  */
 
 require_once __DIR__ . '/../../../config/bootstrap.php';
@@ -15,8 +15,6 @@ $db = getDB();
 $audit = new AuditLog();
 
 $poId = (int) get('po_id');
-$selectedPosition = get('position', '');
-
 if (!$poId) {
     setFlash('error', 'ต้องระบุ PO');
     redirect('../po/');
@@ -27,7 +25,7 @@ $stmt = $db->prepare("
     SELECT po.*, s.name as supplier_name, s.id as supplier_id
     FROM purchase_orders po
     JOIN suppliers s ON po.supplier_id = s.id
-    WHERE po.id = ? AND po.po_type = 'Manpower' AND po.status = 'Approved'
+    WHERE po.id = ? AND po.po_type = 'Manpower' AND po.status IN ('Approved', 'Partially Received', 'Received')
 ");
 $stmt->execute([$poId]);
 $po = $stmt->fetch();
@@ -37,22 +35,46 @@ if (!$po) {
     redirect('../po/');
 }
 
-// Get PO items (positions) - grouped by description, sorted by qty ascending
+// Get PO items (positions) in PO order
 $poItems = $db->prepare("
-    SELECT id, description, qty, unit_price, amount
+    SELECT id, description, qty, unit, unit_price, amount, manpower_duration, manpower_unit
     FROM po_items
     WHERE po_id = ?
-    ORDER BY qty ASC, description ASC
+    ORDER BY id ASC
 ");
 $poItems->execute([$poId]);
 $poItems = $poItems->fetchAll();
+
+$normalizeUnit = function (array $item): string {
+    if (!empty($item['manpower_unit'])) {
+        return $item['manpower_unit'];
+    }
+    $unit = mb_strtolower((string) ($item['unit'] ?? ''));
+    if ($unit !== '') {
+        if (str_contains($unit, 'เดือน') || str_contains($unit, 'month') || str_contains($unit, 'คน-เดือน')) {
+            return 'Month';
+        }
+        if (str_contains($unit, 'วัน') || str_contains($unit, 'day') || str_contains($unit, 'คน-วัน')) {
+            return 'Day';
+        }
+    }
+    return 'Day';
+};
+
+$poItems = array_map(function ($item) use ($normalizeUnit) {
+    $item['resolved_unit'] = $normalizeUnit($item);
+    return $item;
+}, $poItems);
+
+$defaultContractStart = !empty($po['order_date']) ? $po['order_date'] : date('Y-m-d');
+$docNumPreview = 'AUTO';
 
 // Get registered count per position
 $registeredCounts = [];
 $registeredByPosition = $db->prepare("
     SELECT position, COUNT(*) as cnt
     FROM po_manpower
-    WHERE po_id = ?
+    WHERE po_id = ? AND status <> 'Cancelled'
     GROUP BY position
 ");
 $registeredByPosition->execute([$poId]);
@@ -60,34 +82,15 @@ foreach ($registeredByPosition->fetchAll() as $row) {
     $registeredCounts[$row['position']] = (int) $row['cnt'];
 }
 
-// Get existing manpower for selected position (or all if none selected)
 $existingManpowerSql = "
     SELECT pm.*, p.full_name, p.code as people_code, p.id_card, p.phone
     FROM po_manpower pm
     JOIN people p ON pm.people_id = p.id
-    WHERE pm.po_id = ?
+    WHERE pm.po_id = ? AND pm.status <> 'Cancelled'
 ";
-if ($selectedPosition) {
-    $existingManpowerSql .= " AND pm.position = ?";
-    $stmt = $db->prepare($existingManpowerSql . " ORDER BY pm.created_at DESC");
-    $stmt->execute([$poId, $selectedPosition]);
-} else {
-    $stmt = $db->prepare($existingManpowerSql . " ORDER BY pm.position, pm.created_at DESC");
-    $stmt->execute([$poId]);
-}
+$stmt = $db->prepare($existingManpowerSql . " ORDER BY pm.position, FIELD(pm.status, 'Draft', 'Active', 'Ended'), pm.created_at DESC");
+$stmt->execute([$poId]);
 $existingManpower = $stmt->fetchAll();
-
-// Get available external people from same supplier
-$availablePeople = $db->prepare("
-    SELECT p.* FROM people p
-    WHERE p.people_type = 'External' 
-    AND p.is_active = 1 
-    AND (p.supplier_id = ? OR p.supplier_id IS NULL)
-    AND p.id NOT IN (SELECT people_id FROM po_manpower WHERE po_id = ?)
-    ORDER BY p.full_name
-");
-$availablePeople->execute([$po['supplier_id'], $poId]);
-$availablePeople = $availablePeople->fetchAll();
 
 // Calculate totals
 $totalRequired = array_sum(array_column($poItems, 'qty'));
@@ -102,11 +105,44 @@ function getPositionQuota($db, $poId, $position) {
     $required = $item ? (int) $item['qty'] : 0;
     
     // Get registered count
-    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM po_manpower WHERE po_id = ? AND position = ?");
+    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM po_manpower WHERE po_id = ? AND position = ? AND status <> 'Cancelled'");
     $stmt->execute([$poId, $position]);
     $registered = (int) $stmt->fetch()['cnt'];
     
     return ['required' => $required, 'registered' => $registered, 'remaining' => $required - $registered];
+}
+
+function updateManpowerPoStatus(PDO $db, AuditLog $audit, int $poId): void {
+    $stmt = $db->prepare("SELECT status FROM purchase_orders WHERE id = ?");
+    $stmt->execute([$poId]);
+    $current = (string) ($stmt->fetchColumn() ?: '');
+    if (!in_array($current, ['Approved', 'Partially Received', 'Received'], true)) {
+        return;
+    }
+
+    $stmt = $db->prepare("SELECT COALESCE(SUM(qty), 0) FROM po_items WHERE po_id = ?");
+    $stmt->execute([$poId]);
+    $required = (int) $stmt->fetchColumn();
+    if ($required <= 0) {
+        return;
+    }
+
+    $stmt = $db->prepare("SELECT COUNT(*) FROM po_manpower WHERE po_id = ? AND status <> 'Cancelled'");
+    $stmt->execute([$poId]);
+    $confirmed = (int) $stmt->fetchColumn();
+
+    if ($confirmed <= 0) {
+        $newStatus = 'Approved';
+    } elseif ($confirmed < $required) {
+        $newStatus = 'Partially Received';
+    } else {
+        $newStatus = 'Received';
+    }
+
+    if ($newStatus !== $current) {
+        $db->prepare("UPDATE purchase_orders SET status = ? WHERE id = ?")->execute([$newStatus, $poId]);
+        $audit->log('update', 'PO', $poId, ['status' => $current], ['status' => $newStatus], 'Manpower registration');
+    }
 }
 
 // Handle form submission
@@ -117,95 +153,128 @@ if (isPost()) {
     }
     
     $formAction = post('form_action');
-    $position = post('position');
     
-    // Check quota before adding (for add_existing and create_new)
-    if (in_array($formAction, ['add_existing', 'create_new']) && $position) {
-        $quota = getPositionQuota($db, $poId, $position);
-        if ($quota['remaining'] <= 0) {
-            setFlash('error', "ตำแหน่ง \"$position\" ลงทะเบียนครบแล้ว ({$quota['registered']}/{$quota['required']} คน)");
-            redirect("manpower.php?po_id=$poId" . ($position ? "&position=" . urlencode($position) : ""));
+    if ($formAction === 'create_new') {
+        $rows = post('rows', []);
+        if (!is_array($rows)) {
+            $rows = [];
         }
-    }
-    
-    if ($formAction === 'add_existing') {
-        $peopleId = (int) post('people_id');
-        if ($peopleId) {
-            $stmt = $db->prepare("
-                INSERT INTO po_manpower (po_id, people_id, position, daily_rate, contract_start, contract_end)
-                VALUES (?, ?, ?, ?, ?, ?)
+        $created = 0;
+        try {
+            $db->beginTransaction();
+            $docNum = new DocumentNumber();
+            foreach ($rows as $idx => $row) {
+                $fullName = trim((string) ($row['full_name'] ?? ''));
+                $idCard = trim((string) ($row['id_card'] ?? ''));
+                $pos = trim((string) ($row['position'] ?? ''));
+                $dailyRate = (float) ($row['daily_rate'] ?? 0);
+                $contractStart = trim((string) ($row['contract_start'] ?? ''));
+                if ($contractStart === '') {
+                    $contractStart = $defaultContractStart;
+                }
+                $contractEnd = trim((string) ($row['contract_end'] ?? ''));
+                if ($contractEnd === '') {
+                    $contractEnd = null;
+                }
+                $workDays = $row['work_days_per_month'] ?? '';
+                $workDays = $workDays === '' ? null : (int) $workDays;
+
+                $hasAny = $fullName !== '' || $idCard !== '' || $pos !== '' || $dailyRate > 0 || $workDays !== null;
+                if (!$hasAny) {
+                    continue;
+                }
+
+                if ($fullName === '' || $idCard === '' || $pos === '' || $workDays === null) {
+                    throw new Exception('กรุณากรอกให้ครบทุกช่องในแถวที่ ' . ((int) $idx + 1));
+                }
+
+                $quota = getPositionQuota($db, $poId, $pos);
+                if ($quota['remaining'] <= 0) {
+                    throw new Exception("ตำแหน่ง \"$pos\" ลงทะเบียนครบแล้ว");
+                }
+
+                $code = $docNum->generate('EXT');
+                $stmt = $db->prepare("
+                    INSERT INTO people (code, full_name, people_type, position, id_card, daily_rate, supplier_id, hire_date, created_by)
+                    VALUES (?, ?, 'External', ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $code,
+                    $fullName,
+                    $pos,
+                    $idCard,
+                    $dailyRate,
+                    $po['supplier_id'],
+                    $contractStart ?: date('Y-m-d'),
+                    $_SESSION['user_id']
+                ]);
+
+                $peopleId = $db->lastInsertId();
+
+                $stmt = $db->prepare("
+                    INSERT INTO po_manpower (po_id, people_id, position, daily_rate, contract_start, contract_end, work_days_per_month, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft')
+                ");
+                $stmt->execute([
+                    $poId,
+                    $peopleId,
+                    $pos,
+                    $dailyRate,
+                    $contractStart ?: null,
+                    $contractEnd ?: null,
+                    $workDays
+                ]);
+
+                $audit->log('create_manpower', 'PO', $poId, null, ['people_id' => $peopleId, 'name' => $fullName]);
+                $created++;
+            }
+
+            if ($created === 0) {
+                throw new Exception('กรุณากรอกอย่างน้อย 1 รายการ');
+            }
+
+            $db->commit();
+            setFlash('success', "บันทึกร่างสำเร็จ {$created} รายการ");
+            updateManpowerPoStatus($db, $audit, $poId);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            setFlash('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        }
+        
+    } elseif ($formAction === 'confirm') {
+        $pmId = (int) post('pm_id');
+        $stmt = $db->prepare("SELECT people_id, contract_start, status FROM po_manpower WHERE id = ? AND po_id = ?");
+        $stmt->execute([$pmId, $poId]);
+        $row = $stmt->fetch();
+        if ($row && $row['status'] === 'Draft') {
+            $db->prepare("UPDATE po_manpower SET status = 'Active' WHERE id = ?")->execute([$pmId]);
+            $peopleId = (int) $row['people_id'];
+            $minStmt = $db->prepare("
+                SELECT MIN(contract_start)
+                FROM po_manpower
+                WHERE people_id = ? AND status IN ('Active','Ended') AND contract_start IS NOT NULL
             ");
-            $stmt->execute([
-                $poId,
-                $peopleId,
-                $position,
-                (float) post('daily_rate', 0),
-                post('contract_start') ?: null,
-                post('contract_end') ?: null
-            ]);
-            
-            $audit->log('add_manpower', 'PO', $poId, null, ['people_id' => $peopleId]);
-            
-            // Check remaining after add
-            $quota = getPositionQuota($db, $poId, $position);
-            setFlash('success', "เพิ่มแรงงานเรียบร้อย (ลงทะเบียนแล้ว {$quota['registered']}/{$quota['required']} คน)");
+            $minStmt->execute([$peopleId]);
+            $minDate = $minStmt->fetchColumn();
+            if ($minDate) {
+                $db->prepare("UPDATE people SET hire_date = ? WHERE id = ? AND (hire_date IS NULL OR hire_date > ?)")
+                    ->execute([$minDate, $peopleId, $minDate]);
+            }
+            $audit->log('confirm_manpower', 'PO', $poId, null, ['pm_id' => $pmId, 'people_id' => $peopleId]);
+            updateManpowerPoStatus($db, $audit, $poId);
+            setFlash('success', 'ยืนยันเรียบร้อย');
         }
-        
-    } elseif ($formAction === 'create_new') {
-        // Create new person first
-        $docNum = new DocumentNumber();
-        $code = 'EXT-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        
-        $stmt = $db->prepare("
-            INSERT INTO people (code, full_name, people_type, position, phone, id_card, daily_rate, supplier_id, hire_date, created_by)
-            VALUES (?, ?, 'External', ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $code,
-            post('full_name'),
-            $position,
-            post('phone'),
-            post('id_card'),
-            (float) post('daily_rate', 0),
-            $po['supplier_id'],
-            date('Y-m-d'),
-            $_SESSION['user_id']
-        ]);
-        
-        $peopleId = $db->lastInsertId();
-        
-        // Link to PO
-        $stmt = $db->prepare("
-            INSERT INTO po_manpower (po_id, people_id, position, daily_rate, contract_start, contract_end)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $poId,
-            $peopleId,
-            $position,
-            (float) post('daily_rate', 0),
-            post('contract_start') ?: null,
-            post('contract_end') ?: null
-        ]);
-        
-        $audit->log('create_manpower', 'PO', $poId, null, ['people_id' => $peopleId, 'name' => post('full_name')]);
-        
-        // Check remaining after add
-        $quota = getPositionQuota($db, $poId, $position);
-        setFlash('success', "สร้างและเพิ่มแรงงานเรียบร้อย (ลงทะเบียนแล้ว {$quota['registered']}/{$quota['required']} คน)");
-        
     } elseif ($formAction === 'remove') {
         $pmId = (int) post('pm_id');
-        $db->prepare("DELETE FROM po_manpower WHERE id = ? AND po_id = ?")->execute([$pmId, $poId]);
-        setFlash('success', 'ลบออกเรียบร้อย');
+        $db->prepare("UPDATE po_manpower SET status = 'Cancelled' WHERE id = ? AND po_id = ?")->execute([$pmId, $poId]);
+        $audit->log('cancel_manpower', 'PO', $poId, null, ['pm_id' => $pmId]);
+        updateManpowerPoStatus($db, $audit, $poId);
+        setFlash('success', 'ยกเลิกเรียบร้อย');
     }
     
-    // Redirect back to same position if selected
-    $redirectUrl = "manpower.php?po_id=$poId";
-    if ($position && $formAction !== 'remove') {
-        $redirectUrl .= "&position=" . urlencode($position);
-    }
-    redirect($redirectUrl);
+    redirect("manpower.php?po_id=$poId");
 }
 
 $pageTitle = 'ลงทะเบียนแรงงาน - 4ERP';
@@ -213,27 +282,6 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <style>
-.position-card {
-    cursor: pointer;
-    transition: all 0.2s;
-    border-left: 4px solid transparent;
-}
-.position-card:hover {
-    background-color: #f8f9fa;
-}
-.position-card.active {
-    background-color: #e7f1ff;
-    border-left-color: #0d6efd;
-}
-.position-card.complete {
-    border-left-color: #198754;
-}
-.position-card.partial {
-    border-left-color: #ffc107;
-}
-.position-card.empty {
-    border-left-color: #dc3545;
-}
 .progress-mini {
     height: 6px;
 }
@@ -272,319 +320,169 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 
 <div class="row">
-    <!-- Left: Position List from PO -->
-    <div class="col-md-4 col-lg-3">
-        <div class="card">
-            <div class="card-header py-2">
-                <strong><i class="bi bi-list-ul me-2"></i>ตำแหน่งจาก PO</strong>
-            </div>
-            <div class="list-group list-group-flush">
-                <!-- All positions link -->
-                <a href="?po_id=<?= $poId ?>" 
-                   class="list-group-item list-group-item-action position-card <?= !$selectedPosition ? 'active' : '' ?>">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-people me-2"></i>ทั้งหมด</span>
-                        <span class="badge bg-secondary"><?= $totalRegistered ?>/<?= $totalRequired ?></span>
-                    </div>
-                </a>
-                
-                <?php foreach ($poItems as $item): 
-                    $posName = $item['description'];
-                    $required = (int) $item['qty'];
-                    $registered = $registeredCounts[$posName] ?? 0;
-                    $isComplete = $registered >= $required;
-                    $isPartial = $registered > 0 && $registered < $required;
-                    $statusClass = $isComplete ? 'complete' : ($isPartial ? 'partial' : 'empty');
-                ?>
-                <a href="?po_id=<?= $poId ?>&position=<?= urlencode($posName) ?>" 
-                   class="list-group-item list-group-item-action position-card <?= $statusClass ?> <?= $selectedPosition === $posName ? 'active' : '' ?>">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-medium"><?= e($posName) ?></div>
-                            <small class="text-muted"><?= formatNumber($item['unit_price']) ?> บาท/วัน</small>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-<?= $isComplete ? 'success' : ($isPartial ? 'warning text-dark' : 'danger') ?>">
-                                <?= $registered ?>/<?= $required ?>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="progress progress-mini mt-2">
-                        <div class="progress-bar bg-<?= $isComplete ? 'success' : ($isPartial ? 'warning' : 'danger') ?>" 
-                             style="width: <?= $required > 0 ? ($registered / $required * 100) : 0 ?>%"></div>
-                    </div>
-                </a>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Right: Registration Area -->
-    <div class="col-md-8 col-lg-9">
+    <div class="col-12">
+        <!-- Registration Area -->
         <?php 
-        // Get selected position info
-        $selectedItem = null;
-        $selectedRate = 0;
-        if ($selectedPosition) {
-            foreach ($poItems as $item) {
-                if ($item['description'] === $selectedPosition) {
-                    $selectedItem = $item;
-                    $selectedRate = $item['unit_price'];
-                    break;
-                }
+        $remainingTotal = max(0, $totalRequired - $totalRegistered);
+        $existingByPosition = [];
+        foreach ($existingManpower as $mp) {
+            $pos = $mp['position'] ?? '';
+            if ($pos === '') {
+                continue;
             }
+            if (!isset($existingByPosition[$pos])) {
+                $existingByPosition[$pos] = [];
+            }
+            $existingByPosition[$pos][] = $mp;
         }
         ?>
-        
-        <?php if ($selectedPosition && $selectedItem): ?>
-        <!-- Selected Position Header -->
-        <div class="alert alert-primary py-2 mb-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <span>
-                    <i class="bi bi-person-badge me-2"></i>
-                    <strong><?= e($selectedPosition) ?></strong>
-                    <span class="ms-2 text-muted">ค่าแรง: <?= formatNumber($selectedRate) ?> บาท/วัน</span>
-                </span>
-                <span>
-                    ต้องการ: <strong><?= (int) $selectedItem['qty'] ?></strong> คน |
-                    ลงทะเบียนแล้ว: <strong><?= $registeredCounts[$selectedPosition] ?? 0 ?></strong> คน
-                </span>
-            </div>
-        </div>
-        <?php endif; ?>
-        
-        <!-- Registration Forms -->
-        <div class="row mb-4">
-            <!-- Create New Person -->
-            <div class="col-lg-6 mb-3">
-                <div class="card h-100">
-                    <div class="card-header py-2 bg-success text-white">
-                        <i class="bi bi-person-plus-fill me-2"></i>ลงทะเบียนใหม่
-                    </div>
-                    <div class="card-body">
-                        <form method="POST">
-                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                            <input type="hidden" name="form_action" value="create_new">
-                            
-                            <div class="mb-2">
-                                <label class="form-label small mb-1">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" name="full_name" required placeholder="ชื่อ นามสกุล">
-                            </div>
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">บัตรประชาชน <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control form-control-sm" name="id_card" required maxlength="13" placeholder="13 หลัก">
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">โทรศัพท์</label>
-                                        <input type="text" class="form-control form-control-sm" name="phone" placeholder="0xx-xxx-xxxx">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small mb-1">ตำแหน่ง <span class="text-danger">*</span></label>
-                                <?php if ($selectedPosition): ?>
-                                <input type="text" class="form-control form-control-sm" name="position" value="<?= e($selectedPosition) ?>" readonly>
-                                <?php else: ?>
-                                <select class="form-select form-select-sm" name="position" required>
-                                    <option value="">-- เลือกตำแหน่ง --</option>
-                                    <?php foreach ($poItems as $item): ?>
-                                    <option value="<?= e($item['description']) ?>" data-rate="<?= $item['unit_price'] ?>">
-                                        <?= e($item['description']) ?> (<?= formatNumber($item['unit_price']) ?>/วัน)
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <?php endif; ?>
-                            </div>
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">เริ่มสัญญา</label>
-                                        <input type="date" class="form-control form-control-sm" name="contract_start" value="<?= date('Y-m-d') ?>">
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">สิ้นสุด</label>
-                                        <input type="date" class="form-control form-control-sm" name="contract_end">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small mb-1">ค่าแรง/วัน</label>
-                                <input type="number" class="form-control form-control-sm" name="daily_rate" step="0.01" 
-                                       value="<?= $selectedRate ?>" id="newDailyRate">
-                            </div>
-                            <button type="submit" class="btn btn-success btn-sm w-100">
-                                <i class="bi bi-person-plus me-1"></i>ลงทะเบียน
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Add Existing Person -->
-            <div class="col-lg-6 mb-3">
-                <div class="card h-100">
-                    <div class="card-header py-2 bg-primary text-white">
-                        <i class="bi bi-person-check me-2"></i>เพิ่มจากรายชื่อเดิม
-                    </div>
-                    <div class="card-body">
-                        <?php if (empty($availablePeople)): ?>
-                        <p class="text-muted text-center py-4">ไม่มีรายชื่อที่สามารถเพิ่มได้</p>
-                        <?php else: ?>
-                        <form method="POST">
-                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                            <input type="hidden" name="form_action" value="add_existing">
-                            
-                            <div class="mb-2">
-                                <label class="form-label small mb-1">เลือกบุคคล <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-sm" name="people_id" id="existingPerson" required>
-                                    <option value="">-- เลือก --</option>
-                                    <?php foreach ($availablePeople as $p): ?>
-                                    <option value="<?= $p['id'] ?>" data-rate="<?= $p['daily_rate'] ?>" data-position="<?= e($p['position']) ?>">
-                                        <?= e($p['full_name']) ?> <?= $p['id_card'] ? '(' . substr($p['id_card'], -4) . ')' : '' ?>
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small mb-1">ตำแหน่ง <span class="text-danger">*</span></label>
-                                <?php if ($selectedPosition): ?>
-                                <input type="text" class="form-control form-control-sm" name="position" value="<?= e($selectedPosition) ?>" readonly>
-                                <?php else: ?>
-                                <select class="form-select form-select-sm" name="position" id="existingPosition" required>
-                                    <option value="">-- เลือกตำแหน่ง --</option>
-                                    <?php foreach ($poItems as $item): ?>
-                                    <option value="<?= e($item['description']) ?>" data-rate="<?= $item['unit_price'] ?>">
-                                        <?= e($item['description']) ?> (<?= formatNumber($item['unit_price']) ?>/วัน)
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <?php endif; ?>
-                            </div>
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">เริ่มสัญญา</label>
-                                        <input type="date" class="form-control form-control-sm" name="contract_start" value="<?= date('Y-m-d') ?>">
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">สิ้นสุด</label>
-                                        <input type="date" class="form-control form-control-sm" name="contract_end">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small mb-1">ค่าแรง/วัน</label>
-                                <input type="number" class="form-control form-control-sm" name="daily_rate" step="0.01" 
-                                       value="<?= $selectedRate ?>" id="existingDailyRate">
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm w-100">
-                                <i class="bi bi-plus-circle me-1"></i>เพิ่ม
-                            </button>
-                        </form>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Registered List -->
-        <div class="card">
+        <!-- Registration Table -->
+        <div class="card mb-4">
             <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                <span>
-                    <i class="bi bi-people-fill me-2"></i>
-                    รายชื่อที่ลงทะเบียนแล้ว
-                    <?php if ($selectedPosition): ?>
-                    <span class="text-muted">- <?= e($selectedPosition) ?></span>
-                    <?php endif; ?>
-                </span>
-                <span class="badge bg-secondary"><?= count($existingManpower) ?> คน</span>
+                <span><i class="bi bi-people me-2"></i>รายชื่อแรงงาน (รวม)</span>
+                <small class="text-muted">บันทึก = Draft, กดยืนยัน = เพิ่มพนักงาน</small>
             </div>
+            <form id="createNewForm" method="POST">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="form_action" value="create_new">
+            </form>
             <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
+                <table class="table table-bordered align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th width="50">#</th>
+                            <th class="text-nowrap">Preferred ID</th>
                             <th>ชื่อ-นามสกุล</th>
                             <th>บัตร ปชช.</th>
-                            <?php if (!$selectedPosition): ?>
                             <th>ตำแหน่ง</th>
-                            <?php endif; ?>
-                            <th>ค่าแรง/วัน</th>
-                            <th>สัญญา</th>
-                            <th width="60"></th>
+                            <th class="text-nowrap">เริ่มสัญญา</th>
+                            <th class="text-nowrap">ค่าแรง/หน่วย</th>
+                            <th class="text-nowrap">ทำงาน/เดือน (วัน)</th>
+                            <th>สถานะ</th>
+                            <th width="120"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($existingManpower)): ?>
-                        <tr><td colspan="<?= $selectedPosition ? 6 : 7 ?>" class="text-center text-muted py-4">ยังไม่มีรายชื่อ</td></tr>
-                        <?php else: ?>
-                        <?php $i = 1; foreach ($existingManpower as $mp): ?>
-                        <tr>
-                            <td class="text-muted"><?= $i++ ?></td>
-                            <td>
-                                <strong><?= e($mp['full_name']) ?></strong>
-                                <?php if ($mp['phone']): ?>
-                                <br><small class="text-muted"><i class="bi bi-telephone"></i> <?= e($mp['phone']) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td><code><?= e($mp['id_card'] ?: '-') ?></code></td>
-                            <?php if (!$selectedPosition): ?>
-                            <td><span class="badge bg-light text-dark"><?= e($mp['position']) ?></span></td>
-                            <?php endif; ?>
-                            <td><?= formatNumber($mp['daily_rate']) ?></td>
-                            <td>
-                                <small>
-                                    <?= $mp['contract_start'] ? formatDate($mp['contract_start']) : '-' ?>
-                                    <?= $mp['contract_end'] ? '<br>ถึง ' . formatDate($mp['contract_end']) : '' ?>
-                                </small>
-                            </td>
-                            <td>
-                                <form method="POST" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                                    <input type="hidden" name="form_action" value="remove">
-                                    <input type="hidden" name="pm_id" value="<?= $mp['id'] ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('ลบ <?= e($mp['full_name']) ?> ออก?')">
-                                        <i class="bi bi-trash"></i>
+                        <?php $rowIndex = 0; ?>
+                        <?php foreach ($poItems as $item): ?>
+                            <?php
+                                $posName = $item['description'];
+                                $required = (int) $item['qty'];
+                                $registered = $registeredCounts[$posName] ?? 0;
+                                $remaining = max(0, $required - $registered);
+                                $unitLabel = ($item['resolved_unit'] ?? 'Day') === 'Month' ? 'เดือน' : 'วัน';
+                                $existingRows = $existingByPosition[$posName] ?? [];
+                            ?>
+                            <?php foreach ($existingRows as $mp): ?>
+                            <tr>
+                                <td class="text-nowrap"><span class="badge bg-light text-dark border"><?= e($mp['people_code'] ?? '-') ?></span></td>
+                                <td><?= e($mp['full_name']) ?></td>
+                                <td><?= e($mp['id_card'] ?: '-') ?></td>
+                                <td><?= e($posName) ?></td>
+                                <td><?= $mp['contract_start'] ? formatDate($mp['contract_start']) : '-' ?></td>
+                                <td><?= formatNumber($mp['daily_rate']) ?> / <?= $unitLabel ?></td>
+                                <td class="text-center"><?= isset($mp['work_days_per_month']) ? (int) $mp['work_days_per_month'] : '-' ?></td>
+                                <td>
+                                    <?php
+                                        $status = $mp['status'] ?? 'Active';
+                                        $statusBadge = match ($status) {
+                                            'Draft' => 'warning text-dark',
+                                            'Active' => 'success',
+                                            'Ended' => 'secondary',
+                                            'Cancelled' => 'dark',
+                                            default => 'secondary'
+                                        };
+                                        $statusLabel = match ($status) {
+                                            'Draft' => 'Draft',
+                                            'Active' => 'Active',
+                                            'Ended' => 'Ended',
+                                            'Cancelled' => 'Cancelled',
+                                            default => $status
+                                        };
+                                    ?>
+                                    <span class="badge bg-<?= $statusBadge ?>"><?= $statusLabel ?></span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <?php if (($mp['status'] ?? '') === 'Draft'): ?>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                            <input type="hidden" name="form_action" value="confirm">
+                                            <input type="hidden" name="pm_id" value="<?= $mp['id'] ?>">
+                                            <button type="submit" class="btn btn-outline-success" onclick="return confirm('ยืนยันเพิ่มพนักงาน?')">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </button>
+                                        </form>
+                                        <?php endif; ?>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                            <input type="hidden" name="form_action" value="remove">
+                                            <input type="hidden" name="pm_id" value="<?= $mp['id'] ?>">
+                                            <button type="submit" class="btn btn-outline-danger" onclick="return confirm('ยกเลิก <?= e($mp['full_name']) ?> ?')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+
+                            <?php for ($i = 0; $i < $remaining; $i++): ?>
+                            <tr>
+                                <td class="text-nowrap">
+                                    <span class="badge bg-light text-dark border"><?= e($docNumPreview) ?></span>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" form="createNewForm" name="rows[<?= $rowIndex ?>][full_name]" placeholder="ชื่อ นามสกุล">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" form="createNewForm" name="rows[<?= $rowIndex ?>][id_card]" maxlength="13" placeholder="13 หลัก">
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark"><?= e($posName) ?></span>
+                                    <input type="hidden" form="createNewForm" name="rows[<?= $rowIndex ?>][position]" value="<?= e($posName) ?>">
+                                </td>
+                                <td>
+                                    <input type="date" class="form-control form-control-sm" form="createNewForm" name="rows[<?= $rowIndex ?>][contract_start]" value="<?= e($defaultContractStart) ?>">
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" form="createNewForm" name="rows[<?= $rowIndex ?>][daily_rate]" step="0.01" value="<?= e($item['unit_price']) ?>">
+                                        <span class="input-group-text"><?= $unitLabel ?></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm" form="createNewForm" name="rows[<?= $rowIndex ?>][work_days_per_month]" min="0" max="31" value="22">
+                                </td>
+                                <td><span class="badge bg-secondary">New</span></td>
+                                <td class="text-end">
+                                    <?php if ($rowIndex === 0): ?>
+                                    <button type="submit" class="btn btn-success btn-sm" form="createNewForm">
+                                        <i class="bi bi-save me-1"></i>บันทึกร่าง
                                     </button>
-                                </form>
-                            </td>
-                        </tr>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php $rowIndex++; ?>
+                            <?php endfor; ?>
                         <?php endforeach; ?>
+
+                        <?php if (empty($existingManpower) && $remainingTotal <= 0): ?>
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-3">ยังไม่มีรายการ</td>
+                        </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- External add removed per requirement -->
+        
     </div>
 </div>
 
 <script>
-// Auto-fill daily rate when selecting position
-document.querySelectorAll('select[name="position"]').forEach(select => {
-    select.addEventListener('change', function() {
-        const rate = this.options[this.selectedIndex].dataset.rate || 0;
-        const form = this.closest('form');
-        const rateInput = form.querySelector('input[name="daily_rate"]');
-        if (rateInput) rateInput.value = rate;
-    });
-});
-
-// Auto-fill rate when selecting existing person
-const existingPerson = document.getElementById('existingPerson');
-if (existingPerson) {
-    existingPerson.addEventListener('change', function() {
-        const rate = this.options[this.selectedIndex].dataset.rate || <?= $selectedRate ?>;
-        document.getElementById('existingDailyRate').value = rate;
-    });
-}
+// No dynamic position selection needed (position fixed by PO order)
 </script>
 
 <?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

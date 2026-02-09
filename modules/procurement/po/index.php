@@ -11,6 +11,7 @@ $auth->requireAuth();
 
 $rbac = new RBAC();
 $db = getDB();
+$audit = new AuditLog();
 
 // Filters
 $statusFilter = get('status', '');
@@ -57,6 +58,70 @@ $pos = $db->prepare("
 ");
 $pos->execute($params);
 $pos = $pos->fetchAll();
+
+// Sync Manpower PO status based on registered manpower
+$manpowerIds = [];
+foreach ($pos as $row) {
+    if (($row['po_type'] ?? '') === 'Manpower' && in_array($row['status'], ['Approved', 'Partially Received', 'Received'], true)) {
+        $manpowerIds[] = (int) $row['id'];
+    }
+}
+
+if (!empty($manpowerIds)) {
+    $placeholders = implode(',', array_fill(0, count($manpowerIds), '?'));
+    $requiredMap = [];
+    $countMap = [];
+
+    $stmt = $db->prepare("SELECT po_id, COALESCE(SUM(qty), 0) AS required FROM po_items WHERE po_id IN ($placeholders) GROUP BY po_id");
+    $stmt->execute($manpowerIds);
+    foreach ($stmt->fetchAll() as $r) {
+        $requiredMap[(int) $r['po_id']] = (int) $r['required'];
+    }
+
+    $stmt = $db->prepare("SELECT po_id, COUNT(*) AS cnt FROM po_manpower WHERE po_id IN ($placeholders) AND status <> 'Cancelled' GROUP BY po_id");
+    $stmt->execute($manpowerIds);
+    foreach ($stmt->fetchAll() as $r) {
+        $countMap[(int) $r['po_id']] = (int) $r['cnt'];
+    }
+
+    $synced = [];
+    foreach ($pos as $row) {
+        $poId = (int) $row['id'];
+        if (!in_array($poId, $manpowerIds, true)) {
+            $synced[] = $row;
+            continue;
+        }
+
+        $required = $requiredMap[$poId] ?? 0;
+        if ($required <= 0) {
+            $synced[] = $row;
+            continue;
+        }
+
+        $confirmed = $countMap[$poId] ?? 0;
+        if ($confirmed <= 0) {
+            $newStatus = 'Approved';
+        } elseif ($confirmed < $required) {
+            $newStatus = 'Partially Received';
+        } else {
+            $newStatus = 'Received';
+        }
+
+        if ($newStatus !== $row['status']) {
+            $db->prepare("UPDATE purchase_orders SET status = ? WHERE id = ?")->execute([$newStatus, $poId]);
+            $audit->log('update', 'PO', $poId, ['status' => $row['status']], ['status' => $newStatus], 'Manpower registration sync');
+            $row['status'] = $newStatus;
+        }
+
+        $synced[] = $row;
+    }
+
+    $pos = $synced;
+}
+
+if ($statusFilter) {
+    $pos = array_values(array_filter($pos, fn($row) => ($row['status'] ?? '') === $statusFilter));
+}
 
 $pageTitle = 'Purchase Orders - 4ERP';
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
@@ -107,6 +172,8 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <option value="Approved" <?= $statusFilter === 'Approved' ? 'selected' : '' ?>>อนุมัติแล้ว</option>
                     <option value="Partially Received" <?= $statusFilter === 'Partially Received' ? 'selected' : '' ?>>รับบางส่วน</option>
                     <option value="Received" <?= $statusFilter === 'Received' ? 'selected' : '' ?>>รับครบ</option>
+                    <option value="Cancelled" <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>>ยกเลิก</option>
+                    <option value="Voided" <?= $statusFilter === 'Voided' ? 'selected' : '' ?>>ยกเลิกหลังอนุมัติ</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -177,6 +244,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 'Partially Received' => 'info',
                                 'Received' => 'success',
                                 'Cancelled' => 'dark',
+                                'Voided' => 'danger',
                                 default => 'secondary'
                             } ?>"><?= match($po['status']) {
                                 'Draft' => 'แบบร่าง',
@@ -185,6 +253,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 'Partially Received' => 'รับบางส่วน',
                                 'Received' => 'รับครบ',
                                 'Cancelled' => 'ยกเลิก',
+                                'Voided' => 'ยกเลิกหลังอนุมัติ',
                                 default => $po['status']
                             } ?></span>
                         </td>
