@@ -184,6 +184,11 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         </nav>
     </div>
     <div class="d-flex gap-2">
+        <?php if ($gr['status'] === 'Confirmed'): ?>
+        <a href="/4erpv2/modules/accounting/ap/create.php?gr_id=<?= $id ?>" class="btn btn-primary">
+            <i class="bi bi-receipt me-1"></i>สร้าง AP Invoice
+        </a>
+        <?php endif; ?>
         <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> กลับ
         </a>
