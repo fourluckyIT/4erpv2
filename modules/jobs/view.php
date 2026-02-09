@@ -52,6 +52,14 @@ if (isPost()) {
 $userRoles = $auth->getCurrentRoles();
 $availableActions = StatusMachine::getAvailableActions($job['status'], $userRoles);
 $rbac = new RBAC();
+foreach ($availableActions as $action => $config) {
+    $permAction = StatusMachine::getPermissionAction($action);
+    if ($permAction && $rbac->permissionExists($permAction, 'JOB')) {
+        if (!$rbac->can($permAction, 'JOB', $job['status'])) {
+            unset($availableActions[$action]);
+        }
+    }
+}
 // Route-driven status changes are handled in Route module only
 unset($availableActions['dispatch'], $availableActions['start'], $availableActions['return'], $availableActions['wh_receive']);
 

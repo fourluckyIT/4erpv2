@@ -83,13 +83,13 @@ foreach ($itemTypes as $type => $config) {
         $grId = $db->lastInsertId();
         echo "  GR Created: $grNo (ID: $grId)\n";
         
-        // Generate item code
+        // Generate item code (simple format: PREFIX-N)
         $prefix = $config['prefix'];
-        $stmtMax = $db->prepare("SELECT MAX(CAST(SUBSTRING(code, LENGTH(:prefix) + 2) AS UNSIGNED)) as maxseq FROM items WHERE code LIKE :prefix_pattern");
-        $stmtMax->execute([':prefix' => $prefix, ':prefix_pattern' => $prefix . '-%']);
+        $stmtMax = $db->prepare("SELECT MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(code, '-', 2), '-', -1) AS UNSIGNED)) as maxseq FROM items WHERE code REGEXP :pattern");
+        $stmtMax->execute([':pattern' => '^' . $prefix . '-[0-9]+']);
         $maxSeq = (int) $stmtMax->fetchColumn();
         $newSeq = $maxSeq + 1;
-        $newCode = sprintf('%s-%04d', $prefix, $newSeq);
+        $newCode = $prefix . '-' . $newSeq;
         $newCode = ensureUniqueItemCode($db, $newCode);
         
         // Create item with source=GR
@@ -162,12 +162,12 @@ foreach ($masterTypes as $type => $config) {
             default => 'ITM'
         };
         
-        // Generate item code
-        $stmtMax = $db->prepare("SELECT MAX(CAST(SUBSTRING(code, LENGTH(:prefix) + 2) AS UNSIGNED)) as maxseq FROM items WHERE code LIKE :prefix_pattern");
-        $stmtMax->execute([':prefix' => $prefix, ':prefix_pattern' => $prefix . '-%']);
+        // Generate item code (simple format: PREFIX-N)
+        $stmtMax = $db->prepare("SELECT MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(code, '-', 2), '-', -1) AS UNSIGNED)) as maxseq FROM items WHERE code REGEXP :pattern");
+        $stmtMax->execute([':pattern' => '^' . $prefix . '-[0-9]+']);
         $maxSeq = (int) $stmtMax->fetchColumn();
         $newSeq = $maxSeq + 1;
-        $newCode = sprintf('%s-%04d', $prefix, $newSeq);
+        $newCode = $prefix . '-' . $newSeq;
         $newCode = ensureUniqueItemCode($db, $newCode);
         
         // Create item with source=MASTER

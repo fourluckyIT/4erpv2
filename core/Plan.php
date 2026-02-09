@@ -109,6 +109,21 @@ class Plan {
             if ($serial['status'] !== 'Available') {
                 return ['success' => false, 'error' => 'Serial นี้ไม่ว่าง (สถานะ: ' . $serial['status'] . ')'];
             }
+
+            // Block if maintenance scheduled overlaps plan date range
+            $itemStmt = $this->db->prepare("
+                SELECT maintenance_required, maintenance_scheduled_date
+                FROM items
+                WHERE id = ?
+            ");
+            $itemStmt->execute([(int) $serial['item_id']]);
+            $itemRow = $itemStmt->fetch(PDO::FETCH_ASSOC);
+            if (!empty($itemRow['maintenance_required']) && !empty($itemRow['maintenance_scheduled_date'])) {
+                $scheduledDate = $itemRow['maintenance_scheduled_date'];
+                if ($scheduledDate >= $plan['plan_date'] && $scheduledDate <= $plan['plan_end_date']) {
+                    return ['success' => false, 'error' => 'อุปกรณ์ติดนัดซ่อมบำรุงวันที่ ' . $scheduledDate];
+                }
+            }
             
             // Check not already assigned to this plan
             $stmt = $this->db->prepare("SELECT id FROM plan_assignments WHERE plan_id = ? AND serial_id = ?");

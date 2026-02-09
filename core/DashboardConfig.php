@@ -53,6 +53,9 @@ class DashboardConfig
      */
     public function getRoleConfig(string $roleCode): array
     {
+        $rolePermissions = $this->getRolePermissionCodes($roleCode);
+        $rolePermLookup = array_fill_keys($rolePermissions, true);
+
         $stmt = $this->db->prepare("
             SELECT 
                 w.*,
@@ -71,7 +74,37 @@ class DashboardConfig
             ORDER BY COALESCE(rc.position, w.sort_order)
         ");
         $stmt->execute([$roleCode, $roleCode]);
-        return $stmt->fetchAll();
+        $widgets = $stmt->fetchAll();
+
+        // Filter by required permissions (if defined)
+        $filtered = [];
+        foreach ($widgets as $widget) {
+            $required = $widget['required_permissions'] ?? null;
+            if (!$required) {
+                $filtered[] = $widget;
+                continue;
+            }
+
+            $reqList = json_decode((string) $required, true);
+            if (!is_array($reqList) || empty($reqList)) {
+                $filtered[] = $widget;
+                continue;
+            }
+
+            $hasAny = false;
+            foreach ($reqList as $permCode) {
+                if (isset($rolePermLookup[$permCode])) {
+                    $hasAny = true;
+                    break;
+                }
+            }
+
+            if ($hasAny) {
+                $filtered[] = $widget;
+            }
+        }
+
+        return $filtered;
     }
     
     /**
@@ -117,11 +150,10 @@ class DashboardConfig
             
             // Log the action
             if (class_exists('AuditLog')) {
-                AuditLog::log(
-                    $this->db,
-                    $updatedBy,
+                $audit = new AuditLog();
+                $audit->log(
                     'update',
-                    'dashboard_config',
+                    'DASHBOARD_CONFIG',
                     null,
                     null,
                     ['role' => $roleCode, 'widgets_count' => count($widgetConfigs)]
@@ -182,11 +214,10 @@ class DashboardConfig
         $result = $stmt->execute([$roleCode]);
         
         if ($result && class_exists('AuditLog')) {
-            AuditLog::log(
-                $this->db,
-                $updatedBy,
+            $audit = new AuditLog();
+            $audit->log(
                 'update',
-                'dashboard_config',
+                'DASHBOARD_CONFIG',
                 null,
                 null,
                 ['role' => $roleCode, 'action' => 'reset_to_default']
@@ -220,5 +251,22 @@ class DashboardConfig
             'M' => ['label' => 'Medium', 'cols' => 6],
             'L' => ['label' => 'Large', 'cols' => 12]
         ];
+    }
+
+    /**
+     * Get permission codes assigned to a role
+     */
+    private function getRolePermissionCodes(string $roleCode): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT DISTINCT p.code
+            FROM role_permissions rp
+            JOIN roles r ON rp.role_id = r.id
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE r.code = ?
+            AND rp.is_granted = 1
+        ");
+        $stmt->execute([$roleCode]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 }

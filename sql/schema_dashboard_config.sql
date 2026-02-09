@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `dashboard_widgets` (
     `default_size` ENUM('S', 'M', 'L') DEFAULT 'S',
     `default_enabled` TINYINT(1) DEFAULT 1,
     `allowed_roles` JSON NULL COMMENT 'Array of role codes, null = all roles',
+    `required_permissions` JSON NULL COMMENT 'Array of permission codes, null = no permission requirement',
     `sort_order` INT DEFAULT 99,
     `is_active` TINYINT(1) DEFAULT 1,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -57,49 +58,62 @@ COMMENT='Per-role dashboard widget configuration';
 -- -------------------------------------------
 -- Insert default widgets
 -- -------------------------------------------
-INSERT INTO `dashboard_widgets` (`code`, `name`, `description`, `category`, `icon`, `icon_bg_color`, `default_size`, `allowed_roles`, `sort_order`) VALUES
+INSERT INTO `dashboard_widgets` (`code`, `name`, `description`, `category`, `icon`, `icon_bg_color`, `default_size`, `allowed_roles`, `required_permissions`, `sort_order`) VALUES
 -- Stats widgets
-('stat_total_jobs', 'Total Jobs', 'แสดงจำนวน Jobs ทั้งหมด', 'stats', 'bi-briefcase', 'primary', 'S', NULL, 1),
-('stat_revenue', 'Revenue', 'ยอดรายได้เดือนนี้', 'stats', 'bi-currency-dollar', 'success', 'S', '["ADM","SAL","ACC","MGR"]', 2),
-('stat_pending_approvals', 'Pending Approvals', 'รายการรออนุมัติ', 'stats', 'bi-hourglass-split', 'warning', 'S', '["ADM","MGR"]', 3),
-('stat_active_users', 'Active Users', 'จำนวนผู้ใช้งานปัจจุบัน', 'stats', 'bi-people', 'info', 'S', '["ADM"]', 4),
-('stat_jobs_awaiting_plan', 'Jobs Awaiting Plan', 'Jobs รอวางแผน', 'stats', 'bi-clipboard-check', 'warning', 'S', '["PLN"]', 5),
-('stat_dispatches_today', 'Dispatches Today', 'Dispatch วันนี้', 'stats', 'bi-truck', 'info', 'S', '["PLN","WH"]', 6),
-('stat_stock_items', 'Total Stock Items', 'จำนวนสินค้าในคลัง', 'stats', 'bi-box-seam', 'primary', 'S', '["WH"]', 7),
-('stat_low_stock', 'Low Stock Alert', 'สินค้าใกล้หมด', 'stats', 'bi-exclamation-triangle', 'danger', 'S', '["WH","PUR"]', 8),
-('stat_outstanding_ar', 'Outstanding AR', 'ลูกหนี้คงค้าง', 'stats', 'bi-cash-stack', 'warning', 'S', '["ACC","MGR"]', 9),
-('stat_overdue_invoices', 'Overdue Invoices', 'ใบแจ้งหนี้เกินกำหนด', 'stats', 'bi-exclamation-circle', 'danger', 'S', '["ACC","MGR"]', 10),
-('stat_total_people', 'Total People', 'บุคลากรทั้งหมด', 'stats', 'bi-people', 'primary', 'S', '["HR"]', 11),
-('stat_timesheet_pending', 'Timesheet Pending', 'Timesheet รออนุมัติ', 'stats', 'bi-clock-history', 'warning', 'S', '["HR","MGR"]', 12),
-('stat_pr_pending', 'PRs Pending', 'PR รอดำเนินการ', 'stats', 'bi-file-text', 'warning', 'S', '["PUR"]', 13),
+('stat_total_jobs', 'Total Jobs', 'แสดงจำนวน Jobs ทั้งหมด', 'stats', 'bi-briefcase', 'primary', 'S', NULL, '["JOB_VIEW"]', 1),
+('stat_revenue', 'Revenue', 'ยอดรายได้เดือนนี้', 'stats', 'bi-currency-dollar', 'success', 'S', '["ADM","SAL","ACC","MGR"]', NULL, 2),
+('stat_pending_approvals', 'Pending Approvals', 'รายการรออนุมัติ', 'stats', 'bi-hourglass-split', 'warning', 'S', '["ADM","MGR"]', '["APPROVAL_VIEW"]', 3),
+('stat_active_users', 'Active Users', 'จำนวนผู้ใช้งานปัจจุบัน', 'stats', 'bi-people', 'info', 'S', '["ADM"]', '["USER_VIEW"]', 4),
+('stat_jobs_awaiting_plan', 'Jobs Awaiting Plan', 'Jobs รอวางแผน', 'stats', 'bi-clipboard-check', 'warning', 'S', '["PLN"]', '["JOB_VIEW"]', 5),
+('stat_dispatches_today', 'Dispatches Today', 'Dispatch วันนี้', 'stats', 'bi-truck', 'info', 'S', '["PLN","WH"]', '["ROUTE_VIEW"]', 6),
+('stat_stock_items', 'Total Stock Items', 'จำนวนสินค้าในคลัง', 'stats', 'bi-box-seam', 'primary', 'S', '["WH"]', NULL, 7),
+('stat_low_stock', 'Low Stock Alert', 'สินค้าใกล้หมด', 'stats', 'bi-exclamation-triangle', 'danger', 'S', '["WH","PUR"]', NULL, 8),
+('stat_outstanding_ar', 'Outstanding AR', 'ลูกหนี้คงค้าง', 'stats', 'bi-cash-stack', 'warning', 'S', '["ACC","MGR"]', NULL, 9),
+('stat_overdue_invoices', 'Overdue Invoices', 'ใบแจ้งหนี้เกินกำหนด', 'stats', 'bi-exclamation-circle', 'danger', 'S', '["ACC","MGR"]', NULL, 10),
+('stat_total_people', 'Total People', 'บุคลากรทั้งหมด', 'stats', 'bi-people', 'primary', 'S', '["HR"]', NULL, 11),
+('stat_timesheet_pending', 'Timesheet Pending', 'Timesheet รออนุมัติ', 'stats', 'bi-clock-history', 'warning', 'S', '["HR","MGR"]', '["TS_VIEW"]', 12),
+('stat_pr_pending', 'PRs Pending', 'PR รอดำเนินการ', 'stats', 'bi-file-text', 'warning', 'S', '["PUR"]', '["PR_VIEW"]', 13),
 
 -- Table widgets
-('table_recent_jobs', 'Recent Jobs', 'รายการ Jobs ล่าสุด', 'table', 'bi-list-check', 'primary', 'L', NULL, 20),
-('table_pending_approvals', 'Pending Approvals Table', 'ตารางรายการรออนุมัติ', 'table', 'bi-clock-history', 'warning', 'L', '["ADM","MGR"]', 21),
-('table_my_jobs', 'My Active Jobs', 'Jobs ของฉัน', 'table', 'bi-briefcase', 'primary', 'L', '["SAL"]', 22),
-('table_jobs_awaiting_plan', 'Jobs Awaiting Plan', 'Jobs รอวางแผน', 'table', 'bi-calendar-plus', 'info', 'M', '["PLN"]', 23),
-('table_pending_gr', 'Pending GR', 'รอรับเข้า', 'table', 'bi-box-arrow-in-down', 'warning', 'M', '["WH"]', 24),
-('table_pending_returns', 'Pending Returns', 'รอรับคืน', 'table', 'bi-box-arrow-up', 'info', 'M', '["WH"]', 25),
-('table_ready_to_invoice', 'Ready to Invoice', 'พร้อมออก Invoice', 'table', 'bi-clipboard-check', 'info', 'M', '["ACC"]', 26),
-('table_outstanding_invoices', 'Outstanding Invoices', 'ใบแจ้งหนี้ค้างชำระ', 'table', 'bi-receipt', 'warning', 'M', '["ACC"]', 27),
-('table_approved_prs', 'Approved PRs', 'PR ที่อนุมัติแล้ว', 'table', 'bi-file-check', 'success', 'M', '["PUR"]', 28),
-('table_pending_manpower', 'Pending Manpower Registration', 'แรงงานรอลงทะเบียน', 'table', 'bi-person-plus', 'warning', 'M', '["HR"]', 29),
-('table_timesheet_approval', 'Timesheet Approval', 'Timesheet รออนุมัติ', 'table', 'bi-clock', 'info', 'M', '["HR"]', 30),
+('table_recent_jobs', 'Recent Jobs', 'รายการ Jobs ล่าสุด', 'table', 'bi-list-check', 'primary', 'L', NULL, '["JOB_VIEW"]', 20),
+('table_pending_approvals', 'Pending Approvals Table', 'ตารางรายการรออนุมัติ', 'table', 'bi-clock-history', 'warning', 'L', '["ADM","MGR"]', '["APPROVAL_VIEW"]', 21),
+('table_my_jobs', 'My Active Jobs', 'Jobs ของฉัน', 'table', 'bi-briefcase', 'primary', 'L', '["SAL"]', '["JOB_VIEW"]', 22),
+('table_jobs_awaiting_plan', 'Jobs Awaiting Plan', 'Jobs รอวางแผน', 'table', 'bi-calendar-plus', 'info', 'M', '["PLN"]', '["JOB_VIEW"]', 23),
+('table_pending_gr', 'Pending GR', 'รอรับเข้า', 'table', 'bi-box-arrow-in-down', 'warning', 'M', '["WH"]', NULL, 24),
+('table_dispatch_routes', 'Dispatch Routes', 'Route ที่รอปล่อย', 'table', 'bi-truck', 'info', 'M', '["PLN","WH","ADM","MGR"]', '["ROUTE_VIEW"]', 25),
+('table_pending_returns', 'Pending Returns', 'รอรับคืน', 'table', 'bi-box-arrow-up', 'info', 'M', '["WH"]', '["RETURN_VIEW"]', 25),
+('table_ready_to_invoice', 'Ready to Invoice', 'พร้อมออก Invoice', 'table', 'bi-clipboard-check', 'info', 'M', '["ACC"]', NULL, 26),
+('table_outstanding_invoices', 'Outstanding Invoices', 'ใบแจ้งหนี้ค้างชำระ', 'table', 'bi-receipt', 'warning', 'M', '["ACC"]', NULL, 27),
+('table_approved_prs', 'Approved PRs', 'PR ที่อนุมัติแล้ว', 'table', 'bi-file-check', 'success', 'M', '["PUR"]', '["PR_VIEW"]', 28),
+('table_pending_manpower', 'Pending Manpower Registration', 'แรงงานรอลงทะเบียน', 'table', 'bi-person-plus', 'warning', 'M', '["HR"]', NULL, 29),
+('table_timesheet_approval', 'Timesheet Approval', 'Timesheet รออนุมัติ', 'table', 'bi-clock', 'info', 'M', '["HR"]', '["TS_VIEW"]', 30),
+('system_health', 'System Health', 'สถานะระบบโดยรวม', 'table', 'bi-heart-pulse', 'success', 'L', '["ADM","MGR"]', '["PERM_MANAGE"]', 31),
 
 -- Chart widgets
-('chart_jobs_trend', 'Jobs Trend', 'กราฟแนวโน้ม Jobs', 'chart', 'bi-graph-up', 'info', 'M', NULL, 40),
-('chart_jobs_by_status', 'Jobs by Status', 'สัดส่วน Jobs ตาม Status', 'chart', 'bi-pie-chart', 'success', 'M', NULL, 41),
-('chart_revenue_trend', 'Revenue Trend', 'กราฟแนวโน้มรายได้', 'chart', 'bi-bar-chart', 'success', 'M', '["ADM","SAL","ACC","MGR"]', 42),
-('chart_users_by_role', 'Users by Role', 'ผู้ใช้งานแยกตาม Role', 'chart', 'bi-pie-chart', 'primary', 'M', '["ADM"]', 43),
+('chart_jobs_trend', 'Jobs Trend', 'กราฟแนวโน้ม Jobs', 'chart', 'bi-graph-up', 'info', 'M', NULL, '["JOB_VIEW"]', 40),
+('chart_jobs_by_status', 'Jobs by Status', 'สัดส่วน Jobs ตาม Status', 'chart', 'bi-pie-chart', 'success', 'M', NULL, '["JOB_VIEW"]', 41),
+('chart_revenue_trend', 'Revenue Trend', 'กราฟแนวโน้มรายได้', 'chart', 'bi-bar-chart', 'success', 'M', '["ADM","SAL","ACC","MGR"]', NULL, 42),
+('chart_users_by_role', 'Users by Role', 'ผู้ใช้งานแยกตาม Role', 'chart', 'bi-pie-chart', 'primary', 'M', '["ADM"]', '["USER_VIEW"]', 43),
 
 -- Action widgets
-('action_quick_actions', 'Quick Actions Panel', 'ปุ่มลัดสำหรับสร้างรายการ', 'action', 'bi-plus-circle', 'primary', 'S', NULL, 50),
+('action_quick_actions', 'Quick Actions Panel', 'ปุ่มลัดสำหรับสร้างรายการ', 'action', 'bi-plus-circle', 'primary', 'S', NULL, '["JOB_CREATE","PR_CREATE","PO_CREATE","TS_CREATE"]', 50),
 
 -- Timeline widgets  
-('timeline_activity', 'Activity Timeline', 'ประวัติกิจกรรมล่าสุด', 'timeline', 'bi-journal-text', 'secondary', 'M', NULL, 60),
-('timeline_audit_logs', 'Recent Audit Logs', 'Audit Log ล่าสุด', 'timeline', 'bi-shield-check', 'info', 'M', '["ADM","MGR"]', 61)
+('timeline_activity', 'Activity Timeline', 'ประวัติกิจกรรมล่าสุด', 'timeline', 'bi-journal-text', 'secondary', 'M', NULL, NULL, 60),
+('timeline_audit_logs', 'Recent Audit Logs', 'Audit Log ล่าสุด', 'timeline', 'bi-shield-check', 'info', 'M', '["ADM","MGR"]', '["PERM_MANAGE"]', 61)
 
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+ON DUPLICATE KEY UPDATE
+    `name` = VALUES(`name`),
+    `description` = VALUES(`description`),
+    `category` = VALUES(`category`),
+    `icon` = VALUES(`icon`),
+    `icon_bg_color` = VALUES(`icon_bg_color`),
+    `default_size` = VALUES(`default_size`),
+    `default_enabled` = VALUES(`default_enabled`),
+    `allowed_roles` = VALUES(`allowed_roles`),
+    `required_permissions` = VALUES(`required_permissions`),
+    `sort_order` = VALUES(`sort_order`),
+    `is_active` = VALUES(`is_active`);
 
 -- -------------------------------------------
 -- Insert default role configurations
@@ -116,7 +130,8 @@ INSERT INTO `dashboard_role_config` (`role_code`, `widget_code`, `is_enabled`, `
 ('MGR', 'stat_pending_approvals', 1, 'S', 3),
 ('MGR', 'table_pending_approvals', 1, 'L', 10),
 ('MGR', 'chart_revenue_trend', 1, 'M', 20),
-('MGR', 'timeline_audit_logs', 1, 'M', 30)
+('MGR', 'timeline_audit_logs', 1, 'M', 30),
+('MGR', 'system_health', 1, 'L', 40)
 ON DUPLICATE KEY UPDATE `is_enabled` = VALUES(`is_enabled`);
 
 -- SAL gets sales-focused widgets
@@ -133,6 +148,7 @@ INSERT INTO `dashboard_role_config` (`role_code`, `widget_code`, `is_enabled`, `
 ('PLN', 'stat_jobs_awaiting_plan', 1, 'S', 1),
 ('PLN', 'stat_dispatches_today', 1, 'S', 2),
 ('PLN', 'table_jobs_awaiting_plan', 1, 'M', 10),
+('PLN', 'table_dispatch_routes', 1, 'M', 11),
 ('PLN', 'chart_jobs_trend', 1, 'M', 20),
 ('PLN', 'timeline_activity', 1, 'M', 30)
 ON DUPLICATE KEY UPDATE `is_enabled` = VALUES(`is_enabled`);
@@ -143,7 +159,8 @@ INSERT INTO `dashboard_role_config` (`role_code`, `widget_code`, `is_enabled`, `
 ('WH', 'stat_low_stock', 1, 'S', 2),
 ('WH', 'stat_dispatches_today', 1, 'S', 3),
 ('WH', 'table_pending_gr', 1, 'M', 10),
-('WH', 'table_pending_returns', 1, 'M', 11)
+('WH', 'table_pending_returns', 1, 'M', 11),
+('WH', 'table_dispatch_routes', 1, 'M', 12)
 ON DUPLICATE KEY UPDATE `is_enabled` = VALUES(`is_enabled`);
 
 -- ACC gets accounting widgets

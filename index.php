@@ -35,6 +35,25 @@ try {
     ];
 }
 
+// Map enabled widgets by code for quick lookup
+$enabledWidgetMap = [];
+foreach ($enabledWidgets as $widget) {
+    $enabledWidgetMap[$widget['code']] = $widget;
+}
+
+// Helpers for widget checks/sizing
+$hasWidget = function (string $code) use ($enabledWidgetMap): bool {
+    return isset($enabledWidgetMap[$code]);
+};
+$getWidgetColClass = function (?string $size): string {
+    return match ($size) {
+        'S' => 'col-4',
+        'M' => 'col-6',
+        'L' => 'col-12',
+        default => 'col-4'
+    };
+};
+
 // Role info for display
 $roleInfo = [
     'ADM' => ['label' => 'Admin Dashboard', 'icon' => 'bi-shield-lock', 'color' => '#7C3AED', 'desc' => 'ภาพรวมระบบและการจัดการ'],
@@ -157,7 +176,8 @@ try {
 // Dispatch-ready routes (for WH/Admin/Manager)
 $dispatchRoutes = [];
 $dispatchRouteCount = 0;
-if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WAREHOUSE)) {
+$showDispatchWidget = $hasWidget('table_dispatch_routes');
+if ($showDispatchWidget) {
     try {
         $stmt = $db->query("
             SELECT r.id, r.route_number, r.route_date,
@@ -180,7 +200,6 @@ if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WARE
     }
 }
 
-$showDispatchWidget = $auth->isAdmin() || $auth->hasRole(ROLE_MANAGER) || $auth->hasRole(ROLE_WAREHOUSE);
 $quickActionsCol = $showDispatchWidget ? 'col-6' : 'col-12';
 
 // Helper function to format time
@@ -296,7 +315,7 @@ $pageTitle = $currentRoleInfo['label'];
                     <?php
                     // Quick Actions Widget
                     $actionWidget = array_filter($enabledWidgets, fn($w) => $w['category'] === 'action');
-                    if (!empty($actionWidget)):
+                    if (!empty($actionWidget) && $hasWidget('action_quick_actions')):
                     ?>
                     <div class="widget <?= e($quickActionsCol) ?>">
                         <div class="card-header">
@@ -335,7 +354,7 @@ $pageTitle = $currentRoleInfo['label'];
 
                     <?php if ($showDispatchWidget): ?>
                     <!-- Dispatch Widget (WH/Admin/Manager) -->
-                    <div class="widget col-6">
+                    <div class="widget <?= e($getWidgetColClass($enabledWidgetMap['table_dispatch_routes']['size'] ?? 'M')) ?>">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-truck"></i> Dispatch จาก Route</h3>
                             <a href="<?= BASE_URL ?>/modules/logistics/routes/index.php?status=Confirmed" class="btn btn-sm btn-outline">
@@ -380,9 +399,9 @@ $pageTitle = $currentRoleInfo['label'];
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
-                    <!-- System Health (Admin/Manager) -->
-                    <div class="widget col-12">
+                    <?php if ($hasWidget('system_health')): ?>
+                    <!-- System Health -->
+                    <div class="widget <?= e($getWidgetColClass($enabledWidgetMap['system_health']['size'] ?? 'L')) ?>">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-heart-pulse"></i> System Health</h3>
                             <span class="badge badge-approved">All Systems Operational</span>
@@ -412,9 +431,11 @@ $pageTitle = $currentRoleInfo['label'];
                             </div>
                         </div>
                     </div>
-                    <?php else: ?>
-                    <!-- My Jobs Widget (Non-Admin) -->
-                    <div class="widget col-12">
+                    <?php endif; ?>
+
+                    <?php if ($hasWidget('table_recent_jobs')): ?>
+                    <!-- Recent Jobs -->
+                    <div class="widget <?= e($getWidgetColClass($enabledWidgetMap['table_recent_jobs']['size'] ?? 'L')) ?>">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-briefcase"></i> Recent Jobs</h3>
                             <a href="<?= BASE_URL ?>/modules/jobs/" class="btn btn-sm btn-outline">View All</a>
@@ -462,8 +483,9 @@ $pageTitle = $currentRoleInfo['label'];
                     <?php
                     $timelineWidget = array_filter($enabledWidgets, fn($w) => $w['category'] === 'timeline');
                     if (!empty($timelineWidget)):
+                        $timelineFirst = array_values($timelineWidget)[0];
                     ?>
-                    <div class="widget col-6">
+                    <div class="widget <?= e($getWidgetColClass($timelineFirst['size'] ?? 'M')) ?>">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-journal-text"></i> Recent Activity</h3>
                             <?php if ($auth->isAdmin()): ?>
@@ -501,9 +523,9 @@ $pageTitle = $currentRoleInfo['label'];
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($auth->isAdmin() || $auth->hasRole(ROLE_MANAGER)): ?>
+                    <?php if ($hasWidget('table_pending_approvals')): ?>
                     <!-- Pending Approvals Table -->
-                    <div class="widget col-6">
+                    <div class="widget <?= e($getWidgetColClass($enabledWidgetMap['table_pending_approvals']['size'] ?? 'M')) ?>">
                         <div class="card-header">
                             <h3 class="card-title"><i class="bi bi-hourglass-split"></i> Pending Approvals</h3>
                             <span class="badge badge-warning"><?= count($pendingApprovals) ?> รายการ</span>
@@ -544,11 +566,16 @@ $pageTitle = $currentRoleInfo['label'];
                             <?php endif; ?>
                         </div>
                     </div>
-                    <?php else: ?>
-                    <!-- Chart Placeholder for non-admin -->
-                    <div class="widget col-6">
+                    <?php endif; ?>
+
+                    <?php
+                    $chartWidgets = array_filter($enabledWidgets, fn($w) => $w['category'] === 'chart');
+                    foreach ($chartWidgets as $widget):
+                        $colClass = $getWidgetColClass($widget['size'] ?? 'M');
+                    ?>
+                    <div class="widget <?= e($colClass) ?>">
                         <div class="card-header">
-                            <h3 class="card-title"><i class="bi bi-bar-chart"></i> Performance Overview</h3>
+                            <h3 class="card-title"><i class="bi bi-bar-chart"></i> <?= e((string)($widget['name'] ?? 'Chart')) ?></h3>
                         </div>
                         <div class="card-body">
                             <div style="height: 200px; display: flex; align-items: center; justify-content: center; background: var(--gray-50); border-radius: var(--border-radius);">
@@ -559,7 +586,7 @@ $pageTitle = $currentRoleInfo['label'];
                             </div>
                         </div>
                     </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
 
                 <!-- System Info Footer -->

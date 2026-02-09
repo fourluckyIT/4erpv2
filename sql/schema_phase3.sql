@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `suppliers` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `code` VARCHAR(20) NOT NULL UNIQUE,
     `name` VARCHAR(200) NOT NULL,
+    `supplier_type` ENUM('Goods','Service','Manpower') DEFAULT 'Goods',
     `contact_name` VARCHAR(100),
     `phone` VARCHAR(50),
     `email` VARCHAR(100),
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS `suppliers` (
     PRIMARY KEY (`id`),
     INDEX `idx_code` (`code`),
     INDEX `idx_name` (`name`),
+    INDEX `idx_supplier_type` (`supplier_type`),
     INDEX `idx_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

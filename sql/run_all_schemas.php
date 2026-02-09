@@ -21,11 +21,21 @@ $schemas = [
     // New module schemas
     'schema_m6_timesheet.sql',
     'schema_m7_reservations.sql', 
+    'schema_patch_item_maintenance.sql',
     'schema_m8_approvals_notifications.sql',
     'schema_m9_site_operations.sql',
     'schema_m10_costing.sql',
     'schema_m11_compliance.sql',
     // Patches
+    'schema_dashboard_config.sql',
+    'schema_patch_dashboard_required_permissions.sql',
+    'schema_patch_doc_number_types.sql',
+    'schema_patch_supplier_type.sql',
+    'schema_patch_po_manpower_fields.sql',
+    'schema_patch_po_void_workflow.sql',
+    'schema_patch_po_manpower_workdays.sql',
+    'schema_patch_po_manpower_status_draft.sql',
+    'schema_patch_role_permissions_base.sql',
     'schema_patch_route_dispatch_reminders.sql',
     'schema_patch_route_permissions.sql',
 ];
@@ -56,6 +66,8 @@ foreach ($schemas as $file) {
             echo "⚠️ Skipped (data exists)\n";
         } elseif (strpos($msg, 'already exists') !== false || strpos($msg, '1050') !== false) {
             echo "⚠️ Skipped (table exists)\n";
+        } elseif (strpos($msg, 'Duplicate column') !== false || strpos($msg, '1060') !== false) {
+            echo "⚠️ Skipped (column exists)\n";
         } else {
             echo "❌ Error: {$msg}\n";
             $errors[] = "{$file}: {$msg}";

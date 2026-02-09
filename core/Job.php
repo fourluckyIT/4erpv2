@@ -201,6 +201,15 @@ class Job {
             if (empty(array_intersect($userRoles, $allowedRoles))) {
                 return ['success' => false, 'error' => 'คุณไม่มีสิทธิ์ทำ action นี้'];
             }
+
+            // Permission-based check (if permission defined)
+            $rbac = new RBAC();
+            $permAction = StatusMachine::getPermissionAction($action);
+            if ($permAction && $rbac->permissionExists($permAction, 'JOB')) {
+                if (!$rbac->can($permAction, 'JOB', $job['status'])) {
+                    return ['success' => false, 'error' => 'คุณไม่มีสิทธิ์ทำ action นี้'];
+                }
+            }
             
             // Validate transition
             $validation = StatusMachine::validateTransition($job['status'], $toStatus, $reason);

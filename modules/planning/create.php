@@ -321,7 +321,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     <div class="text-center py-4">
                         <i class="bi bi-cpu text-muted" style="font-size: 2rem;"></i>
                         <p class="text-muted mt-2">ยังไม่มี Device ที่ว่าง</p>
-                        <a href="<?= BASE_URL ?>/modules/admin/items.php" class="btn btn-sm btn-outline-primary">เพิ่มอุปกรณ์</a>
+                        <a href="<?= BASE_URL ?>/modules/master/items.php?action=add" class="btn btn-sm btn-outline-primary">เพิ่มอุปกรณ์</a>
                     </div>
                     <?php else: ?>
                     <div class="row resource-grid">
@@ -481,7 +481,6 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
     </div><!-- End Row -->
     
     <div class="d-flex gap-2 mt-4">
-        <a href="<?= BASE_URL ?>/modules/jobs/view.php?id=<?= $jobId ?>" class="btn btn-outline-secondary btn-lg">ยกเลิก</a>
     </div>
 </form>
 

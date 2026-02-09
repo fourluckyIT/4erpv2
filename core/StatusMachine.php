@@ -116,6 +116,23 @@ class StatusMachine {
     
     // Statuses that require a reason
     const REASON_REQUIRED = ['Voided', 'Cancelled'];
+
+    /**
+     * Map job action to RBAC permission action (if any)
+     */
+    public static function getPermissionAction(string $action): ?string {
+        return match ($action) {
+            'submit' => 'create',
+            'approve' => 'approve',
+            'reject' => 'approve',
+            'cancel' => 'cancel',
+            'plan' => 'edit',
+            'dispatch' => 'dispatch',
+            'close' => 'close',
+            'void' => 'void',
+            default => null
+        };
+    }
     
     /**
      * Check if transition is valid

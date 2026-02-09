@@ -98,6 +98,19 @@ class RBAC {
         
         return $rolePerm;
     }
+
+    /**
+     * Check if a permission definition exists in the system
+     */
+    public function permissionExists(string $action, string $entityType): bool {
+        $stmt = $this->db->prepare("
+            SELECT 1 FROM permissions
+            WHERE action = ? AND entity_type = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$action, $entityType]);
+        return (bool) $stmt->fetchColumn();
+    }
     
     /**
      * Check custom user permission
