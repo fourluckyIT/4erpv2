@@ -119,8 +119,16 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <td><?= formatDate($gr['received_date']) ?></td>
                         <td><?= e($gr['receiver_name']) ?></td>
                         <td>
-                            <span class="badge bg-<?= $gr['status'] === 'Confirmed' ? 'success' : 'secondary' ?>">
-                                <?= $gr['status'] === 'Confirmed' ? 'ยืนยันแล้ว' : 'แบบร่าง' ?>
+                            <span class="badge bg-<?= match($gr['status']) {
+                                'Confirmed' => 'success',
+                                'Voided' => 'danger',
+                                default => 'secondary'
+                            } ?>">
+                                <?= match($gr['status']) {
+                                    'Confirmed' => 'ยืนยันแล้ว',
+                                    'Voided' => 'ยกเลิก',
+                                    default => 'แบบร่าง'
+                                } ?>
                             </span>
                         </td>
                         <td>

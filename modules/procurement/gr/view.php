@@ -15,12 +15,21 @@ $audit = new AuditLog();
 $notification = new Notification();
 $id = (int) get('id');
 
+$colCheck = $db->prepare("
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+");
+$colCheck->execute(['goods_receipts', 'voided_by']);
+$hasGrVoidColumn = ((int) $colCheck->fetchColumn()) > 0;
+
 if (!$id) {
     setFlash('error', 'ไม่พบข้อมูล');
     redirect('index.php');
 }
 
 // Get GR
+$voidSelect = $hasGrVoidColumn ? ", v.full_name as voided_by_name" : ", NULL as voided_by_name";
+$voidJoin = $hasGrVoidColumn ? "LEFT JOIN users v ON gr.voided_by = v.id" : "";
 $stmt = $db->prepare("
     SELECT gr.*, 
            po.po_number, po.supplier_id, po.status as po_status,
@@ -28,11 +37,13 @@ $stmt = $db->prepare("
            s.name as supplier_name,
            u.full_name as receiver_name,
            c.full_name as confirmer_name
+           {$voidSelect}
     FROM goods_receipts gr
     JOIN purchase_orders po ON gr.po_id = po.id
     JOIN suppliers s ON po.supplier_id = s.id
     JOIN users u ON gr.received_by = u.id
     LEFT JOIN users c ON gr.confirmed_by = c.id
+    {$voidJoin}
     WHERE gr.id = ?
 ");
 $stmt->execute([$id]);
@@ -88,6 +99,11 @@ $backfillRoles = ['ADM', 'PUR', 'WH', 'MGR'];
 $canBackfill = !empty(array_intersect($backfillRoles, $_SESSION['roles'] ?? []));
 $canConfirm = $gr['status'] === 'Draft';
 $showBackfill = ($needsBackfill || $needsSerialBackfill || $hasLinkedItems) && $canBackfill;
+$isVoided = $hasGrVoidColumn && $gr['status'] === 'Voided';
+if ($isVoided) {
+    $canConfirm = false;
+    $showBackfill = false;
+}
 $showActions = $canConfirm || $showBackfill;
 
 // Handle actions
@@ -146,8 +162,16 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     <div>
         <h1 class="page-title">
             <i class="bi bi-box-seam" style="color: var(--primary);"></i> <?= e($gr['gr_number']) ?>
-            <span class="badge bg-<?= $gr['status'] === 'Confirmed' ? 'success' : 'secondary' ?> ms-2">
-                <?= $gr['status'] === 'Confirmed' ? 'ยืนยันแล้ว' : 'แบบร่าง' ?>
+            <span class="badge bg-<?= match($gr['status']) {
+                'Confirmed' => 'success',
+                'Voided' => 'danger',
+                default => 'secondary'
+            } ?> ms-2">
+                <?= match($gr['status']) {
+                    'Confirmed' => 'ยืนยันแล้ว',
+                    'Voided' => 'ยกเลิก',
+                    default => 'แบบร่าง'
+                } ?>
             </span>
         </h1>
         <nav aria-label="breadcrumb" class="page-subtitle">
@@ -196,6 +220,13 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 </div>
 <?php endif; ?>
 
+<?php if ($isVoided): ?>
+<div class="alert alert-danger">
+    <strong>GR ถูกยกเลิก:</strong>
+    <?= $gr['void_reason'] ? e($gr['void_reason']) : 'ไม่มีเหตุผลระบุ' ?>
+</div>
+<?php endif; ?>
+
 <!-- GR Info -->
 <div class="row">
     <div class="col-md-6 mb-4">
@@ -241,8 +272,16 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <tr>
                         <th width="120">สถานะ</th>
                         <td>
-                            <span class="badge bg-<?= $gr['status'] === 'Confirmed' ? 'success' : 'secondary' ?>">
-                                <?= $gr['status'] === 'Confirmed' ? 'ยืนยันแล้ว' : 'แบบร่าง' ?>
+                            <span class="badge bg-<?= match($gr['status']) {
+                                'Confirmed' => 'success',
+                                'Voided' => 'danger',
+                                default => 'secondary'
+                            } ?>">
+                                <?= match($gr['status']) {
+                                    'Confirmed' => 'ยืนยันแล้ว',
+                                    'Voided' => 'ยกเลิก',
+                                    default => 'แบบร่าง'
+                                } ?>
                             </span>
                         </td>
                     </tr>
@@ -254,6 +293,16 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                     <tr>
                         <th>วันที่ยืนยัน</th>
                         <td><?= formatDateTime($gr['confirmed_at']) ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php if ($isVoided): ?>
+                    <tr>
+                        <th>ยกเลิกโดย</th>
+                        <td><?= e($gr['voided_by_name'] ?? '-') ?></td>
+                    </tr>
+                    <tr>
+                        <th>วันที่ยกเลิก</th>
+                        <td><?= $gr['voided_at'] ? formatDateTime($gr['voided_at']) : '-' ?></td>
                     </tr>
                     <?php endif; ?>
                 </table>

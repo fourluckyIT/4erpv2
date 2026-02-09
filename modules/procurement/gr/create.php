@@ -38,6 +38,10 @@ if (!$po) {
     setFlash('error', 'ไม่พบ PO หรือสถานะไม่ถูกต้อง');
     redirect('index.php');
 }
+if (($po['po_type'] ?? '') === 'Manpower') {
+    setFlash('error', 'PO แรงงานต้องจัดการผ่าน HR เท่านั้น');
+    redirect("../po/view.php?id=$poId");
+}
 
 // Get PO items with remaining qty
 $poItems = $db->prepare("
@@ -131,23 +135,28 @@ if (isPost()) {
             if ($itemId <= 0) {
                 $typeForItem = in_array($selectedType, ['Device', 'Equipment', 'Vehicle', 'Consumable'], true) ? $selectedType : 'Consumable';
 
-                $prefix = match ($typeForItem) {
+                $docType = match ($typeForItem) {
                     'Device' => 'DEV',
                     'Equipment' => 'EQP',
                     'Vehicle' => 'VEH',
                     'Consumable' => 'CON',
-                    default => 'ITM'
+                    default => 'CON'
                 };
 
-                $stmtMax = $db->prepare("SELECT MAX(CAST(SUBSTRING(code, :start) AS UNSIGNED)) FROM items WHERE code LIKE :prefix");
-                $stmtMax->execute([
-                    ':start' => strlen($prefix) + 1,
-                    ':prefix' => $prefix . '%'
-                ]);
-                $next = (int) $stmtMax->fetchColumn();
-                $next = $next + 1;
-                $baseCode = $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
-                $newCode = ensureUniqueItemCode($db, $baseCode);
+                $newCode = null;
+                for ($i = 0; $i < 5; $i++) {
+                    $candidate = $docNum->generate($docType);
+                    $check = $db->prepare("SELECT 1 FROM items WHERE code = ?");
+                    $check->execute([$candidate]);
+                    if (!$check->fetchColumn()) {
+                        $newCode = $candidate;
+                        break;
+                    }
+                }
+                if ($newCode === null) {
+                    throw new Exception('ไม่สามารถสร้างรหัสได้');
+                }
+                $baseCode = $newCode;
 
                 $newName = trim((string)($poItemRow['description'] ?? ''));
                 if ($newName === '') {
