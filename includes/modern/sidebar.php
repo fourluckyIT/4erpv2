@@ -102,6 +102,8 @@ $activeWarehouseMovements = $isActiveExact('/modules/warehouse/movements.php');
 $activeWarehouseStock = $isActivePrefix('/modules/warehouse') && !$activeWarehouseMovements;
 $activeInvoices = $isActivePrefix('/modules/accounting/invoices');
 $activePayments = $isActivePrefix('/modules/accounting/payments');
+$activeAPInvoices = $isActivePrefix('/modules/accounting/ap');
+$activeAPPayments = $isActivePrefix('/modules/accounting/ap-payments');
 $activeHrmPeople = $isActivePrefix('/modules/hrm/people');
 $activeHrmManpower = $isActivePrefix('/modules/hrm/manpower');
 $activeTimesheet = $isActivePrefix('/modules/timesheet');
@@ -181,14 +183,25 @@ $activeAdminAudit = $isActiveExact('/modules/admin/audit_logs.php');
 
         <?php if ($canViewAccounting): ?>
         <div class="nav-section">
-            <div class="nav-section-title">Accounting</div>
+            <div class="nav-section-title">Accounting (AR)</div>
             <a href="<?= BASE_URL ?>/modules/accounting/invoices/" class="nav-item <?= $activeInvoices ? 'active' : '' ?>">
                 <i class="bi bi-receipt nav-icon"></i>
-                <span class="nav-text">Invoices</span>
+                <span class="nav-text">AR Invoices</span>
             </a>
             <a href="<?= BASE_URL ?>/modules/accounting/payments/" class="nav-item <?= $activePayments ? 'active' : '' ?>">
                 <i class="bi bi-credit-card nav-icon"></i>
-                <span class="nav-text">Payments</span>
+                <span class="nav-text">AR Payments</span>
+            </a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Accounting (AP)</div>
+            <a href="<?= BASE_URL ?>/modules/accounting/ap/" class="nav-item <?= $activeAPInvoices ? 'active' : '' ?>">
+                <i class="bi bi-file-earmark-text nav-icon"></i>
+                <span class="nav-text">AP Invoices</span>
+            </a>
+            <a href="<?= BASE_URL ?>/modules/accounting/ap-payments/" class="nav-item <?= $activeAPPayments ? 'active' : '' ?>">
+                <i class="bi bi-cash-stack nav-icon"></i>
+                <span class="nav-text">AP Payments</span>
             </a>
         </div>
         <?php endif; ?>

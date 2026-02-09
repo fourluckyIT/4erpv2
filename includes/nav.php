@@ -110,8 +110,13 @@ $userRoles = $auth->getCurrentRoles();
                         <i class="bi bi-calculator me-1"></i>Accounting
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/accounting/invoices/">Invoices</a></li>
-                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/accounting/payments/">Payments</a></li>
+                        <li><h6 class="dropdown-header">Accounts Receivable</h6></li>
+                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/accounting/invoices/">AR Invoices</a></li>
+                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/accounting/payments/">AR Payments</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">Accounts Payable</h6></li>
+                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/accounting/ap/">AP Invoices</a></li>
+                        <li><a class="dropdown-item" href="<?= BASE_URL ?>/modules/accounting/ap-payments/">AP Payments</a></li>
                     </ul>
                 </li>
                 <?php endif; ?>
