@@ -76,8 +76,9 @@ foreach ($items as $it) {
     } else {
         $hasLinkedItems = true;
     }
+    $itemType = strtolower((string) ($it['item_type'] ?? ''));
     $requiresSerial = ((int)($it['is_serialized'] ?? 0) === 1)
-        || in_array(($it['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+        || in_array($itemType, ['device', 'equipment', 'vehicle'], true);
     if ($requiresSerial) {
         $serials = [];
         if (!empty($it['serial_numbers'])) {

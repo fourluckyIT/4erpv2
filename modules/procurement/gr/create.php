@@ -17,6 +17,26 @@ $notification = new Notification();
 $docNum = new DocumentNumber();
 $warehouseService = new WarehouseService();
 
+function normalizeItemType(?string $type): string {
+    $type = strtolower(trim((string) $type));
+    return match ($type) {
+        'device' => 'Device',
+        'equipment' => 'Equipment',
+        'vehicle' => 'Vehicle',
+        'consumable' => 'Consumable',
+        default => '',
+    };
+}
+
+function requiresSerialByType(string $type): bool {
+    return in_array($type, ['Device', 'Equipment', 'Vehicle'], true);
+}
+
+function parseSerialLines(string $text): array {
+    $lines = preg_split("/\r\n|\n|\r/", $text, -1, PREG_SPLIT_NO_EMPTY);
+    return array_values(array_filter(array_map('trim', $lines), fn($s) => $s !== ''));
+}
+
 $poId = (int) get('po_id');
 
 if (!$poId) {
@@ -45,7 +65,7 @@ if (($po['po_type'] ?? '') === 'Manpower') {
 
 // Get PO items with remaining qty
 $poItems = $db->prepare("
-    SELECT poi.*, i.code as item_code, i.is_serialized, i.item_type as existing_item_type,
+    SELECT poi.*, i.code as item_code, i.name as item_name, i.is_serialized, i.item_type as existing_item_type,
            (poi.qty - poi.received_qty) as remaining_qty
     FROM po_items poi
     LEFT JOIN items i ON poi.item_id = i.id
@@ -63,6 +83,13 @@ if (empty($poItems)) {
     setFlash('info', 'PO นี้รับของครบแล้ว');
     redirect("../po/view.php?id=$poId");
 }
+
+$existingItems = $db->query("
+    SELECT id, code, name, item_type, is_serialized
+    FROM items
+    WHERE is_active = 1
+    ORDER BY item_type, code
+")->fetchAll();
 
 // Handle form submission
 if (isPost()) {
@@ -108,13 +135,93 @@ if (isPost()) {
             if (!$poItemRow) {
                 throw new Exception('ไม่พบรายการ PO Item: ' . $poItemId);
             }
-            
+
+            $serialInput = trim((string) ($item['serials'] ?? ''));
+            $serialLines = parseSerialLines($serialInput);
+            if (count($serialLines) !== count(array_unique($serialLines))) {
+                throw new Exception('Serial ซ้ำในฟอร์ม');
+            }
+
+            $selectedType = normalizeItemType($item['item_type'] ?? '');
+            if ($selectedType === '') {
+                $selectedType = normalizeItemType($poItemRow['existing_item_type'] ?? '');
+            }
+
+            $itemId = (int) ($poItemRow['item_id'] ?? 0);
+            $existingIsSerialized = (int) ($poItemRow['is_serialized'] ?? 0);
+
+            $linkItemId = (int) ($item['link_item_id'] ?? 0);
+            if ($itemId > 0 && $linkItemId > 0 && $linkItemId !== $itemId) {
+                throw new Exception('รายการนี้เชื่อมกับสินค้าอยู่แล้ว');
+            }
+
+            if ($itemId <= 0 && $linkItemId > 0) {
+                $stmtLink = $db->prepare("SELECT id, item_type, is_serialized, is_active FROM items WHERE id = ?");
+                $stmtLink->execute([$linkItemId]);
+                $linkedItem = $stmtLink->fetch(PDO::FETCH_ASSOC);
+                if (!$linkedItem || (int) ($linkedItem['is_active'] ?? 0) !== 1) {
+                    throw new Exception('สินค้าที่เลือกไม่พร้อมใช้งาน');
+                }
+                $linkedType = normalizeItemType($linkedItem['item_type'] ?? '');
+                if ($selectedType === '') {
+                    $selectedType = $linkedType;
+                }
+                if ($selectedType !== '' && $linkedType !== '' && $selectedType !== $linkedType) {
+                    throw new Exception('ประเภทสินค้าไม่ตรงกับสินค้าที่เลือก');
+                }
+                $itemId = (int) $linkedItem['id'];
+                $existingIsSerialized = (int) ($linkedItem['is_serialized'] ?? 0);
+                $db->prepare("UPDATE po_items SET item_id = ? WHERE id = ? AND item_id IS NULL")->execute([$itemId, $poItemId]);
+                $audit->log('link_item', 'PO_ITEM', $poItemId, null, ['item_id' => $itemId, 'source' => 'link_existing']);
+            }
+
+            if ($itemId > 0) {
+                $stmtType = $db->prepare("SELECT item_type, is_serialized FROM items WHERE id = ?");
+                $stmtType->execute([$itemId]);
+                $rowType = $stmtType->fetch(PDO::FETCH_ASSOC);
+                if ($rowType) {
+                    $dbType = normalizeItemType($rowType['item_type'] ?? '');
+                    if ($selectedType !== '' && $dbType !== '' && $selectedType !== $dbType) {
+                        throw new Exception('ประเภทสินค้าไม่ตรงกับสินค้าที่เลือก');
+                    }
+                    if ($selectedType === '') {
+                        $selectedType = $dbType;
+                    }
+                    $existingIsSerialized = (int) ($rowType['is_serialized'] ?? $existingIsSerialized);
+                }
+            }
+
+            if ($selectedType === '') {
+                throw new Exception('กรุณาเลือกประเภทสินค้า');
+            }
+
+            $requiresSerial = requiresSerialByType($selectedType) || $existingIsSerialized === 1;
+            if ($selectedType === 'Consumable' && !empty($serialLines)) {
+                throw new Exception('วัสดุสิ้นเปลืองไม่ต้องมี Serial');
+            }
+            if ($requiresSerial) {
+                $expectedCount = (int) round($receivedQty);
+                if (abs($receivedQty - $expectedCount) > 0.00001) {
+                    throw new Exception('สินค้า Serial ต้องระบุจำนวนเป็นจำนวนเต็ม');
+                }
+                if (count($serialLines) !== $expectedCount) {
+                    throw new Exception('สินค้า Serial ต้องกรอก Serial ให้ครบเท่ากับจำนวนที่รับ');
+                }
+                foreach ($serialLines as $sn) {
+                    $stmtCheck = $db->prepare("SELECT item_id FROM serials WHERE serial_number = ?");
+                    $stmtCheck->execute([$sn]);
+                    if ($stmtCheck->fetchColumn()) {
+                        throw new Exception('Serial ซ้ำในระบบ: ' . $sn);
+                    }
+                }
+            }
+
             // Insert GR item
             $stmt = $db->prepare("
                 INSERT INTO gr_items (gr_id, po_item_id, received_qty, serial_numbers, condition_note)
                 VALUES (?, ?, ?, ?, ?)
             ");
-            $serials = !empty($item['serials']) ? json_encode(array_filter(explode("\n", $item['serials']))) : null;
+            $serials = !empty($serialLines) ? json_encode($serialLines) : null;
             $stmt->execute([
                 $grId,
                 $poItemId,
@@ -128,8 +235,6 @@ if (isPost()) {
                 UPDATE po_items SET received_qty = received_qty + ? WHERE id = ?
             ")->execute([$receivedQty, $poItemId]);
 
-            $itemId = (int) ($poItemRow['item_id'] ?? 0);
-            $selectedType = trim((string)($item['item_type'] ?? ''));
             $notes = "GR {$grNumber} / PO {$po['po_number']}" . ($selectedType ? " / {$selectedType}" : '');
 
             if ($itemId <= 0) {
@@ -163,8 +268,10 @@ if (isPost()) {
                     $newName = $newCode;
                 }
 
-                $serialInput = trim((string)($item['serials'] ?? ''));
-                $isSerializedNew = $serialInput !== '' ? 1 : 0;
+                if ($requiresSerial && empty($serialLines)) {
+                    throw new Exception('สินค้า ' . $typeForItem . ' ต้องระบุ Serial');
+                }
+                $isSerializedNew = $requiresSerial ? 1 : 0;
 
                 $costPrice = (float)($poItemRow['unit_price'] ?? 0);
                 $stmtNew = $db->prepare("INSERT INTO items (code, name, item_type, unit, is_serialized, cost_price, is_active, source, created_by) VALUES (?, ?, ?, ?, ?, ?, 1, 'GR', ?)");
@@ -188,7 +295,7 @@ if (isPost()) {
             }
 
             if ($itemId > 0) {
-                $isSerialized = (int)($poItemRow['is_serialized'] ?? 0) === 1;
+                $isSerialized = $existingIsSerialized === 1;
                 if (!$isSerialized) {
                     try {
                         $stmtSerFlag = $db->prepare("SELECT is_serialized FROM items WHERE id = ?");
@@ -198,23 +305,15 @@ if (isPost()) {
                         $isSerialized = false;
                     }
                 }
+                if ($requiresSerial && !$isSerialized) {
+                    $db->prepare("UPDATE items SET is_serialized = 1 WHERE id = ?")->execute([$itemId]);
+                    $isSerialized = true;
+                }
 
                 if ($isSerialized) {
-                    $expectedCount = (int) round($receivedQty);
-                    if (abs($receivedQty - $expectedCount) > 0.00001) {
-                        throw new Exception('สินค้า Serial ต้องระบุจำนวนเป็นจำนวนเต็ม');
-                    }
-
-                    $serialLines = preg_split("/\r\n|\n|\r/", (string)($item['serials'] ?? ''), -1, PREG_SPLIT_NO_EMPTY);
-                    $serialLines = array_values(array_filter(array_map('trim', $serialLines), fn($s) => $s !== ''));
-
-                    if (count($serialLines) !== $expectedCount) {
-                        throw new Exception('สินค้า Serial ต้องกรอก Serial ให้ครบเท่ากับจำนวนที่รับ');
-                    }
-
                     foreach ($serialLines as $sn) {
-                        $stmtCheck = $db->prepare("SELECT id FROM serials WHERE item_id = ? AND serial_number = ?");
-                        $stmtCheck->execute([$itemId, $sn]);
+                        $stmtCheck = $db->prepare("SELECT item_id FROM serials WHERE serial_number = ?");
+                        $stmtCheck->execute([$sn]);
                         if ($stmtCheck->fetchColumn()) {
                             throw new Exception('Serial ซ้ำในระบบ: ' . $sn);
                         }
@@ -323,6 +422,7 @@ if (empty($itemTypes)) {
     $itemTypes = [
         ['code' => 'Device', 'name' => 'อุปกรณ์ (Device)'],
         ['code' => 'Equipment', 'name' => 'เครื่องมือ (Equipment)'],
+        ['code' => 'Vehicle', 'name' => 'ยานพาหนะ (Vehicle)'],
         ['code' => 'Consumable', 'name' => 'วัสดุสิ้นเปลือง (Consumable)'],
     ];
 }
@@ -392,17 +492,23 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             <th class="text-center">คงเหลือ</th>
                             <th class="text-center" style="width: 100px;">รับครั้งนี้</th>
                             <th style="width: 180px;">ประเภท</th>
+                            <th style="width: 220px;">ผูกกับสินค้าเดิม</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($poItems as $item): ?>
+                        <?php
+                            $currentType = normalizeItemType($item['existing_item_type'] ?? '');
+                            $requiresSerialRow = requiresSerialByType($currentType) || (int) ($item['is_serialized'] ?? 0) === 1;
+                            $hasLinkedItem = !empty($item['item_id']);
+                        ?>
                         <tr>
                             <td>
                                 <?php if ($item['item_code']): ?>
                                 <small class="text-muted"><?= e($item['item_code']) ?></small><br>
                                 <?php endif; ?>
                                 <?= e($item['description']) ?>
-                                <?php if ($item['is_serialized']): ?>
+                                <?php if ($requiresSerialRow): ?>
                                 <span class="badge bg-info">Serial</span>
                                 <?php endif; ?>
                             </td>
@@ -418,21 +524,34 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                        min="0" max="<?= $item['remaining_qty'] ?>" step="0.01">
                             </td>
                             <td>
-                                <?php 
-                                // Pre-select based on existing item_type or default to empty
-                                $currentType = $item['existing_item_type'] ?? '';
-                                ?>
-                                <select class="form-select form-select-sm" name="items[<?= $item['id'] ?>][item_type]" required>
+                                <?php // Pre-select based on existing item_type or default to empty ?>
+                                <select class="form-select form-select-sm js-item-type" data-po-item="<?= $item['id'] ?>" name="items[<?= $item['id'] ?>][item_type]" required <?= $hasLinkedItem ? 'disabled' : '' ?>>
                                     <option value="">-- เลือกประเภท --</option>
                                     <?php foreach ($itemTypes as $t): ?>
                                     <option value="<?= e($t['code']) ?>" <?= $currentType === $t['code'] ? 'selected' : '' ?>><?= e($t['name']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </td>
+                            <td>
+                                <?php if ($hasLinkedItem): ?>
+                                    <div class="small text-muted">ผูกแล้ว</div>
+                                    <div class="fw-semibold"><?= e($item['item_code'] ?? '-') ?></div>
+                                    <div class="text-muted small"><?= e($item['item_name'] ?? '') ?></div>
+                                <?php else: ?>
+                                <select class="form-select form-select-sm js-link-item" data-po-item="<?= $item['id'] ?>" name="items[<?= $item['id'] ?>][link_item_id]">
+                                    <option value="">-- สร้างใหม่ --</option>
+                                    <?php foreach ($existingItems as $ex): ?>
+                                        <?php $exType = normalizeItemType($ex['item_type'] ?? ''); ?>
+                                        <option value="<?= (int) $ex['id'] ?>" data-type="<?= e($exType) ?>" data-serialized="<?= (int) ($ex['is_serialized'] ?? 0) ?>">
+                                            <?= e($ex['code']) ?> - <?= e($ex['name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php endif; ?>
+                            </td>
                         </tr>
-                        <?php if ($item['is_serialized']): ?>
-                        <tr>
-                            <td colspan="6" class="bg-light">
+                        <tr class="<?= $requiresSerialRow ? '' : 'd-none' ?>" data-serial-row="<?= $item['id'] ?>">
+                            <td colspan="7" class="bg-light">
                                 <div class="row">
                                     <div class="col-md-8">
                                         <small class="text-muted">Serial Numbers (หนึ่ง serial ต่อบรรทัด):</small>
@@ -449,13 +568,11 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 </div>
                             </td>
                         </tr>
-                        <?php else: ?>
-                        <tr class="d-none">
-                            <td colspan="6">
+                        <tr class="d-none" data-serial-placeholder="<?= $item['id'] ?>">
+                            <td colspan="7">
                                 <input type="hidden" name="items[<?= $item['id'] ?>][condition_note]" value="">
                             </td>
                         </tr>
-                        <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -469,5 +586,76 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         </button>
     </div>
 </form>
+
+<script>
+(function () {
+    const typeSelects = document.querySelectorAll('.js-item-type');
+    const linkSelects = document.querySelectorAll('.js-link-item');
+
+    const requiresSerial = (type) => ['device', 'equipment', 'vehicle'].includes((type || '').toLowerCase());
+
+    function updateRow(poItemId) {
+        const typeSelect = document.querySelector(`.js-item-type[data-po-item="${poItemId}"]`);
+        const linkSelect = document.querySelector(`.js-link-item[data-po-item="${poItemId}"]`);
+        const serialRow = document.querySelector(`tr[data-serial-row="${poItemId}"]`);
+
+        let type = typeSelect ? typeSelect.value : '';
+        let serializedByItem = false;
+
+        if (linkSelect) {
+            const selected = linkSelect.selectedOptions[0];
+            const linkedType = selected ? (selected.dataset.type || '') : '';
+            const linkedSerialized = selected ? (selected.dataset.serialized === '1') : false;
+
+            if (linkSelect.value) {
+                if (linkedType && typeSelect && typeSelect.value !== linkedType) {
+                    typeSelect.value = linkedType;
+                }
+                if (typeSelect) {
+                    typeSelect.disabled = true;
+                }
+                type = linkedType || type;
+                serializedByItem = linkedSerialized;
+            } else if (typeSelect) {
+                typeSelect.disabled = false;
+            }
+
+            if (type) {
+                linkSelect.querySelectorAll('option[data-type]').forEach((opt) => {
+                    opt.disabled = opt.dataset.type && opt.dataset.type !== type;
+                });
+            } else {
+                linkSelect.querySelectorAll('option[data-type]').forEach((opt) => {
+                    opt.disabled = false;
+                });
+            }
+
+            if (linkSelect.value) {
+                const selectedOpt = linkSelect.selectedOptions[0];
+                if (selectedOpt && selectedOpt.disabled) {
+                    linkSelect.value = '';
+                    serializedByItem = false;
+                    if (typeSelect) {
+                        typeSelect.disabled = false;
+                    }
+                }
+            }
+        }
+
+        const showSerial = requiresSerial(type) || serializedByItem;
+        if (serialRow) {
+            serialRow.classList.toggle('d-none', !showSerial);
+        }
+    }
+
+    typeSelects.forEach((select) => {
+        select.addEventListener('change', () => updateRow(select.dataset.poItem));
+    });
+    linkSelects.forEach((select) => {
+        select.addEventListener('change', () => updateRow(select.dataset.poItem));
+    });
+    typeSelects.forEach((select) => updateRow(select.dataset.poItem));
+})();
+</script>
 
 <?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>

@@ -18,6 +18,7 @@ $typeFilter = get('type', '');
 $canDeactivate = $auth->isAdmin();
 $maintenanceRoles = [ROLE_WAREHOUSE, ROLE_MANAGER, ROLE_ADMIN, ROLE_PLANNER];
 $canMaintain = !empty(array_intersect($_SESSION['roles'] ?? [], $maintenanceRoles));
+$canSerialManage = $auth->isAdmin() || $auth->hasRole(ROLE_WAREHOUSE);
 $maintenanceEnabled = false;
 $maintenanceSchemaReady = false;
 try {
@@ -215,6 +216,80 @@ if (isPost()) {
         }
     }
 
+    if ($formAction === 'add_serials') {
+        if (!$canSerialManage) {
+            setFlash('error', 'คุณไม่มีสิทธิ์เพิ่ม Serial');
+            redirect('items.php');
+        }
+        $id = (int) post('id');
+        $serialText = trim((string) post('serial_numbers', ''));
+        if ($serialText === '') {
+            setFlash('error', 'กรุณากรอก Serial อย่างน้อย 1 รายการ');
+            redirect('items.php?action=edit&id=' . $id);
+        }
+        $stmt = $db->prepare("SELECT item_type, is_serialized FROM items WHERE id = ?");
+        $stmt->execute([$id]);
+        $itemRow = $stmt->fetch();
+        if (!$itemRow) {
+            setFlash('error', 'ไม่พบข้อมูล');
+            redirect('items.php');
+        }
+
+        $itemType = strtolower((string) ($itemRow['item_type'] ?? ''));
+        $isSerialized = (int) ($itemRow['is_serialized'] ?? 0);
+        if ($itemType === 'consumable') {
+            setFlash('error', 'วัสดุสิ้นเปลืองไม่ต้องมี Serial');
+            redirect('items.php?action=edit&id=' . $id);
+        }
+        if ($isSerialized !== 1) {
+            $db->prepare("UPDATE items SET is_serialized = 1 WHERE id = ?")->execute([$id]);
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", $serialText, -1, PREG_SPLIT_NO_EMPTY);
+        $serials = array_values(array_filter(array_map('trim', $lines), fn($s) => $s !== ''));
+        if (count($serials) !== count(array_unique($serials))) {
+            setFlash('error', 'Serial ซ้ำในฟอร์ม');
+            redirect('items.php?action=edit&id=' . $id);
+        }
+
+        if ($itemType === 'vehicle') {
+            if (count($serials) !== 1) {
+                setFlash('error', 'Vehicle ต้องมี Serial/ทะเบียนเพียง 1 รายการ');
+                redirect('items.php?action=edit&id=' . $id);
+            }
+            $check = $db->prepare("SELECT COUNT(*) FROM serials WHERE item_id = ?");
+            $check->execute([$id]);
+            if ((int) $check->fetchColumn() > 0) {
+                setFlash('error', 'Vehicle มี Serial แล้ว');
+                redirect('items.php?action=edit&id=' . $id);
+            }
+        }
+
+        $created = 0;
+        foreach ($serials as $sn) {
+            $check = $db->prepare("SELECT item_id FROM serials WHERE serial_number = ?");
+            $check->execute([$sn]);
+            if ($check->fetchColumn()) {
+                setFlash('error', 'Serial ซ้ำในระบบ: ' . $sn);
+                redirect('items.php?action=edit&id=' . $id);
+            }
+            $stmt = $db->prepare("
+                INSERT INTO serials (item_id, serial_number, status, location, created_by)
+                VALUES (?, ?, 'Available', 'WH', ?)
+            ");
+            $stmt->execute([$id, $sn, $_SESSION['user_id']]);
+            $serialId = (int) $db->lastInsertId();
+            $audit->log('create', 'SERIAL', $serialId, null, ['serial_number' => $sn, 'item_id' => $id]);
+            $created++;
+        }
+        if ($created === 0) {
+            setFlash('info', 'ไม่พบ Serial ใหม่ที่เพิ่มได้');
+        } else {
+            setFlash('success', "เพิ่ม Serial สำเร็จ {$created} รายการ");
+        }
+        redirect('items.php?action=edit&id=' . $id);
+    }
+
     if ($formAction === 'deactivate') {
         if (!$canDeactivate) {
             setFlash('error', 'คุณไม่มีสิทธิ์ปิดใช้งานรายการนี้');
@@ -310,6 +385,12 @@ if (isPost()) {
             if ($itemType === 'Device') {
                 $isSerialized = 1;
             }
+            if ($itemType === 'Equipment') {
+                $isSerialized = 1;
+            }
+            if ($itemType === 'Consumable') {
+                $isSerialized = 0;
+            }
 
             if ($maintenanceSchemaReady) {
                 $stmt = $db->prepare("
@@ -362,6 +443,11 @@ if (isPost()) {
             }
 
             if ($itemType === 'Device') {
+                $checkSerial = $db->prepare("SELECT id FROM serials WHERE serial_number = ?");
+                $checkSerial->execute([$code]);
+                if ($checkSerial->fetch()) {
+                    throw new Exception('Serial ซ้ำในระบบ');
+                }
                 $stmt = $db->prepare("
                     INSERT INTO serials (item_id, serial_number, status, location, created_by)
                     VALUES (?, ?, 'Available', 'WH', ?)
@@ -389,8 +475,9 @@ if (isPost()) {
         $maintenanceLastDate = null;
         $maintenanceNextDate = null;
         $itemType = '';
+        $serializedFlag = 0;
         if ($maintenanceSchemaReady) {
-            $stmt = $db->prepare("SELECT item_type, maintenance_required, maintenance_interval_days, maintenance_last_date FROM items WHERE id = ?");
+            $stmt = $db->prepare("SELECT item_type, is_serialized, maintenance_required, maintenance_interval_days, maintenance_last_date FROM items WHERE id = ?");
             $stmt->execute([$id]);
             $current = $stmt->fetch();
             if (!$current) {
@@ -402,6 +489,14 @@ if (isPost()) {
             $maintenanceInterval = (int) ($current['maintenance_interval_days'] ?? 0);
             $maintenanceLastDate = $current['maintenance_last_date'] ?? null;
             $maintenanceNextDate = computeNextMaintenanceDate($maintenanceLastDate, $maintenanceInterval);
+            $serializedFlag = (int) ($current['is_serialized'] ?? 0);
+
+            if (in_array($itemType, ['Device', 'Equipment', 'Vehicle'], true)) {
+                $serializedFlag = 1;
+            }
+            if ($itemType === 'Consumable') {
+                $serializedFlag = 0;
+            }
 
             if ($canMaintain) {
                 $maintenanceRequired = post('maintenance_required') ? 1 : 0;
@@ -419,6 +514,22 @@ if (isPost()) {
                 }
                 $maintenanceNextDate = computeNextMaintenanceDate($maintenanceLastDate, $maintenanceInterval);
             }
+        } else {
+            $stmt = $db->prepare("SELECT item_type, is_serialized FROM items WHERE id = ?");
+            $stmt->execute([$id]);
+            $current = $stmt->fetch();
+            if (!$current) {
+                setFlash('error', 'ไม่พบข้อมูล');
+                redirect('items.php');
+            }
+            $itemType = $current['item_type'] ?? '';
+            $serializedFlag = (int) ($current['is_serialized'] ?? 0);
+            if (in_array($itemType, ['Device', 'Equipment', 'Vehicle'], true)) {
+                $serializedFlag = 1;
+            }
+            if ($itemType === 'Consumable') {
+                $serializedFlag = 0;
+            }
         }
 
         if ($maintenanceSchemaReady) {
@@ -433,7 +544,7 @@ if (isPost()) {
             $stmt->execute([
                 sanitize(post('name')), sanitize(post('category')),
                 sanitize(post('brand')), sanitize(post('model')), post('description'),
-                sanitize(post('unit')), post('is_serialized') ? 1 : 0,
+                sanitize(post('unit')), $serializedFlag,
                 $maintenanceRequired, $maintenanceInterval ?: null, $maintenanceLastDate, $maintenanceNextDate,
                 (int) post('min_stock', 0), (float) post('cost_price', 0),
                 (float) post('rental_price_day', 0), (float) post('sale_price', 0),
@@ -450,7 +561,7 @@ if (isPost()) {
             $stmt->execute([
                 sanitize(post('name')), sanitize(post('category')),
                 sanitize(post('brand')), sanitize(post('model')), post('description'),
-                sanitize(post('unit')), post('is_serialized') ? 1 : 0,
+                sanitize(post('unit')), $serializedFlag,
                 (int) post('min_stock', 0), (float) post('cost_price', 0),
                 (float) post('rental_price_day', 0), (float) post('sale_price', 0),
                 post('supplier_id') ?: null, $id
@@ -479,17 +590,21 @@ if (isPost()) {
 }
 
 // Get data
+$serialEligible = false;
 if ($action === 'edit' && $id) {
     $stmt = $db->prepare("SELECT * FROM items WHERE id = ?");
     $stmt->execute([$id]);
     $item = $stmt->fetch();
     if (!$item) { setFlash('error', 'ไม่พบข้อมูล'); redirect('items.php'); }
     
-    // Get serials if serialized
-    if ($item['is_serialized']) {
-        $serials = $db->prepare("SELECT * FROM serials WHERE item_id = ? ORDER BY serial_number");
-        $serials->execute([$id]);
-        $serials = $serials->fetchAll();
+    $serials = [];
+    $itemType = strtolower((string) ($item['item_type'] ?? ''));
+    $serialEligible = in_array($itemType, ['device', 'equipment', 'vehicle'], true)
+        || (int) ($item['is_serialized'] ?? 0) === 1;
+    if ($serialEligible) {
+        $serialsStmt = $db->prepare("SELECT * FROM serials WHERE item_id = ? ORDER BY serial_number");
+        $serialsStmt->execute([$id]);
+        $serials = $serialsStmt->fetchAll();
     }
 
     if ($maintenanceEnabled) {
@@ -835,8 +950,10 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             <?php if ($i['brand']): ?><br><small class="text-muted"><?= e($i['brand']) ?></small><?php endif; ?>
                         </td>
                         <td>
-                            <span class="badge bg-<?= match($i['item_type']) { 'Device' => 'primary', 'Equipment' => 'info', 'Vehicle' => 'warning', default => 'secondary' } ?>">
-                                <?= e($i['item_type']) ?>
+                            <?php $itemTypeLabel = $i['item_type'] ?? ''; ?>
+                            <?php $itemTypeKey = strtolower((string) $itemTypeLabel); ?>
+                            <span class="badge bg-<?= match($itemTypeKey) { 'device' => 'primary', 'equipment' => 'info', 'vehicle' => 'warning', default => 'secondary' } ?>">
+                                <?= e($itemTypeLabel) ?>
                             </span>
                         </td>
                         <td>
@@ -846,7 +963,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             </small>
                         </td>
                         <td>
-                            <?php if ((int) ($i['is_serialized'] ?? 0) === 1): ?>
+                            <?php if ((int) ($i['is_serialized'] ?? 0) === 1 || in_array($itemTypeKey, ['device', 'equipment', 'vehicle'], true)): ?>
                             <span class="badge bg-success"><?= number_format((int) ($i['serial_count'] ?? 0)) ?></span>
                             <?php else: ?>
                             <span class="text-muted">-</span>
@@ -947,7 +1064,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             <option value="Vehicle" <?= ($item['item_type'] ?? '') === 'Vehicle' ? 'selected' : '' ?>>Vehicle (ยานพาหนะ)</option>
                             <option value="Consumable" <?= ($item['item_type'] ?? '') === 'Consumable' ? 'selected' : '' ?>>Consumable (วัสดุสิ้นเปลือง)</option>
                         </select>
-                        <div class="form-text">เลือกประเภทเพื่อ generate รหัสอัตโนมัติ</div>
+                        <div class="form-text" id="typeHint">เลือกประเภทเพื่อ generate รหัสอัตโนมัติ</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">รหัส</label>
@@ -1012,7 +1129,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" name="is_serialized" id="isSerialized" value="1" 
                                <?= ($item['is_serialized'] ?? 0) ? 'checked' : '' ?> <?= $action === 'edit' ? 'disabled' : '' ?>>
-                        <label class="form-check-label" for="isSerialized">Track by Serial Number</label>
+                        <label class="form-check-label" for="isSerialized">Track by Serial Number (บังคับสำหรับ Device/Equipment/Vehicle)</label>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">ต้นทุน</label>
@@ -1233,7 +1350,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
 </div>
 <?php endif; ?>
 
-<?php if ($action === 'edit' && !empty($serials)): ?>
+<?php if ($action === 'edit' && $serialEligible): ?>
 <div class="card mt-4">
     <div class="card-header">
         <i class="bi bi-upc-scan me-2"></i>Serial Numbers (<?= count($serials) ?> units)
@@ -1245,23 +1362,39 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                     <tr><th>Serial</th><th>Status</th><th>Location</th></tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($serials as $sr): ?>
-                    <tr>
-                        <td><?= e($sr['serial_number']) ?></td>
-                        <td>
-                            <span class="badge bg-<?= $sr['status'] === 'Available' ? 'success' : ($sr['status'] === 'Damaged' || $sr['status'] === 'Lost' ? 'danger' : 'warning') ?>">
-                                <?= e($sr['status']) ?>
-                            </span>
-                        </td>
-                        <td><?= e($sr['location']) ?></td>
-                    </tr>
-                    <?php endforeach; ?>
+                    <?php if (!empty($serials)): ?>
+                        <?php foreach ($serials as $sr): ?>
+                        <tr>
+                            <td><?= e($sr['serial_number']) ?></td>
+                            <td>
+                                <span class="badge bg-<?= $sr['status'] === 'Available' ? 'success' : ($sr['status'] === 'Damaged' || $sr['status'] === 'Lost' ? 'danger' : 'warning') ?>">
+                                    <?= e($sr['status']) ?>
+                                </span>
+                            </td>
+                            <td><?= e($sr['location']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="3" class="text-center text-muted">ยังไม่มี Serial</td></tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
-        <a href="serials.php?item_id=<?= $item['id'] ?>" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-plus-circle me-1"></i>จัดการ Serial
-        </a>
+        <?php if ($canSerialManage): ?>
+        <form method="POST" class="mt-3">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="form_action" value="add_serials">
+            <input type="hidden" name="id" value="<?= $item['id'] ?>">
+            <label class="form-label">เพิ่ม Serial (ใส่ทีละบรรทัด)</label>
+            <textarea class="form-control" name="serial_numbers" rows="3" placeholder="เช่น SN-001&#10;SN-002"></textarea>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Device/Equipment เพิ่มได้หลายรายการ, Vehicle ได้ 1 รายการ</small>
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i>เพิ่ม Serial
+                </button>
+            </div>
+        </form>
+        <?php endif; ?>
     </div>
 </div>
 <?php endif; ?>
@@ -1278,6 +1411,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const codeInput = document.getElementById('itemCodeInput');
     const regenerateBtn = document.getElementById('regenerateCodeBtn');
     const codeHelpText = document.getElementById('codeHelpText');
+    const typeHint = document.getElementById('typeHint');
     const maintenanceRequired = document.getElementById('maintenanceRequired');
     const maintenanceInterval = document.getElementById('maintenanceInterval');
     const maintenanceLastDate = document.getElementById('maintenanceLastDate');
@@ -1307,17 +1441,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function syncVehicleFields() {
-        const isVehicle = typeSelect && typeSelect.value === 'Vehicle';
-        const isDevice = typeSelect && typeSelect.value === 'Device';
+        const typeValue = typeSelect ? typeSelect.value : '';
+        const isVehicle = typeValue === 'Vehicle';
+        const isDevice = typeValue === 'Device';
+        const isEquipment = typeValue === 'Equipment';
+        const isConsumable = typeValue === 'Consumable';
         if (vehicleFields) {
             vehicleFields.style.display = isVehicle ? 'block' : 'none';
         }
         if (vehicleSerialInput) {
             vehicleSerialInput.required = isVehicle && !vehicleSerialInput.readOnly;
         }
-        if (serialCheckbox && !serialCheckbox.disabled) {
-            if (isVehicle) {
+        if (serialCheckbox && isAddMode) {
+            if (isVehicle || isDevice || isEquipment) {
                 serialCheckbox.checked = true;
+                serialCheckbox.disabled = true;
+            } else if (isConsumable) {
+                serialCheckbox.checked = false;
                 serialCheckbox.disabled = true;
             } else {
                 serialCheckbox.disabled = false;
@@ -1336,6 +1476,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (maintenanceInterval) {
             maintenanceInterval.required = maintenanceRequired && maintenanceRequired.checked;
+        }
+        if (typeHint) {
+            if (isDevice) {
+                typeHint.textContent = 'Device ต้องมี Serial และตั้งรอบ Maintenance';
+            } else if (isEquipment) {
+                typeHint.textContent = 'Equipment ต้องมี Serial';
+            } else if (isVehicle) {
+                typeHint.textContent = 'Vehicle ใช้ทะเบียนเป็น Serial และมีได้ 1 รายการ';
+            } else if (isConsumable) {
+                typeHint.textContent = 'Consumable ไม่ต้องมี Serial';
+            } else {
+                typeHint.textContent = 'เลือกประเภทเพื่อ generate รหัสอัตโนมัติ';
+            }
         }
     }
 

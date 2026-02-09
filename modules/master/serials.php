@@ -27,9 +27,9 @@ if (isPost()) {
         $iid = (int) post('item_id');
         $serial = sanitize(post('serial_number'));
         
-        // Check duplicate
-        $check = $db->prepare("SELECT id FROM serials WHERE item_id = ? AND serial_number = ?");
-        $check->execute([$iid, $serial]);
+        // Check duplicate (global)
+        $check = $db->prepare("SELECT id FROM serials WHERE serial_number = ?");
+        $check->execute([$serial]);
         if ($check->fetch()) {
             setFlash('error', 'Serial number ซ้ำ');
             redirect("serials.php?item_id=$iid");

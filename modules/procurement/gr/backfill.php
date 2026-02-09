@@ -19,6 +19,26 @@ $db = getDB();
 $audit = new AuditLog();
 $warehouseService = new WarehouseService();
 
+function normalizeItemType(?string $type): string {
+    $type = strtolower(trim((string) $type));
+    return match ($type) {
+        'device' => 'Device',
+        'equipment' => 'Equipment',
+        'vehicle' => 'Vehicle',
+        'consumable' => 'Consumable',
+        default => '',
+    };
+}
+
+function requiresSerialByType(string $type): bool {
+    return in_array($type, ['Device', 'Equipment', 'Vehicle'], true);
+}
+
+function parseSerialLines(string $text): array {
+    $lines = preg_split("/\r\n|\n|\r/", $text, -1, PREG_SPLIT_NO_EMPTY);
+    return array_values(array_filter(array_map('trim', $lines), fn($s) => $s !== ''));
+}
+
 $grId = (int) get('gr_id');
 if (!$grId) {
     setFlash('error', 'ต้องระบุ GR');
@@ -62,8 +82,9 @@ foreach ($grItems as $r) {
         continue;
     }
     $linkedCount++;
+    $itemType = normalizeItemType($r['item_type'] ?? '');
     $requiresSerial = ((int)($r['is_serialized'] ?? 0) === 1)
-        || in_array(($r['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+        || requiresSerialByType($itemType);
     if ($requiresSerial) {
         $existingSerials = [];
         if (!empty($r['serial_numbers'])) {
@@ -121,8 +142,8 @@ if (isPost()) {
             // Case 1: item already linked
             if (!empty($itemId)) {
                 // Check if user wants to recode this item
-                $newType = trim((string)($rows[$grItemId]['new_type'] ?? ''));
-                $currentType = trim((string)($row['item_type'] ?? ''));
+                $newType = normalizeItemType($rows[$grItemId]['new_type'] ?? '');
+                $currentType = normalizeItemType($row['item_type'] ?? '');
                 
                 if ($action === 'recode' && $newType !== '' && $newType !== $currentType && in_array($newType, ['Device', 'Equipment', 'Vehicle', 'Consumable'], true)) {
                     // Re-generate item code based on new type
@@ -173,10 +194,13 @@ if (isPost()) {
                 
                 // Otherwise, only fill missing serials
                 $requiresSerial = ((int)($row['is_serialized'] ?? 0) === 1)
-                    || in_array(($row['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+                    || requiresSerialByType(normalizeItemType($row['item_type'] ?? ''));
                 if (!$requiresSerial) {
                     $skipped++;
                     continue;
+                }
+                if (requiresSerialByType(normalizeItemType($row['item_type'] ?? '')) && (int) ($row['is_serialized'] ?? 0) === 0) {
+                    $db->prepare("UPDATE items SET is_serialized = 1 WHERE id = ?")->execute([$itemId]);
                 }
 
                 $qtyFloat = (float) $row['received_qty'];
@@ -186,12 +210,9 @@ if (isPost()) {
                 }
 
                 $manualSerialText = trim((string)($rows[$grItemId]['serials'] ?? ''));
-                $serials = [];
-                if ($manualSerialText !== '') {
-                    $manualLines = preg_split("/\r\n|\n|\r/", $manualSerialText, -1, PREG_SPLIT_NO_EMPTY);
-                    $serials = array_values(array_filter(array_map('trim', $manualLines), fn($s) => $s !== ''));
-                } else {
-                    $serials = $existingSerials;
+                $serials = $manualSerialText !== '' ? parseSerialLines($manualSerialText) : $existingSerials;
+                if (count($serials) !== count(array_unique($serials))) {
+                    throw new Exception('Serial ซ้ำในฟอร์ม (GR Item #' . $grItemId . ')');
                 }
 
                 if (count($serials) !== $qtyInt) {
@@ -200,8 +221,8 @@ if (isPost()) {
 
                 $notes = "GR {$gr['gr_number']} / PO {$gr['po_number']} / BACKFILL SERIAL";
                 foreach ($serials as $sn) {
-                    $stmtCheck = $db->prepare("SELECT id FROM serials WHERE item_id = ? AND serial_number = ?");
-                    $stmtCheck->execute([$itemId, $sn]);
+                    $stmtCheck = $db->prepare("SELECT item_id FROM serials WHERE serial_number = ?");
+                    $stmtCheck->execute([$sn]);
                     if ($stmtCheck->fetchColumn()) {
                         throw new Exception('Serial ซ้ำในระบบ: ' . $sn);
                     }
@@ -236,7 +257,7 @@ if (isPost()) {
             }
 
             // Case 2: backfill unlinked PO items (create item + serials if provided)
-            $selectedType = trim((string)($rows[$grItemId]['item_type'] ?? ''));
+            $selectedType = normalizeItemType($rows[$grItemId]['item_type'] ?? '');
             $typeForItem = in_array($selectedType, ['Device', 'Equipment', 'Vehicle', 'Consumable'], true) ? $selectedType : 'Consumable';
 
             // Generate item code
@@ -270,13 +291,15 @@ if (isPost()) {
             $serials = [];
             $manualSerialText = trim((string)($rows[$grItemId]['serials'] ?? ''));
             if ($manualSerialText !== '') {
-                $manualLines = preg_split("/\r\n|\n|\r/", $manualSerialText, -1, PREG_SPLIT_NO_EMPTY);
-                $serials = array_values(array_filter(array_map('trim', $manualLines), fn($s) => $s !== ''));
+                $serials = parseSerialLines($manualSerialText);
+                if (count($serials) !== count(array_unique($serials))) {
+                    throw new Exception('Serial ซ้ำในฟอร์ม (GR Item #' . $grItemId . ')');
+                }
             }
 
             $qtyFloat = (float) $row['received_qty'];
             $qtyInt = (int) round($qtyFloat);
-            $requiresSerial = in_array($typeForItem, ['Device', 'Equipment', 'Vehicle'], true);
+            $requiresSerial = requiresSerialByType($typeForItem);
             if ($requiresSerial) {
                 if (abs($qtyFloat - $qtyInt) > 0.00001) {
                     throw new Exception('ประเภท ' . $typeForItem . ' ต้องรับเป็นจำนวนเต็ม (GR Item #' . $grItemId . ')');
@@ -284,8 +307,10 @@ if (isPost()) {
                 if (count($serials) !== $qtyInt) {
                     throw new Exception('ประเภท ' . $typeForItem . ' ต้องกรอก Serial/ทะเบียน ให้ครบเท่ากับจำนวนที่รับ (GR Item #' . $grItemId . ')');
                 }
+            } elseif (!empty($serials) && $typeForItem === 'Consumable') {
+                throw new Exception('วัสดุสิ้นเปลืองไม่ต้องมี Serial (GR Item #' . $grItemId . ')');
             }
-            $isSerializedNew = count($serials) > 0 ? 1 : 0;
+            $isSerializedNew = $requiresSerial ? 1 : 0;
 
             // Create item master
             $costPrice = (float)($row['unit_price'] ?? 0);
@@ -324,8 +349,8 @@ if (isPost()) {
 
             if ($isSerializedNew) {
                 foreach ($serials as $sn) {
-                    $stmtCheck = $db->prepare("SELECT id FROM serials WHERE item_id = ? AND serial_number = ?");
-                    $stmtCheck->execute([$itemId, $sn]);
+                    $stmtCheck = $db->prepare("SELECT item_id FROM serials WHERE serial_number = ?");
+                    $stmtCheck->execute([$sn]);
                     if ($stmtCheck->fetchColumn()) {
                         throw new Exception('Serial ซ้ำในระบบ: ' . $sn);
                     }
@@ -480,7 +505,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         $rowIdx = 0;
                         foreach ($grItems as $idx => $r): 
                             $requiresSerial = ((int)($r['is_serialized'] ?? 0) === 1)
-                                || in_array(($r['item_type'] ?? ''), ['Device', 'Equipment', 'Vehicle'], true);
+                                || requiresSerialByType(normalizeItemType($r['item_type'] ?? ''));
                             $serialsExisting = [];
                             if (!empty($r['serial_numbers'])) {
                                 $decoded = json_decode((string)$r['serial_numbers'], true);
@@ -591,7 +616,10 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         foreach ($grItems as $r): 
                             if (empty($r['item_id'])) continue;
                             $recodeIdx++;
-                            $currentType = $r['item_type'] ?? 'Consumable';
+                            $currentType = normalizeItemType($r['item_type'] ?? 'Consumable');
+                            if ($currentType === '') {
+                                $currentType = 'Consumable';
+                            }
                         ?>
                         <tr>
                             <td><?= $recodeIdx ?></td>
