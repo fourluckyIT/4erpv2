@@ -35,8 +35,8 @@ $canByPerm = function (string $action, string $entityType, array $roleFallback =
 $canViewJobs = $canByPerm('view', 'JOB', [ROLE_SALE, ROLE_PLANNER, ROLE_MANAGER, ROLE_ADMIN]);
 $canViewPlanning = $canByPerm('view', 'PLAN', [ROLE_PLANNER, ROLE_MANAGER, ROLE_ADMIN])
     || $canByPerm('create', 'PLAN', [ROLE_PLANNER, ROLE_MANAGER, ROLE_ADMIN]);
-$canReleaseRoute = $canByPerm('dispatch', 'ROUTE', [ROLE_PLANNER, ROLE_WAREHOUSE, ROLE_MANAGER, ROLE_ADMIN]);
-$showOperations = $canViewJobs || $canViewPlanning || $canReleaseRoute;
+$canReleaseRoute = false;
+$showOperations = $canViewJobs || $canViewPlanning;
 
 // Procurement visibility (align with RBAC)
 $canViewPR = $canByPerm('view', 'PR', [ROLE_PURCHASE, ROLE_MANAGER, ROLE_ADMIN]);
@@ -96,7 +96,6 @@ $isActivePrefix = function (string $prefix) use ($currentPath): bool {
 $activeDashboard = $isActiveExact('/index.php') || $isActiveExact('/');
 $activeJobs = $isActivePrefix('/modules/jobs');
 $activePlanning = $isActivePrefix('/modules/planning');
-$activeDispatch = $isActivePrefix('/modules/logistics/dispatch');
 $activeProcurement = $isActivePrefix('/modules/procurement');
 $activeWarehouseMovements = $isActiveExact('/modules/warehouse/movements.php');
 $activeWarehouseStock = $isActivePrefix('/modules/warehouse') && !$activeWarehouseMovements;
@@ -143,12 +142,6 @@ $activeAdminAudit = $isActiveExact('/modules/admin/audit_logs.php');
             <a href="<?= BASE_URL ?>/modules/planning/" class="nav-item <?= $activePlanning ? 'active' : '' ?>">
                 <i class="bi bi-calendar3 nav-icon"></i>
                 <span class="nav-text">Planning</span>
-            </a>
-            <?php endif; ?>
-            <?php if ($canReleaseRoute): ?>
-            <a href="<?= BASE_URL ?>/modules/logistics/dispatch/release.php" class="nav-item <?= $activeDispatch ? 'active' : '' ?>">
-                <i class="bi bi-send nav-icon"></i>
-                <span class="nav-text">ปล่อย Route</span>
             </a>
             <?php endif; ?>
         </div>

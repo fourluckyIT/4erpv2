@@ -37,6 +37,7 @@ if (!$routeId || !$action) {
 }
 
 $routeModel = new Route();
+$rbac = new RBAC();
 
 // Get route
 $route = $routeModel->getById($routeId);
@@ -50,11 +51,17 @@ $oldStatus = $route['status'];
 try {
     switch ($action) {
         case 'confirm':
+            if (!$rbac->hasAnyRole(['PLN', 'WH'])) {
+                throw new Exception('คุณไม่มีสิทธิ์ยืนยัน Route');
+            }
             $result = $routeModel->confirm($routeId);
             $newStatus = 'Confirmed';
             break;
             
         case 'dispatch':
+            if (!$rbac->hasAnyRole(['WH'])) {
+                throw new Exception('คุณไม่มีสิทธิ์ปล่อยรถ');
+            }
             $result = $routeModel->dispatch($routeId);
             $newStatus = 'Dispatched';
             break;
@@ -63,11 +70,17 @@ try {
             if ($oldStatus !== 'Confirmed') {
                 throw new Exception('Route ต้องอยู่ในสถานะ Confirmed เท่านั้น');
             }
+            if (!$rbac->hasAnyRole(['PLN', 'WH'])) {
+                throw new Exception('คุณไม่มีสิทธิ์แก้ไข Route');
+            }
             $result = $routeModel->transitionStatus($routeId, 'Draft', $reason);
             $newStatus = 'Draft';
             break;
             
         case 'cancel':
+            if (!$rbac->hasAnyRole(['ADM', 'MGR'])) {
+                throw new Exception('คุณไม่มีสิทธิ์ยกเลิก Route');
+            }
             $result = $routeModel->cancel($routeId, $reason);
             $newStatus = 'Cancelled';
             break;

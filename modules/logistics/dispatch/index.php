@@ -13,7 +13,7 @@ $db = getDB();
 
 // Get routes ready for release (status = Confirmed)
 $routesReady = $db->query("
-    SELECT r.id, r.route_number, r.route_date, r.driver_name,
+    SELECT r.id, r.route_number, r.route_date, r.driver_name, r.route_type,
            p.job_id, j.job_number, j.scope_short, 
            c.name as customer_name, s.name as site_name
     FROM routes r 
@@ -22,18 +22,35 @@ $routesReady = $db->query("
     JOIN customers c ON j.customer_id = c.id 
     LEFT JOIN sites s ON j.site_id = s.id
     WHERE r.status = 'Confirmed' 
+      AND (r.route_type = 'Outbound' OR r.route_type IS NULL)
+    ORDER BY r.route_date ASC
+    LIMIT 10
+")->fetchAll();
+
+// Get return routes ready for WH receive (status = Confirmed, route_type = Return)
+$returnReady = $db->query("
+    SELECT r.id, r.route_number, r.route_date, r.driver_name, r.route_type,
+           p.job_id, j.job_number, j.scope_short, 
+           c.name as customer_name, s.name as site_name
+    FROM routes r 
+    JOIN plans p ON r.plan_id = p.id
+    JOIN jobs j ON p.job_id = j.id 
+    JOIN customers c ON j.customer_id = c.id 
+    LEFT JOIN sites s ON j.site_id = s.id
+    WHERE r.status = 'Confirmed' 
+      AND r.route_type = 'Return'
     ORDER BY r.route_date ASC
     LIMIT 10
 ")->fetchAll();
 
 // Get dispatched routes
 $statusFilter = get('status', '');
-$whereClause = "r.status IN ('Dispatched', 'InProgress', 'Returned', 'WHReceived', 'Cancelled')";
+$whereClause = "r.status IN ('Dispatched', 'Received', 'InProgress', 'Returned', 'WHReceived', 'Cancelled')";
 if ($statusFilter) {
     $whereClause = "r.status = " . $db->quote($statusFilter);
 }
 $dispatchedRoutes = $db->query("
-    SELECT r.id, r.route_number, r.route_date, r.status, r.dispatched_at,
+    SELECT r.id, r.route_number, r.route_date, r.status, r.dispatched_at, r.route_type,
            p.job_id, j.job_number, c.name as customer_name
     FROM routes r 
     JOIN plans p ON r.plan_id = p.id
@@ -44,18 +61,18 @@ $dispatchedRoutes = $db->query("
     LIMIT 50
 ")->fetchAll();
 
-$pageTitle = 'Dispatch - 4ERP';
+$pageTitle = 'Routes - 4ERP';
 require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 ?>
 
 <div class="row mb-4">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="mb-0"><i class="bi bi-send me-2"></i>ปล่อย Route</h2>
+            <h2 class="mb-0"><i class="bi bi-signpost-2 me-2"></i>Routes</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="<?= BASE_URL ?>">หน้าหลัก</a></li>
-                    <li class="breadcrumb-item active">ปล่อย Route</li>
+                    <li class="breadcrumb-item active">Routes</li>
                 </ol>
             </nav>
         </div>
@@ -70,7 +87,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
 <div class="card mb-4 border-success">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-signpost-2 me-2"></i>Route รอปล่อย (<?= count($routesReady) ?>)</span>
-        <a href="release.php" class="btn btn-sm btn-light">ปล่อยทั้งหมด</a>
+        <span class="small">กดเข้า Route เพื่อปล่อยรถ</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -78,6 +95,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <thead>
                     <tr>
                         <th>Route</th>
+                        <th>ประเภท</th>
                         <th>Job</th>
                         <th>ลูกค้า</th>
                         <th>วันที่</th>
@@ -93,6 +111,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             </a>
                         </td>
                         <td>
+                            <span class="badge bg-light text-dark"><?= ($route['route_type'] ?? 'Outbound') === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
+                        </td>
+                        <td>
                             <a href="../../jobs/view.php?id=<?= $route['job_id'] ?>">
                                 <?= e($route['job_number']) ?>
                             </a>
@@ -100,8 +121,57 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <td><?= e($route['customer_name']) ?></td>
                         <td><?= formatDate($route['route_date']) ?></td>
                         <td>
-                            <a href="release.php" class="btn btn-sm btn-success">
-                                <i class="bi bi-send me-1"></i>ปล่อย
+                            <a href="../routes/view.php?id=<?= $route['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>ดูรายละเอียด
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($returnReady)): ?>
+<div class="card mb-4 border-info">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-box-arrow-in-left me-2"></i>Route กลับรอรับของ (<?= count($returnReady) ?>)</span>
+        <span class="small">กดเข้า Route เพื่อยืนยันรับของกลับ</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Route</th>
+                        <th>ประเภท</th>
+                        <th>Job</th>
+                        <th>ลูกค้า</th>
+                        <th>วันที่</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($returnReady as $route): ?>
+                    <tr>
+                        <td>
+                            <a href="../routes/view.php?id=<?= $route['id'] ?>">
+                                <strong><?= e($route['route_number']) ?></strong>
+                            </a>
+                        </td>
+                        <td><span class="badge bg-light text-dark">ขากลับ</span></td>
+                        <td>
+                            <a href="../../jobs/view.php?id=<?= $route['job_id'] ?>">
+                                <?= e($route['job_number']) ?>
+                            </a>
+                        </td>
+                        <td><?= e($route['customer_name']) ?></td>
+                        <td><?= formatDate($route['route_date']) ?></td>
+                        <td>
+                            <a href="../routes/view.php?id=<?= $route['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>ดูรายละเอียด
                             </a>
                         </td>
                     </tr>
@@ -121,6 +191,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <select class="form-select" name="status">
                     <option value="">-- ทุกสถานะ --</option>
                     <option value="Dispatched" <?= $statusFilter === 'Dispatched' ? 'selected' : '' ?>>ปล่อยแล้ว</option>
+                    <option value="Received" <?= $statusFilter === 'Received' ? 'selected' : '' ?>>ถึงหน้างานแล้ว</option>
                     <option value="InProgress" <?= $statusFilter === 'InProgress' ? 'selected' : '' ?>>กำลังดำเนินการ</option>
                     <option value="Returned" <?= $statusFilter === 'Returned' ? 'selected' : '' ?>>คืนของแล้ว</option>
                     <option value="WHReceived" <?= $statusFilter === 'WHReceived' ? 'selected' : '' ?>>รับเข้าคลังแล้ว</option>
@@ -146,6 +217,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <thead>
                     <tr>
                         <th>Route</th>
+                        <th>ประเภท</th>
                         <th>Job</th>
                         <th>ลูกค้า</th>
                         <th>วันที่ปล่อย</th>
@@ -155,7 +227,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </thead>
                 <tbody>
                     <?php if (empty($dispatchedRoutes)): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">ไม่พบข้อมูล</td></tr>
                     <?php else: ?>
                     <?php foreach ($dispatchedRoutes as $r): ?>
                     <tr>
@@ -163,6 +235,9 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             <a href="../routes/view.php?id=<?= $r['id'] ?>">
                                 <strong><?= e($r['route_number']) ?></strong>
                             </a>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark"><?= ($r['route_type'] ?? 'Outbound') === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
                         </td>
                         <td>
                             <a href="../../jobs/view.php?id=<?= $r['job_id'] ?>">
@@ -174,6 +249,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <td>
                             <span class="badge bg-<?= match($r['status']) {
                                 'Dispatched' => 'primary',
+                                'Received' => 'warning',
                                 'InProgress' => 'info',
                                 'Returned' => 'warning text-dark',
                                 'WHReceived' => 'success',
@@ -181,6 +257,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                                 default => 'secondary'
                             } ?>"><?= match($r['status']) {
                                 'Dispatched' => 'ปล่อยแล้ว',
+                                'Received' => 'ถึงหน้างานแล้ว',
                                 'InProgress' => 'กำลังดำเนินการ',
                                 'Returned' => 'คืนของแล้ว',
                                 'WHReceived' => 'รับเข้าคลังแล้ว',

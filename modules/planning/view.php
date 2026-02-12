@@ -6,11 +6,13 @@
 
 require_once __DIR__ . '/../../config/bootstrap.php';
 require_once __DIR__ . '/../../core/Plan.php';
+require_once __DIR__ . '/../../core/Route.php';
 
 $auth = new Auth();
 $auth->requireAuth();
 
 $planModel = new Plan();
+$routeModel = new Route();
 $db = getDB();
 
 $id = (int) get('id', 0);
@@ -93,6 +95,24 @@ if (!$plan) {
 }
 
 $assignments = $planModel->getAssignments($id);
+$routes = $routeModel->getByPlanId($id);
+$routeCount = count($routes);
+$routeViewUrl = $routeCount === 1
+    ? '../logistics/routes/view.php?id=' . (int) $routes[0]['id']
+    : '../logistics/routes/create.php?plan_id=' . (int) $id;
+$receivePhotoCounts = [];
+if (!empty($routes)) {
+    $routeIds = array_column($routes, 'id');
+    $placeholders = implode(',', array_fill(0, count($routeIds), '?'));
+    $stmt = $db->prepare("
+        SELECT route_id, COUNT(*) as cnt
+        FROM evidence_photos
+        WHERE route_id IN ({$placeholders}) AND event_type = 'Receive'
+        GROUP BY route_id
+    ");
+    $stmt->execute($routeIds);
+    $receivePhotoCounts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+}
 
 // Get available serials for adding
 $availableSerials = $db->query("
@@ -152,9 +172,20 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <?php endif; ?>
             
             <?php if ($plan['status'] === 'Confirmed' && ($auth->isAdmin() || $auth->hasRole(ROLE_PLANNER) || $auth->hasRole(ROLE_MANAGER))): ?>
+            <?php if ($routeCount > 0): ?>
+            <a href="<?= $routeViewUrl ?>" class="btn btn-primary">
+                <i class="bi bi-eye me-1"></i>ดู Route
+            </a>
+            <?php else: ?>
             <a href="../logistics/routes/create.php?plan_id=<?= $plan['id'] ?>" class="btn btn-primary">
                 <i class="bi bi-signpost-2 me-1"></i>สร้าง Route
             </a>
+            <?php endif; ?>
+            <?php if (($plan['job_status'] ?? '') === 'Waiting for Return'): ?>
+            <a href="../logistics/routes/create.php?plan_id=<?= $plan['id'] ?>&return=1" class="btn btn-info">
+                <i class="bi bi-arrow-left-right me-1"></i>สร้าง Route กลับ
+            </a>
+            <?php endif; ?>
             <?php endif; ?>
             
             <a href="javascript:history.back()" class="btn btn-outline-secondary">
@@ -334,6 +365,62 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                             </form>
                         </td>
                         <?php endif; ?>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Routes -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-signpost-2 me-2"></i>Routes (<?= count($routes) ?>)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>ประเภท</th>
+                        <th>Route</th>
+                        <th>วันที่</th>
+                        <th>สถานะ</th>
+                        <th>หลักฐานรับหน้างาน</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($routes)): ?>
+                    <tr><td colspan="6" class="text-center text-muted py-4">ยังไม่มี Route</td></tr>
+                    <?php else: ?>
+                    <?php foreach ($routes as $r): ?>
+                    <?php
+                        $type = $r['route_type'] ?? 'Outbound';
+                        $receiveCount = (int) ($receivePhotoCounts[$r['id']] ?? 0);
+                        $receiveLabel = ($type === 'Outbound' && ($r['status'] ?? '') === 'Received')
+                            ? ($receiveCount > 0 ? $receiveCount . ' รูป' : '0 รูป')
+                            : '-';
+                    ?>
+                    <tr>
+                        <td>
+                            <span class="badge bg-light text-dark"><?= $type === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
+                        </td>
+                        <td>
+                            <a href="../logistics/routes/view.php?id=<?= $r['id'] ?>">
+                                <strong><?= e($r['route_number']) ?></strong>
+                            </a>
+                        </td>
+                        <td><?= formatDate($r['route_date']) ?></td>
+                        <td><?= e($r['status']) ?></td>
+                        <td><?= e($receiveLabel) ?></td>
+                        <td>
+                            <a href="../logistics/routes/view.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php endif; ?>

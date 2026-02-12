@@ -24,4 +24,4 @@ if ($id) {
 }
 
 setFlash('info', 'ระบบจัดส่งได้เปลี่ยนไปใช้การจัดการ Route แทน');
-redirect('../routes/index.php');
+redirect('../dispatch/index.php');

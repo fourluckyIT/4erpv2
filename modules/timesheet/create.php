@@ -26,7 +26,7 @@ $jobs = $db->query("
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
     LEFT JOIN sites s ON j.site_id = s.id
-    WHERE j.status IN ('Dispatched', 'In Progress', 'Planned', 'Approved')
+    WHERE j.status IN ('Dispatched', 'In Progress', 'Waiting for Return', 'Planned', 'Approved')
     ORDER BY j.job_number DESC
 ")->fetchAll();
 
@@ -107,7 +107,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                         </option>
                         <?php endforeach; ?>
                     </select>
-                    <div class="form-text">เฉพาะ Job ที่อยู่ในสถานะ Approved, Planned, Dispatched หรือ In Progress</div>
+                    <div class="form-text">เฉพาะ Job ที่อยู่ในสถานะ Approved, Planned, Dispatched, In Progress หรือ Waiting for Return</div>
                 </div>
                 
                 <div class="col-md-3 mb-3">

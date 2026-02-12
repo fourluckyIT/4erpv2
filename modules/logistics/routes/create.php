@@ -40,6 +40,19 @@ if ($plan['status'] !== 'Confirmed') {
     redirect('../../planning/view.php?id=' . $planId);
 }
 
+$routeType = get('route_type', '');
+if (get('return', '') === '1') {
+    $routeType = 'Return';
+}
+if (!in_array($routeType, ['Outbound', 'Return'], true)) {
+    $routeType = 'Outbound';
+}
+
+if ($routeType === 'Return' && ($plan['job_status'] ?? '') !== 'Waiting for Return') {
+    setFlash('error', 'ต้องอยู่สถานะรอคืนของก่อนจึงจะสร้าง Route กลับได้');
+    redirect('../../planning/view.php?id=' . $planId);
+}
+
 // Get existing routes for this plan
 $existingRoutes = $routeModel->getByPlanId($planId);
 $routesWithItems = [];
@@ -50,18 +63,27 @@ foreach ($existingRoutes as $route) {
 
 $activeRoutes = [];
 $cancelledRoutes = [];
+$activeOutboundRoutes = [];
+$activeReturnRoutes = [];
 foreach ($routesWithItems as $route) {
+    $type = $route['route_type'] ?? 'Outbound';
     if (($route['status'] ?? '') === 'Cancelled') {
         $cancelledRoutes[] = $route;
     } else {
         $activeRoutes[] = $route;
+        if ($type === 'Return') {
+            $activeReturnRoutes[] = $route;
+        } else {
+            $activeOutboundRoutes[] = $route;
+        }
     }
 }
 
 // Get all assigned serials/people in existing routes
 $assignedSerialIds = [];
 $assignedPeopleIds = [];
-foreach ($activeRoutes as $route) {
+$assignmentRoutes = ($routeType === 'Return') ? $activeReturnRoutes : $activeRoutes;
+foreach ($assignmentRoutes as $route) {
     foreach ($route['items'] as $item) {
         if ($item['serial_id']) $assignedSerialIds[] = $item['serial_id'];
         if ($item['people_id']) $assignedPeopleIds[] = $item['people_id'];
@@ -115,7 +137,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'driver_name' => post('driver_name', ''),
             'driver_phone' => post('driver_phone', ''),
             'destination' => post('destination', ''),
-            'notes' => post('notes', '')
+            'notes' => post('notes', ''),
+            'route_type' => post('route_type', $routeType)
         ];
         
         $result = $routeModel->create($planId, $data);
@@ -205,11 +228,13 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     <div class="col-lg-6">
         <form method="POST" id="routeForm">
             <input type="hidden" name="action" value="create">
+            <input type="hidden" name="route_type" value="<?= e($routeType) ?>">
             
             <!-- Route Details -->
             <div class="card mb-3">
                 <div class="card-header bg-primary text-white">
                     <i class="bi bi-plus-circle me-2"></i>สร้าง Route ใหม่
+                    <span class="badge bg-light text-dark ms-2"><?= $routeType === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -437,6 +462,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <div>
                                     <strong><?= e($cRoute['route_number']) ?></strong>
+                                    <span class="badge bg-light text-dark ms-2"><?= ($cRoute['route_type'] ?? 'Outbound') === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
                                     <span class="text-muted ms-2"><?= formatDate($cRoute['route_date']) ?></span>
                                 </div>
                                 <a href="view.php?id=<?= (int) $cRoute['id'] ?>" class="btn btn-sm btn-outline-secondary">
@@ -454,12 +480,17 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <div class="card-header bg-<?= match($route['status']) {
                     'Draft' => 'secondary',
                     'Confirmed' => 'info',
-                    'Dispatched' => 'warning',
-                    'Delivered' => 'success',
+                    'Dispatched' => 'primary',
+                    'Received' => 'warning',
+                    'InProgress' => 'warning',
+                    'Returned' => 'info',
+                    'WHReceived' => 'success',
+                    'Cancelled' => 'danger',
                     default => 'secondary'
                 } ?> text-white d-flex justify-content-between align-items-center">
                     <div>
                         <strong><?= e($route['route_number']) ?></strong>
+                        <span class="badge bg-light text-dark ms-2"><?= ($route['route_type'] ?? 'Outbound') === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
                         <small class="ms-2"><?= formatDate($route['route_date']) ?></small>
                     </div>
                     <div>
@@ -518,37 +549,35 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 </ul>
                 <!-- Action Buttons based on status -->
                 <div class="card-footer">
-                    <?php if ($route['status'] === 'Draft'): ?>
-                    <button type="button" class="btn btn-info btn-sm w-100" onclick="confirmRoute(<?= $route['id'] ?>)">
-                        <i class="bi bi-check-circle me-1"></i>Confirm Route
-                    </button>
+                <?php if ($route['status'] === 'Draft'): ?>
+                    <?php if ($auth->hasRole(ROLE_PLANNER)): ?>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-info btn-sm flex-grow-1" onclick="confirmRoute(<?= $route['id'] ?>)">
+                            <i class="bi bi-check-circle me-1"></i>Confirm Route
+                        </button>
+                        <a href="view.php?id=<?= (int) $route['id'] ?>" class="btn btn-outline-secondary btn-sm" title="ดูรายละเอียด">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </div>
+                    <?php else: ?>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">รอ Planner ยืนยัน</span>
+                        <a href="view.php?id=<?= (int) $route['id'] ?>" class="btn btn-sm btn-outline-secondary">
+                            ดูรายละเอียด
+                        </a>
+                    </div>
+                    <?php endif; ?>
                     <?php elseif ($route['status'] === 'Confirmed'): ?>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-warning btn-sm flex-grow-1" onclick="dispatchRoute(<?= $route['id'] ?>)">
-                            <i class="bi bi-truck me-1"></i>Dispatch
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="editRoute(<?= $route['id'] ?>)" title="แก้ไข">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="cancelRoute(<?= $route['id'] ?>)" title="ยกเลิก">
-                            <i class="bi bi-x-circle"></i>
-                        </button>
-                    </div>
-                    <?php elseif ($route['status'] === 'Dispatched'): ?>
-                    <div class="d-flex gap-2">
-                        <a href="receive.php?id=<?= $route['id'] ?>" class="btn btn-success btn-sm flex-grow-1">
-                            <i class="bi bi-box-arrow-in-down me-1"></i>รับของหน้างาน
-                        </a>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyReceiveLink(<?= $route['id'] ?>)" title="คัดลอกลิงก์">
-                            <i class="bi bi-link-45deg"></i>
-                        </button>
-                    </div>
-                    <?php elseif (in_array($route['status'], ['Received', 'InProgress'])): ?>
-                    <div class="d-flex gap-2">
-                        <a href="return.php?id=<?= $route['id'] ?>" class="btn btn-info btn-sm flex-grow-1">
-                            <i class="bi bi-box-arrow-in-down me-1"></i>รับคืน (WH)
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">รอ WH ปล่อยรถ</span>
+                        <a href="view.php?id=<?= (int) $route['id'] ?>" class="btn btn-sm btn-outline-primary">
+                            ดูรายละเอียด
                         </a>
                     </div>
+                    <?php else: ?>
+                    <a href="view.php?id=<?= (int) $route['id'] ?>" class="btn btn-sm btn-outline-primary w-100">
+                        ดูรายละเอียด
+                    </a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -572,6 +601,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                         <thead>
                             <tr>
                                 <th>Route</th>
+                                <th>ประเภท</th>
                                 <th>วันที่</th>
                                 <th>ปลายทาง</th>
                                 <th>เหตุผลยกเลิก</th>
@@ -582,6 +612,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                             <?php foreach ($cancelledRoutes as $cRoute): ?>
                             <tr>
                                 <td><strong><?= e($cRoute['route_number']) ?></strong></td>
+                                <td><span class="badge bg-light text-dark"><?= ($cRoute['route_type'] ?? 'Outbound') === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span></td>
                                 <td><?= formatDate($cRoute['route_date']) ?></td>
                                 <td><?= e($cRoute['destination'] ?? '-') ?></td>
                                 <td><?= e($cRoute['cancel_reason'] ?? '-') ?></td>
@@ -683,7 +714,7 @@ function removeFromRoute(routeId, itemId) {
 
 // Confirm Route
 function confirmRoute(routeId) {
-    if (!confirm('ยืนยัน Route นี้? (หลังจากยืนยันจะสามารถ Dispatch ได้)')) return;
+    if (!confirm('ยืนยัน Route นี้? (หลังจากยืนยัน WH จะเห็นเพื่อปล่อยรถ)')) return;
     
     fetch('api/update_status.php', {
         method: 'POST',
@@ -699,77 +730,6 @@ function confirmRoute(routeId) {
         }
     })
     .catch(err => alert('Error: ' + err.message));
-}
-
-// Dispatch Route
-function dispatchRoute(routeId) {
-    if (!confirm('ส่งรถออก? (หลังจากนี้จะเข้าสถานะรอรับหน้างาน)')) return;
-    
-    fetch('api/update_status.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({route_id: routeId, action: 'dispatch'})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.error || 'เกิดข้อผิดพลาด');
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
-}
-
-// Edit Route (back to Draft)
-function editRoute(routeId) {
-    if (!confirm('แก้ไข Route? (สถานะจะกลับเป็น Draft)')) return;
-    
-    fetch('api/update_status.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({route_id: routeId, action: 'edit'})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.error || 'เกิดข้อผิดพลาด');
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
-}
-
-// Cancel Route
-function cancelRoute(routeId) {
-    const reason = prompt('เหตุผลในการยกเลิก:');
-    if (reason === null) return;
-    
-    fetch('api/update_status.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({route_id: routeId, action: 'cancel', reason: reason})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.error || 'เกิดข้อผิดพลาด');
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
-}
-
-// Copy receive link
-function copyReceiveLink(routeId) {
-    const url = window.location.origin + '/modules/logistics/routes/receive.php?id=' + routeId;
-    navigator.clipboard.writeText(url).then(() => {
-        alert('คัดลอกลิงก์แล้ว!');
-    }).catch(() => {
-        prompt('คัดลอกลิงก์:', url);
-    });
 }
 
 // Edit Consumable Quantity

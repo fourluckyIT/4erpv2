@@ -32,12 +32,13 @@ $jobs = $db->query("
     FROM jobs j
     JOIN customers c ON j.customer_id = c.id
     LEFT JOIN sites s ON j.site_id = s.id
-    WHERE j.status IN ('Approved', 'Planned', 'Dispatched', 'In Progress', 'Returned', 'WH Received')
+    WHERE j.status IN ('Approved', 'Planned', 'Dispatched', 'In Progress', 'Waiting for Return', 'Returned', 'WH Received')
     ORDER BY 
         CASE WHEN j.status = 'In Progress' THEN 1
-             WHEN j.status = 'Dispatched' THEN 2
-             WHEN j.status = 'Planned' THEN 3
-             ELSE 4 END,
+             WHEN j.status = 'Waiting for Return' THEN 2
+             WHEN j.status = 'Dispatched' THEN 3
+             WHEN j.status = 'Planned' THEN 4
+             ELSE 5 END,
         j.plan_start_date DESC
 ")->fetchAll();
 
@@ -80,6 +81,7 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                 <span class="fw-bold"><?= e($job['job_number']) ?></span>
                 <span class="badge bg-<?= match($job['status']) {
                     'In Progress' => 'success',
+                    'Waiting for Return' => 'warning',
                     'Dispatched' => 'primary',
                     'Planned' => 'info',
                     'Approved' => 'secondary',

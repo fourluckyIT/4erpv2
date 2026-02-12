@@ -112,6 +112,16 @@ foreach ($plans as $plan) {
     }
 }
 
+$outboundRoutes = array_values(array_filter($jobRoutes, function ($route) {
+    $type = $route['route_type'] ?? 'Outbound';
+    return $type !== 'Return' && ($route['status'] ?? '') !== 'Cancelled';
+}));
+$outboundReceivedCount = count(array_filter($outboundRoutes, fn($route) => ($route['status'] ?? '') === 'Received'));
+$canFinishWork = $job['status'] === 'In Progress' && !empty($outboundRoutes) && $outboundReceivedCount === count($outboundRoutes);
+if (!$canFinishWork) {
+    unset($availableActions['finish_work']);
+}
+
 $pageTitle = $job['job_number'] . ' - 4ERP';
 require_once __DIR__ . '/../../includes/modern/layout_start.php';
 ?>
@@ -250,13 +260,14 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
             <div class="card-body p-0">
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
-                        <tr>
-                            <th>Route</th>
-                            <th>วันที่</th>
-                            <th>ปลายทาง</th>
-                            <th>สถานะ</th>
-                            <th></th>
-                        </tr>
+                    <tr>
+                        <th>Route</th>
+                        <th>ประเภท</th>
+                        <th>วันที่</th>
+                        <th>ปลายทาง</th>
+                        <th>สถานะ</th>
+                        <th></th>
+                    </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($jobRoutes as $route): ?>
@@ -266,6 +277,9 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                                 <?php if ($route['supplier_name']): ?>
                                 <br><small class="text-muted"><i class="bi bi-building"></i> <?= e($route['supplier_name']) ?></small>
                                 <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark"><?= ($route['route_type'] ?? 'Outbound') === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
                             </td>
                             <td><?= formatDate($route['route_date']) ?></td>
                             <td><?= e($route['destination'] ?? '-') ?></td>
@@ -285,12 +299,6 @@ require_once __DIR__ . '/../../includes/modern/layout_start.php';
                                    class="btn btn-sm btn-outline-primary" title="ดูรายละเอียด">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <?php if ($route['status'] === 'Dispatched'): ?>
-                                <a href="<?= BASE_URL ?>/modules/logistics/routes/receive.php?id=<?= $route['id'] ?>" 
-                                   class="btn btn-sm btn-success" title="รับของหน้างาน">
-                                    <i class="bi bi-box-arrow-in-down"></i> รับ
-                                </a>
-                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

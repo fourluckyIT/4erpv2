@@ -15,6 +15,7 @@ $rbac = new RBAC();
 
 $routeModel = new Route();
 $photoModel = new EvidencePhoto();
+$db = getDB();
 
 $id = (int) get('id', 0);
 if (!$id) {
@@ -30,7 +31,6 @@ if (!$route) {
 
 $items = $routeModel->getItems($id);
 $photoStatus = $photoModel->getCompletionStatus($id);
-$allPhotos = $photoModel->getAllPhotos($id);
 $itemsCount = count($items);
 $photoRequiredTotal = 0;
 $photoUploadedTotal = 0;
@@ -40,6 +40,61 @@ foreach ($photoStatus as $status) {
 }
 $driverLabel = trim(($route['driver_name'] ?? '') . ' ' . (!empty($route['driver_phone']) ? '(' . $route['driver_phone'] . ')' : ''));
 $driverLabel = $driverLabel !== '' ? $driverLabel : '-';
+$currentUserName = $_SESSION['full_name'] ?? $_SESSION['username'] ?? '';
+$routeType = $route['route_type'] ?? 'Outbound';
+$isReturn = $routeType === 'Return';
+$canConfirm = $route['status'] === 'Draft' && $rbac->hasAnyRole(['PLN', 'WH']);
+$canDispatch = !$isReturn && $route['status'] === 'Confirmed' && $rbac->hasAnyRole(['WH']);
+$canReceive = !$isReturn && $route['status'] === 'Dispatched' && $rbac->hasAnyRole(['ADM', 'PLN', 'WH', 'MGR']);
+$canReturn = $isReturn && $route['status'] === 'Confirmed' && $rbac->hasAnyRole(['WH', 'ADM', 'MGR']);
+$canReset = $route['status'] === 'Confirmed' && $rbac->hasAnyRole(['PLN', 'ADM', 'MGR']);
+$canCancel = in_array($route['status'], ['Draft', 'Confirmed'], true) && $rbac->hasAnyRole(['ADM', 'MGR']);
+
+function normalizeDateTime(?string $value): string {
+    if ($value === null || trim($value) === '') {
+        return date('Y-m-d H:i:s');
+    }
+    $ts = strtotime($value);
+    return $ts ? date('Y-m-d H:i:s', $ts) : date('Y-m-d H:i:s');
+}
+
+function uploadEventPhotos(EvidencePhoto $photoModel, int $routeId, string $eventType, array $files): array {
+    if (empty($files) || empty($files['name'][0])) {
+        $count = $photoModel->getPhotoCount($routeId, $eventType);
+        if ($count < EvidencePhoto::PHOTOS_MIN_REQUIRED) {
+            return ['success' => false, 'error' => "กรุณาอัพโหลดรูป {$eventType} อย่างน้อย " . EvidencePhoto::PHOTOS_MIN_REQUIRED . " รูป"];
+        }
+        return ['success' => true, 'count' => $count, 'uploaded' => 0];
+    }
+
+    $photoSeq = 1;
+    foreach ($files['tmp_name'] as $i => $tmpName) {
+        if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+            continue;
+        }
+        if ($photoSeq > EvidencePhoto::PHOTOS_MAX) {
+            break;
+        }
+        $file = [
+            'tmp_name' => $tmpName,
+            'name' => $files['name'][$i],
+            'size' => $files['size'][$i],
+            'type' => $files['type'][$i],
+            'error' => $files['error'][$i]
+        ];
+        $result = $photoModel->upload($routeId, $eventType, $photoSeq, $file);
+        if (empty($result['success'])) {
+            return ['success' => false, 'error' => $result['error'] ?? 'อัพโหลดรูปไม่สำเร็จ'];
+        }
+        $photoSeq++;
+    }
+
+    $count = $photoModel->getPhotoCount($routeId, $eventType);
+    if ($count < EvidencePhoto::PHOTOS_MIN_REQUIRED) {
+        return ['success' => false, 'error' => "กรุณาอัพโหลดรูป {$eventType} อย่างน้อย " . EvidencePhoto::PHOTOS_MIN_REQUIRED . " รูป"];
+    }
+    return ['success' => true, 'count' => $count, 'uploaded' => $photoSeq - 1];
+}
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,22 +102,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     switch ($action) {
         case 'confirm':
+            if (!$canConfirm) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์ยืนยัน Route'];
+                break;
+            }
             $result = $routeModel->confirm($id);
+            break;
+
+        case 'reset':
+            if (!$canReset) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์จัด Route ใหม่'];
+                break;
+            }
+            $reason = trim((string) post('reset_reason', ''));
+            if ($reason === '') {
+                $result = ['success' => false, 'error' => 'กรุณาระบุเหตุผลในการจัดใหม่'];
+                break;
+            }
+            $result = $routeModel->transitionStatus($id, 'Draft', $reason);
             break;
             
         case 'dispatch':
-            $result = $routeModel->dispatch($id);
+            if (!$canDispatch) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์ปล่อยรถ'];
+                break;
+            }
+            $upload = uploadEventPhotos($photoModel, $id, 'Dispatch', $_FILES['dispatch_photos'] ?? []);
+            if (empty($upload['success'])) {
+                $result = $upload;
+                break;
+            }
+            $conditions = post('condition_out', []);
+            $validConditions = ['Good', 'Fair', 'Damaged'];
+            $audit = new AuditLog();
+            foreach ($conditions as $routeItemId => $condition) {
+                $routeItemId = (int) $routeItemId;
+                if (!in_array($condition, $validConditions, true)) {
+                    continue;
+                }
+                $stmt = $db->prepare("UPDATE route_items SET condition_out = ? WHERE id = ? AND route_id = ?");
+                $stmt->execute([$condition, $routeItemId, $id]);
+                $audit->log('update', 'ROUTE_ITEM', $routeItemId, null, ['condition_out' => $condition]);
+            }
+            $dispatchName = sanitize(post('dispatch_name', ''));
+            $dispatchTime = normalizeDateTime(post('dispatch_time', ''));
+            $result = $routeModel->dispatch($id, [
+                'dispatched_by_name' => $dispatchName,
+                'dispatched_at' => $dispatchTime
+            ]);
             break;
             
-        case 'start_progress':
-            $result = $routeModel->startProgress($id);
+        case 'receive':
+            if (!$canReceive) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์ยืนยันถึงหน้างาน'];
+                break;
+            }
+            $upload = uploadEventPhotos($photoModel, $id, 'Receive', $_FILES['receive_photos'] ?? []);
+            if (empty($upload['success'])) {
+                $result = $upload;
+                break;
+            }
+            $receiverName = sanitize(post('receiver_name', ''));
+            $receiveNotes = sanitize(post('receive_notes', ''));
+            $receiveTime = normalizeDateTime(post('receive_time', ''));
+            $result = $routeModel->markReceived($id, [
+                'received_by_name' => $receiverName,
+                'receive_notes' => $receiveNotes,
+                'received_at' => $receiveTime
+            ]);
             break;
-            
-        case 'wh_receive':
-            $result = $routeModel->whReceive($id);
+
+        case 'return':
+            if (!$canReturn) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์รับของกลับ'];
+                break;
+            }
+            $upload = uploadEventPhotos($photoModel, $id, 'Return', $_FILES['return_photos'] ?? []);
+            if (empty($upload['success'])) {
+                $result = $upload;
+                break;
+            }
+            $itemConditions = [];
+            $consumableUsed = [];
+            foreach ($items as $item) {
+                if (!empty($item['serial_id'])) {
+                    $itemConditions[$item['id']] = post('condition_' . $item['id'], 'Good');
+                } elseif (($item['item_type'] ?? '') === 'Consumable') {
+                    $consumableUsed[$item['id']] = (float) post('used_' . $item['id'], 0);
+                }
+            }
+            $result = $routeModel->markReturned($id, $itemConditions, $consumableUsed);
             break;
             
         case 'cancel':
+            if (!$canCancel) {
+                $result = ['success' => false, 'error' => 'คุณไม่มีสิทธิ์ยกเลิก Route'];
+                break;
+            }
             $reason = post('cancel_reason', '');
             $result = $routeModel->cancel($id, $reason);
             break;
@@ -106,6 +242,7 @@ function getStatusBadge(string $status): string {
         'Draft' => 'secondary',
         'Confirmed' => 'info',
         'Dispatched' => 'primary',
+        'Received' => 'warning',
         'InProgress' => 'warning',
         'Returned' => 'info',
         'WHReceived' => 'success',
@@ -116,6 +253,7 @@ function getStatusBadge(string $status): string {
         'Draft' => 'แบบร่าง',
         'Confirmed' => 'ยืนยันแล้ว',
         'Dispatched' => 'ส่งของแล้ว',
+        'Received' => 'ถึงหน้างานแล้ว',
         'InProgress' => 'กำลังดำเนินการ',
         'Returned' => 'รับคืนแล้ว',
         'WHReceived' => 'คลังรับแล้ว',
@@ -137,6 +275,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         </h1>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <?= getStatusBadge($route['status']) ?>
+            <span class="badge bg-light text-dark"><?= $routeType === 'Return' ? 'ขากลับ' : 'ขาไป' ?></span>
             <span class="text-muted">Job: <a href="../../jobs/view.php?id=<?= $route['job_id'] ?>"><?= e($route['job_number']) ?></a></span>
             <span class="text-muted">| ลูกค้า: <?= e($route['customer_name']) ?></span>
         </div>
@@ -152,57 +291,40 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>กลับ
         </a>
-        <?php if ($route['status'] === 'Draft'): ?>
+        <?php if ($canConfirm): ?>
         <form method="POST" class="d-inline">
             <input type="hidden" name="action" value="confirm">
             <button type="submit" class="btn btn-info">
-                <i class="bi bi-check-circle me-1"></i>Confirm
+                <i class="bi bi-check-circle me-1"></i>ยืนยัน Route
             </button>
         </form>
         <?php endif; ?>
 
-        <?php if ($route['status'] === 'Confirmed'): ?>
-        <form method="POST" class="d-inline">
-            <input type="hidden" name="action" value="dispatch">
-            <button type="submit" class="btn btn-primary" 
-                    <?= !$photoStatus['Dispatch']['complete'] ? 'disabled' : '' ?>>
-                <i class="bi bi-truck me-1"></i>Dispatch
-                <?php if (!$photoStatus['Dispatch']['complete']): ?>
-                <small>(ต้องอัพโหลดรูป)</small>
-                <?php endif; ?>
-            </button>
-        </form>
+        <?php if ($canReset): ?>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#resetModal">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>จัดใหม่
+        </button>
         <?php endif; ?>
 
-        <?php if ($route['status'] === 'Dispatched'): ?>
-        <form method="POST" class="d-inline">
-            <input type="hidden" name="action" value="start_progress">
-            <button type="submit" class="btn btn-warning"
-                    <?= !$photoStatus['Receive']['complete'] ? 'disabled' : '' ?>>
-                <i class="bi bi-play-circle me-1"></i>เริ่มงาน
-                <?php if (!$photoStatus['Receive']['complete']): ?>
-                <small>(ต้องอัพโหลดรูป)</small>
-                <?php endif; ?>
-            </button>
-        </form>
+        <?php if ($canDispatch): ?>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#dispatchModal">
+            <i class="bi bi-truck me-1"></i>ปล่อยรถ
+        </button>
         <?php endif; ?>
 
-        <?php if (in_array($route['status'], ['Dispatched', 'InProgress'])): ?>
-        <a href="return.php?id=<?= $id ?>" class="btn btn-info">
-            <i class="bi bi-box-arrow-in-left me-1"></i>รับคืน (WH)
-        </a>
+        <?php if ($canReceive): ?>
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#receiveModal">
+            <i class="bi bi-box-arrow-in-down me-1"></i>ยืนยันถึงหน้างาน
+        </button>
         <?php endif; ?>
 
-        <?php if ($route['status'] === 'Returned'): ?>
-        <form method="POST" class="d-inline">
-            <input type="hidden" name="action" value="wh_receive">
-            <button type="submit" class="btn btn-success">
-                <i class="bi bi-box-seam me-1"></i>คลังรับ
-            </button>
-        </form>
+        <?php if ($canReturn): ?>
+        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#returnModal">
+            <i class="bi bi-box-arrow-in-left me-1"></i>รับของกลับ (WH)
+        </button>
         <?php endif; ?>
 
-        <?php if (in_array($route['status'], ['Draft', 'Confirmed', 'Dispatched'])): ?>
+        <?php if ($canCancel): ?>
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
             <i class="bi bi-x-circle me-1"></i>ยกเลิก
         </button>
@@ -253,36 +375,6 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     </div>
 </div>
 
-<?php if ($route['status'] === 'Confirmed' && $rbac->hasAnyRole(['WH', 'ADM', 'MGR'])): ?>
-<div class="card mb-4 border-warning">
-    <div class="card-header bg-warning text-dark">
-        <i class="bi bi-bell-slash me-2"></i>WH แจ้งเตือนปล่อยรถ (Snooze)
-    </div>
-    <div class="card-body">
-        <form method="POST" class="row g-2 align-items-center">
-            <input type="hidden" name="action" value="snooze_reminder">
-            <div class="col-auto">
-                <select name="snooze_option" class="form-select form-select-sm">
-                    <option value="30m">30 นาที</option>
-                    <option value="2h">2 ชั่วโมง</option>
-                    <option value="4h">4 ชั่วโมง</option>
-                    <option value="8h">8 ชั่วโมง</option>
-                    <option value="next_day">วันถัดไป 07:30</option>
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-outline-dark btn-sm">
-                    ปิดแจ้งเตือนชั่วคราว
-                </button>
-            </div>
-        </form>
-        <div class="small text-muted mt-2">
-            แจ้งเตือนจะกลับมาเวลา 07:30 ตามรอบปกติ
-        </div>
-    </div>
-</div>
-<?php endif; ?>
-
 <!-- Route Info - Horizontal Layout -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -294,6 +386,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <thead class="table-light">
                     <tr>
                         <th class="text-muted small fw-normal">Route Number</th>
+                        <th class="text-muted small fw-normal">ประเภท</th>
                         <th class="text-muted small fw-normal">Plan</th>
                         <th class="text-muted small fw-normal">Job</th>
                         <th class="text-muted small fw-normal">ลูกค้า</th>
@@ -306,6 +399,7 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
                 <tbody>
                     <tr>
                         <td class="fw-semibold"><?= e($route['route_number']) ?></td>
+                        <td><?= $routeType === 'Return' ? 'ขากลับ' : 'ขาไป' ?></td>
                         <td><a href="../../planning/view.php?id=<?= $route['plan_id'] ?>" class="text-primary"><?= e($route['plan_number']) ?></a></td>
                         <td><a href="../../jobs/view.php?id=<?= $route['job_id'] ?>" class="text-primary"><?= e($route['job_number']) ?></a></td>
                         <td><?= e($route['customer_name']) ?></td>
@@ -407,111 +501,248 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
     </div>
 </div>
 
-<!-- Photos -->
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="bi bi-images me-2"></i>หลักฐานรูปภาพ
-    </div>
-    <div class="card-body">
-        <?php 
-        $eventTypes = [
-            'Dispatch' => ['icon' => 'truck', 'label' => 'รูปตอนส่งออก', 'color' => 'primary'],
-            'Receive' => ['icon' => 'box-arrow-in-down', 'label' => 'รูปตอนรับของ', 'color' => 'info'],
-            'Return' => ['icon' => 'box-arrow-in-left', 'label' => 'รูปตอนรับคืน', 'color' => 'warning'],
-            'POSCheck' => ['icon' => 'clipboard-check', 'label' => 'รูป POS Check', 'color' => 'success']
-        ];
-        ?>
-        <ul class="nav nav-tabs" id="photoTabs" role="tablist">
-            <?php $tabIndex = 0; ?>
-            <?php foreach ($eventTypes as $eventType => $config): 
-                $status = $photoStatus[$eventType];
-                $tabId = strtolower($eventType);
-            ?>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link <?= $tabIndex === 0 ? 'active' : '' ?>" id="tab-<?= $tabId ?>" data-bs-toggle="tab" data-bs-target="#pane-<?= $tabId ?>" type="button" role="tab">
-                    <i class="bi bi-<?= $config['icon'] ?> me-1"></i><?= $config['label'] ?>
-                    <span class="badge bg-<?= $status['complete'] ? 'success' : 'secondary' ?> ms-1"><?= $status['count'] ?>/<?= $status['required'] ?></span>
-                </button>
-            </li>
-            <?php $tabIndex++; endforeach; ?>
-        </ul>
-        <div class="tab-content pt-3">
-            <?php $paneIndex = 0; ?>
-            <?php foreach ($eventTypes as $eventType => $config): 
-                $photos = $allPhotos[$eventType] ?? [];
-                $status = $photoStatus[$eventType];
-                $tabId = strtolower($eventType);
-            ?>
-            <div class="tab-pane fade <?= $paneIndex === 0 ? 'show active' : '' ?>" id="pane-<?= $tabId ?>" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="text-muted small">สถานะ: <?= $status['complete'] ? 'ครบแล้ว' : 'ยังไม่ครบ' ?></div>
-                    <?php if ($status['complete']): ?>
-                    <span class="badge bg-success"><i class="bi bi-check"></i> ครบแล้ว</span>
-                    <?php endif; ?>
-                </div>
-                <div class="row g-2">
-                    <?php for ($seq = 1; $seq <= 4; $seq++): 
-                        $photo = null;
-                        foreach ($photos as $p) {
-                            if ($p['photo_seq'] == $seq) {
-                                $photo = $p;
-                                break;
-                            }
-                        }
-                    ?>
-                    <div class="col-3">
-                        <?php if ($photo): ?>
-                        <div class="position-relative">
-                            <img src="<?= BASE_URL . '/' . $photo['file_path'] ?>" 
-                                 class="img-thumbnail" style="width: 100%; height: 90px; object-fit: cover;">
-                            <span class="position-absolute top-0 start-0 badge bg-dark"><?= $seq ?></span>
-                        </div>
-                        <?php else: ?>
-                        <div class="border rounded d-flex align-items-center justify-content-center" 
-                             style="height: 90px; background: #f8f9fa; cursor: pointer;"
-                             onclick="openUploadModal('<?= $eventType ?>', <?= $seq ?>)">
-                            <div class="text-center text-muted">
-                                <i class="bi bi-camera fs-4"></i><br>
-                                <small>รูป <?= $seq ?></small>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <?php endfor; ?>
-                </div>
-            </div>
-            <?php $paneIndex++; endforeach; ?>
-        </div>
-    </div>
-</div>
-
-<!-- Upload Photo Modal -->
-<div class="modal fade" id="uploadModal" tabindex="-1">
-    <div class="modal-dialog">
+<?php if ($canDispatch): ?>
+<div class="modal fade" id="dispatchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload_photo">
-                <input type="hidden" name="event_type" id="uploadEventType">
-                <input type="hidden" name="photo_seq" id="uploadPhotoSeq">
-                <div class="modal-header">
-                    <h5 class="modal-title">อัพโหลดรูปภาพ</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <input type="hidden" name="action" value="dispatch">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-truck me-2"></i>ปล่อยรถ</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">เลือกไฟล์รูปภาพ</label>
-                        <input type="file" class="form-control" name="photo" accept="image/*" required>
-                        <small class="text-muted">รองรับ JPEG, PNG, WebP (ไม่เกิน 10MB)</small>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ชื่อผู้ปล่อย <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="dispatch_name" required value="<?= e($currentUserName) ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">เวลาออก <span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" name="dispatch_time" required value="<?= date('Y-m-d\TH:i') ?>">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">รูปหลักฐาน (อย่างน้อย 1 รูป)</label>
+                            <input type="file" class="form-control" name="dispatch_photos[]" accept="image/*" multiple required>
+                            <small class="text-muted">อัพโหลดได้หลายรูป (สูงสุด <?= EvidencePhoto::PHOTOS_MAX ?> รูป)</small>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-3">
+                        <div class="fw-semibold mb-2">ตรวจสภาพอุปกรณ์ก่อนปล่อย</div>
+                        <?php
+                            $serialItems = array_values(array_filter($items, fn($i) => !empty($i['serial_id'])));
+                        ?>
+                        <?php if (empty($serialItems)): ?>
+                            <div class="text-muted small">ไม่มีรายการที่ต้องตรวจสภาพ</div>
+                        <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Serial</th>
+                                        <th>รายการ</th>
+                                        <th class="text-center" style="width: 120px;">สภาพออก</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($serialItems as $sItem): ?>
+                                    <tr>
+                                        <td class="fw-semibold"><?= e($sItem['serial_number']) ?></td>
+                                        <td class="small text-muted"><?= e($sItem['item_code']) ?> - <?= e($sItem['item_name']) ?></td>
+                                        <td class="text-center">
+                                            <select class="form-select form-select-sm" name="condition_out[<?= (int) $sItem['id'] ?>]">
+                                                <?php $condOut = $sItem['condition_out'] ?? 'Good'; ?>
+                                                <option value="Good" <?= $condOut === 'Good' ? 'selected' : '' ?>>ดี</option>
+                                                <option value="Fair" <?= $condOut === 'Fair' ? 'selected' : '' ?>>พอใช้</option>
+                                                <option value="Damaged" <?= $condOut === 'Damaged' ? 'selected' : '' ?>>ชำรุด</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="submit" class="btn btn-primary">อัพโหลด</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>ยืนยันปล่อยรถ
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+<?php endif; ?>
+
+<?php if ($canReceive): ?>
+<div class="modal fade" id="receiveModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="receive">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-in-down me-2"></i>ยืนยันถึงหน้างาน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ชื่อผู้รับ <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="receiver_name" required value="<?= e($currentUserName) ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">เวลาถึงหน้างาน <span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" name="receive_time" required value="<?= date('Y-m-d\TH:i') ?>">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">รูปหลักฐาน (อย่างน้อย 1 รูป)</label>
+                            <input type="file" class="form-control" name="receive_photos[]" accept="image/*" multiple required>
+                            <small class="text-muted">อัพโหลดได้หลายรูป (สูงสุด <?= EvidencePhoto::PHOTOS_MAX ?> รูป)</small>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">หมายเหตุ</label>
+                            <textarea class="form-control" name="receive_notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check-circle me-1"></i>บันทึกการถึงหน้างาน
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($canReturn): ?>
+<div class="modal fade" id="returnModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="return">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-in-left me-2"></i>รับของกลับ (WH)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">รูปหลักฐาน (อย่างน้อย 1 รูป)</label>
+                            <input type="file" class="form-control" name="return_photos[]" accept="image/*" multiple required>
+                            <small class="text-muted">อัพโหลดได้หลายรูป (สูงสุด <?= EvidencePhoto::PHOTOS_MAX ?> รูป)</small>
+                        </div>
+                    </div>
+                    <div class="border rounded p-3">
+                        <div class="fw-semibold mb-2">ตรวจสอบสภาพของ / จำนวนใช้จริง</div>
+                        <?php if (empty($items)): ?>
+                            <div class="text-muted small">ไม่มีรายการใน Route นี้</div>
+                        <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ประเภท</th>
+                                        <th>รายการ</th>
+                                        <th>Serial/จำนวน</th>
+                                        <th>สภาพ/ใช้จริง</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($items as $item): ?>
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-<?= match($item['item_type']) {
+                                                'Device' => 'primary',
+                                                'Equipment' => 'info',
+                                                'Vehicle' => 'warning',
+                                                'Consumable' => 'secondary',
+                                                'Manpower' => 'success',
+                                                'Person' => 'success',
+                                                default => 'secondary'
+                                            } ?>"><?= e($item['item_type']) ?></span>
+                                        </td>
+                                        <td>
+                                            <?= e($item['item_name'] ?? $item['people_name'] ?? '-') ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($item['serial_id'])): ?>
+                                                <code><?= e($item['serial_number']) ?></code>
+                                            <?php elseif (($item['item_type'] ?? '') === 'Consumable'): ?>
+                                                <?= formatNumber((float) $item['qty_out'], 2) ?>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($item['serial_id'])): ?>
+                                                <select name="condition_<?= $item['id'] ?>" class="form-select form-select-sm">
+                                                    <option value="Good">Good - ปกติ</option>
+                                                    <option value="Fair">Fair - พอใช้</option>
+                                                    <option value="Damaged">Damaged - เสียหาย</option>
+                                                    <option value="Lost">Lost - สูญหาย</option>
+                                                </select>
+                                            <?php elseif (($item['item_type'] ?? '') === 'Consumable'): ?>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" name="used_<?= $item['id'] ?>" class="form-control"
+                                                           value="<?= e($item['qty_out']) ?>" min="0" max="<?= e($item['qty_out']) ?>" step="0.01">
+                                                    <span class="input-group-text">ใช้จริง</span>
+                                                </div>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="bi bi-check-circle me-1"></i>ยืนยันรับของกลับ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($canReset): ?>
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="reset">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">จัด Route ใหม่</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">เหตุผลในการจัดใหม่ <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="reset_reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                    <button type="submit" class="btn btn-primary">ยืนยันจัดใหม่</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Cancel Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1">
@@ -537,13 +768,5 @@ require_once __DIR__ . '/../../../includes/modern/layout_start.php';
         </div>
     </div>
 </div>
-
-<script>
-function openUploadModal(eventType, seq) {
-    document.getElementById('uploadEventType').value = eventType;
-    document.getElementById('uploadPhotoSeq').value = seq;
-    new bootstrap.Modal(document.getElementById('uploadModal')).show();
-}
-</script>
 
 <?php require_once __DIR__ . '/../../../includes/modern/layout_end.php'; ?>
