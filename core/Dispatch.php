@@ -192,6 +192,27 @@ class Dispatch {
                 return ['success' => false, 'error' => 'เฉพาะ Dispatch ที่เป็น Draft เท่านั้นที่สามารถ Confirm ได้'];
             }
             
+            // ============================================================
+            // SECURITY BLOCK: Dispatch Note system deprecated
+            // This system does NOT enforce photo evidence requirements.
+            // Use Route dispatch system instead (core/Route.php::dispatch)
+            // which properly enforces agents.md §3.4 photo requirements.
+            // 
+            // Added: 2026-02-12 | Reason: Photo bypass prevention
+            // TODO: Either add photo guard here or remove this system entirely
+            // ============================================================
+            $this->audit->log(
+                'blocked_confirm_attempt',
+                'DISPATCH',
+                $dispatchId,
+                null,
+                ['reason' => 'Dispatch Note system deprecated - photo bypass prevention']
+            );
+            return [
+                'success' => false, 
+                'error' => 'ระบบ Dispatch Note ถูกระงับการใช้งานชั่วคราว: กรุณาใช้ระบบ Route dispatch แทน (มีการบังคับอัพโหลดรูปภาพ)'
+            ];
+            
             // Get dispatch items
             $items = $this->getItems($dispatchId);
             if (empty($items)) {
