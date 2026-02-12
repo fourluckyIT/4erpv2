@@ -61,6 +61,7 @@ Statuses:
 - Planned
 - Dispatched
 - In Progress
+- Waiting for Return
 - Returned
 - WH Received
 - POS Checked
@@ -76,6 +77,7 @@ Lockpoint rules:
 - Dispatched: route confirmed with photos; no void after In Progress
 - POS Checked: Job becomes Accounting-owned (ACC/PLN/ADM/MGR only)
 - Closed: operational close allowed before Paid; finance can continue
+- Waiting for Return: job is completed at site; only return routing and WH actions allowed
 
 Cancel/Void rules:
 - Cancel after Approved is allowed with reason + approval.
@@ -125,10 +127,10 @@ Route rules:
 - Route is editable until Confirmed.
 
 Evidence rules (must enforce; missing evidence blocks status transition):
-- Dispatch: 4 photos per route
-- Receive: 4 photos per route
-- Return: 4 photos per route
-- POS Check (Device only): 4 photos around device
+- Dispatch: atleast 1 photos per route
+- Receive: atleast 1 photos per route
+- Return: atleast 1 photos per route
+- POS Check (Device only): atleast 1 photos around device
 
 ### 3.5 Cert Override
 If required cert not met:
@@ -161,6 +163,7 @@ If implementation changes permissions, update docs and add tests.
 | Planned | ADM PLN MGR | PLN | – | PLN | PLN | – | – |
 | Dispatched | ADM PLN MGR WH | – | – | – | PLN | – | – |
 | In Progress | ADM PLN MGR | – | – | – | PLN | – | – |
+| Waiting for Return | ADM PLN MGR WH | – | – | – | – | – | – |
 | Returned | ADM PLN MGR WH | – | – | – | – | – | – |
 | WH Received | ADM PLN MGR WH | – | – | – | – | – | – |
 | POS Checked | ADM PLN MGR ACC | – | – | – | – | – | – |
