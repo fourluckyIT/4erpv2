@@ -23,8 +23,8 @@ class Route {
     private Notification $notification;
     private RouteReminder $reminder;
     
-    // Photo requirements per event
-    const PHOTOS_REQUIRED = 4;
+    // Photo requirements per event (min)
+    const PHOTOS_REQUIRED = 1;
     
     public function __construct() {
         $this->db = getDB();
@@ -48,6 +48,20 @@ class Route {
             if ($plan['status'] !== 'Confirmed') {
                 return ['success' => false, 'error' => 'เฉพาะ Plan ที่ Confirmed แล้วเท่านั้นที่สามารถสร้าง Route ได้'];
             }
+
+            $routeType = $data['route_type'] ?? 'Outbound';
+            if (!in_array($routeType, ['Outbound', 'Return'], true)) {
+                $routeType = 'Outbound';
+            }
+
+            $job = $this->getJob((int) $plan['job_id']);
+            if ($routeType === 'Return') {
+                if (!$job || $job['status'] !== 'Waiting for Return') {
+                    return ['success' => false, 'error' => 'ต้องอยู่สถานะรอคืนของก่อนจึงจะสร้าง Route กลับได้'];
+                }
+            } elseif (!empty($job) && $job['status'] === 'Waiting for Return') {
+                return ['success' => false, 'error' => 'งานอยู่ในสถานะรอคืนของ สามารถสร้างได้เฉพาะ Route กลับ'];
+            }
             
             // Generate route number
             $routeNumber = $this->docNum->generate('ROUTE');
@@ -56,10 +70,10 @@ class Route {
             
             $stmt = $this->db->prepare("
                 INSERT INTO routes (
-                    route_number, plan_id, vehicle_serial_id, supplier_id,
+                    route_number, plan_id, route_type, vehicle_serial_id, supplier_id,
                     route_date, status, driver_name, driver_phone, destination, notes, created_by
                 ) VALUES (
-                    :route_number, :plan_id, :vehicle_serial_id, :supplier_id,
+                    :route_number, :plan_id, :route_type, :vehicle_serial_id, :supplier_id,
                     :route_date, 'Draft', :driver_name, :driver_phone, :destination, :notes, :created_by
                 )
             ");
@@ -67,6 +81,7 @@ class Route {
             $stmt->execute([
                 'route_number' => $routeNumber,
                 'plan_id' => $planId,
+                'route_type' => $routeType,
                 'vehicle_serial_id' => $data['vehicle_serial_id'] ?? null,
                 'supplier_id' => $data['supplier_id'] ?? null,
                 'route_date' => $data['route_date'] ?? date('Y-m-d'),
@@ -116,7 +131,7 @@ class Route {
                 'ROUTE',
                 $routeId,
                 null,
-                ['route_number' => $routeNumber, 'plan_id' => $planId]
+                ['route_number' => $routeNumber, 'plan_id' => $planId, 'route_type' => $routeType]
             );
             
             $this->db->commit();
@@ -415,13 +430,16 @@ class Route {
     }
     
     /**
-     * Dispatch route - REQUIRES 4 dispatch photos
+     * Dispatch route - requires minimum dispatch photos
      */
-    public function dispatch(int $routeId): array {
+    public function dispatch(int $routeId, array $meta = []): array {
         try {
             $route = $this->getById($routeId);
             if (!$route) {
                 return ['success' => false, 'error' => 'Route not found'];
+            }
+            if (($route['route_type'] ?? 'Outbound') !== 'Outbound') {
+                return ['success' => false, 'error' => 'Route กลับไม่ต้องปล่อยรถ'];
             }
             if ($route['status'] !== 'Confirmed') {
                 return ['success' => false, 'error' => 'เฉพาะ Route ที่ Confirmed แล้วเท่านั้นที่สามารถ Dispatch ได้'];
@@ -432,28 +450,33 @@ class Route {
             if ($photoCount < self::PHOTOS_REQUIRED) {
                 return [
                     'success' => false, 
-                    'error' => "กรุณาอัพโหลดรูป Dispatch ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                    'error' => "กรุณาอัพโหลดรูป Dispatch อย่างน้อย " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
                 ];
             }
             
             $this->db->beginTransaction();
+
+            $dispatchedAt = $meta['dispatched_at'] ?? date('Y-m-d H:i:s');
+            $dispatchName = trim((string) ($meta['dispatched_by_name'] ?? ''));
+            if ($dispatchName === '') {
+                $dispatchName = $this->getUserFullName((int) ($_SESSION['user_id'] ?? 0));
+            }
+            $hasDispatchName = $this->columnExists('routes', 'dispatched_by_name');
             
             // Update route status
-            $stmt = $this->db->prepare("
+            $sql = "
                 UPDATE routes 
-                SET status = 'Dispatched', dispatched_at = NOW(), dispatched_by = ?
-                WHERE id = ?
-            ");
-            $stmt->execute([$_SESSION['user_id'], $routeId]);
-            
-            // Update serial status for items in this route
-            $items = $this->getItems($routeId);
-            foreach ($items as $item) {
-                if ($item['serial_id']) {
-                    $stmt = $this->db->prepare("UPDATE serials SET status = 'Dispatched' WHERE id = ?");
-                    $stmt->execute([$item['serial_id']]);
-                }
+                SET status = 'Dispatched', dispatched_at = ?, dispatched_by = ?
+            ";
+            $params = [$dispatchedAt, $_SESSION['user_id']];
+            if ($hasDispatchName) {
+                $sql .= ", dispatched_by_name = ?";
+                $params[] = $dispatchName;
             }
+            $sql .= " WHERE id = ?";
+            $params[] = $routeId;
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
             
             // Check if all routes in plan are dispatched, then update job status
             $this->checkAndUpdateJobStatus($route['plan_id']);
@@ -477,13 +500,111 @@ class Route {
                 'ROUTE',
                 $routeId,
                 ['status' => 'Confirmed'],
-                ['status' => 'Dispatched']
+                ['status' => 'Dispatched', 'dispatched_at' => $dispatchedAt, 'dispatched_by_name' => $dispatchName]
             );
             
             $this->db->commit();
             
             return ['success' => true];
             
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Mark route as received at site (arrived)
+     */
+    public function markReceived(int $routeId, array $meta = []): array {
+        try {
+            $route = $this->getById($routeId);
+            if (!$route) {
+                return ['success' => false, 'error' => 'Route not found'];
+            }
+            if (($route['route_type'] ?? 'Outbound') !== 'Outbound') {
+                return ['success' => false, 'error' => 'Route กลับไม่ต้องยืนยันถึงหน้างาน'];
+            }
+            if ($route['status'] !== 'Dispatched') {
+                return ['success' => false, 'error' => 'เฉพาะ Route ที่ Dispatched แล้วเท่านั้นที่สามารถยืนยันถึงหน้างานได้'];
+            }
+
+            $photoCount = $this->getPhotoCount($routeId, 'Receive');
+            if ($photoCount < self::PHOTOS_REQUIRED) {
+                return [
+                    'success' => false,
+                    'error' => "กรุณาอัพโหลดรูป Receive อย่างน้อย " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                ];
+            }
+
+            $receivedAt = $meta['received_at'] ?? date('Y-m-d H:i:s');
+            $receiverName = trim((string) ($meta['received_by_name'] ?? ''));
+            $receiveNotes = $meta['receive_notes'] ?? null;
+            if ($receiverName === '') {
+                $receiverName = $this->getUserFullName((int) ($_SESSION['user_id'] ?? 0));
+            }
+
+            $this->db->beginTransaction();
+
+            $stmt = $this->db->prepare("
+                UPDATE routes
+                SET status = 'Received',
+                    received_by_name = ?,
+                    received_at = ?,
+                    receive_notes = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$receiverName, $receivedAt, $receiveNotes, $routeId]);
+
+            // Update serial status to InUse
+            $items = $this->getItems($routeId);
+            foreach ($items as $item) {
+                if ($item['serial_id']) {
+                    $stmt = $this->db->prepare("UPDATE serials SET status = 'InUse' WHERE id = ?");
+                    $stmt->execute([$item['serial_id']]);
+                }
+            }
+
+            $this->checkAndUpdateJobStatus($route['plan_id']);
+
+            // Notify planner + managers that route arrived
+            $job = $this->getJob($route['job_id']);
+            $notifyIds = [];
+            if (!empty($job['owner_planner_id'])) {
+                $notifyIds[] = (int) $job['owner_planner_id'];
+            }
+            $notifyIds = array_merge($notifyIds, $this->getUserIdsByRoles(['MGR']));
+            $notifyIds = array_values(array_unique($notifyIds));
+            if (!empty($notifyIds)) {
+                $title = "Route {$route['route_number']} ถึงหน้างานแล้ว";
+                $message = "Job: {$job['job_number']}";
+                $url = "/4erpv2/modules/logistics/routes/view.php?id={$routeId}";
+                $this->notification->createBulk(
+                    $notifyIds,
+                    Notification::TYPE_SYSTEM,
+                    $title,
+                    $message,
+                    $url,
+                    'ROUTE',
+                    $routeId,
+                    Notification::PRIORITY_NORMAL
+                );
+            }
+
+            $this->audit->log(
+                'receive',
+                'ROUTE',
+                $routeId,
+                ['status' => 'Dispatched'],
+                ['status' => 'Received', 'received_by_name' => $receiverName, 'received_at' => $receivedAt]
+            );
+
+            $this->db->commit();
+
+            return ['success' => true];
         } catch (Exception $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -510,7 +631,7 @@ class Route {
             if ($photoCount < self::PHOTOS_REQUIRED) {
                 return [
                     'success' => false, 
-                    'error' => "กรุณาอัพโหลดรูป Receive ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                    'error' => "กรุณาอัพโหลดรูป Receive อย่างน้อย " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
                 ];
             }
             
@@ -565,8 +686,13 @@ class Route {
             if (!$route) {
                 return ['success' => false, 'error' => 'Route not found'];
             }
-            if (!in_array($route['status'], ['Dispatched', 'InProgress'])) {
-                return ['success' => false, 'error' => 'Route ต้องอยู่ในสถานะ Dispatched หรือ In Progress'];
+            $routeType = $route['route_type'] ?? 'Outbound';
+            if ($routeType === 'Return') {
+                if ($route['status'] !== 'Confirmed') {
+                    return ['success' => false, 'error' => 'Route กลับต้องอยู่ในสถานะ Confirmed เท่านั้น'];
+                }
+            } elseif (!in_array($route['status'], ['Dispatched', 'InProgress', 'Received'], true)) {
+                return ['success' => false, 'error' => 'Route ต้องอยู่ในสถานะ Dispatched, Received หรือ In Progress'];
             }
             
             // Check return photos
@@ -574,7 +700,7 @@ class Route {
             if ($photoCount < self::PHOTOS_REQUIRED) {
                 return [
                     'success' => false, 
-                    'error' => "กรุณาอัพโหลดรูป Return ให้ครบ " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
+                    'error' => "กรุณาอัพโหลดรูป Return อย่างน้อย " . self::PHOTOS_REQUIRED . " รูป (ปัจจุบันมี $photoCount รูป)"
                 ];
             }
             
@@ -598,8 +724,12 @@ class Route {
                     $stmt->execute([$conditionIn, $item['id']]);
                     
                     // Update serial status
-                    $serialStatus = ($conditionIn === 'Lost') ? 'Lost' : 'Returned';
-                    $stmt = $this->db->prepare("UPDATE serials SET status = ? WHERE id = ?");
+                    $serialStatus = match ($conditionIn) {
+                        'Damaged' => 'Damaged',
+                        'Lost' => 'Lost',
+                        default => 'Available'
+                    };
+                    $stmt = $this->db->prepare("UPDATE serials SET status = ?, current_job_id = NULL WHERE id = ?");
                     $stmt->execute([$serialStatus, $item['serial_id']]);
                 } elseif ($item['item_type'] === 'Consumable' && isset($consumableUsed[$item['id']])) {
                     // Record actual used quantity for consumables
@@ -911,31 +1041,54 @@ class Route {
         
         $jobId = $plan['job_id'];
         
-        // Get all route statuses for this plan
+        // Get all route statuses for this plan (split by route_type)
         $stmt = $this->db->prepare("
-            SELECT status, COUNT(*) as cnt 
+            SELECT route_type, status, COUNT(*) as cnt 
             FROM routes 
             WHERE plan_id = ? AND status != 'Cancelled'
-            GROUP BY status
+            GROUP BY route_type, status
         ");
         $stmt->execute([$planId]);
-        $statuses = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $rows = $stmt->fetchAll();
+        if (empty($rows)) {
+            return;
+        }
         
-        $total = array_sum($statuses);
-        if ($total === 0) return;
+        $byType = [];
+        foreach ($rows as $row) {
+            $type = $row['route_type'] ?? 'Outbound';
+            $byType[$type][$row['status']] = (int) $row['cnt'];
+        }
+        
+        $outbound = $byType['Outbound'] ?? [];
+        $return = $byType['Return'] ?? [];
+        $outboundTotal = array_sum($outbound);
+        $returnTotal = array_sum($return);
         
         // Determine job status based on route statuses
         $newJobStatus = null;
         $currentJob = $this->getJob($jobId);
-        
-        if (isset($statuses['WHReceived']) && $statuses['WHReceived'] == $total) {
-            $newJobStatus = 'WH Received';
-        } elseif (isset($statuses['Returned']) && ($statuses['Returned'] + ($statuses['WHReceived'] ?? 0)) == $total) {
-            $newJobStatus = 'Returned';
-        } elseif (isset($statuses['InProgress']) && $statuses['InProgress'] > 0) {
-            $newJobStatus = 'In Progress';
-        } elseif (isset($statuses['Dispatched']) && $statuses['Dispatched'] > 0) {
-            $newJobStatus = 'Dispatched';
+
+        if ($returnTotal > 0) {
+            if (isset($return['Returned']) && $return['Returned'] === $returnTotal) {
+                $newJobStatus = 'Returned';
+            } else {
+                // Keep current status while waiting for return completion
+                return;
+            }
+        } else {
+            if (!empty($currentJob) && $currentJob['status'] === 'Waiting for Return') {
+                return;
+            }
+            if ($outboundTotal === 0) {
+                return;
+            }
+            if ((isset($outbound['InProgress']) && $outbound['InProgress'] > 0)
+                || (isset($outbound['Received']) && $outbound['Received'] > 0)) {
+                $newJobStatus = 'In Progress';
+            } elseif (isset($outbound['Dispatched']) && $outbound['Dispatched'] > 0) {
+                $newJobStatus = 'Dispatched';
+            }
         }
         
         if ($newJobStatus && $currentJob['status'] !== $newJobStatus) {
@@ -1100,6 +1253,27 @@ class Route {
         $stmt = $this->db->prepare("SELECT * FROM jobs WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch() ?: null;
+    }
+
+    private function getUserFullName(int $userId): string {
+        if ($userId <= 0) {
+            return '';
+        }
+        $stmt = $this->db->prepare("SELECT full_name FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return (string) ($stmt->fetchColumn() ?: '');
+    }
+
+    private function columnExists(string $table, string $column): bool {
+        static $cache = [];
+        $key = $table . '.' . $column;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+        $col = $this->db->quote($column);
+        $stmt = $this->db->query("SHOW COLUMNS FROM `{$table}` LIKE {$col}");
+        $cache[$key] = (bool) $stmt->fetchColumn();
+        return $cache[$key];
     }
 
     private function getUserIdsByRoles(array $roles): array {

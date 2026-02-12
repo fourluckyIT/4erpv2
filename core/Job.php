@@ -222,6 +222,26 @@ class Job {
             if (in_array($action, $routeDrivenActions)) {
                 return ['success' => false, 'error' => 'สถานะนี้อัปเดตผ่าน Route เท่านั้น'];
             }
+
+            if ($action === 'finish_work') {
+                $stmt = $this->db->prepare("
+                    SELECT
+                        SUM(CASE WHEN r.status = 'Received' THEN 1 ELSE 0 END) as received_count,
+                        COUNT(*) as total_count
+                    FROM routes r
+                    JOIN plans p ON r.plan_id = p.id
+                    WHERE p.job_id = ?
+                      AND (r.route_type = 'Outbound' OR r.route_type IS NULL)
+                      AND r.status != 'Cancelled'
+                ");
+                $stmt->execute([$id]);
+                $row = $stmt->fetch();
+                $receivedCount = (int) ($row['received_count'] ?? 0);
+                $totalCount = (int) ($row['total_count'] ?? 0);
+                if ($totalCount === 0 || $receivedCount !== $totalCount) {
+                    return ['success' => false, 'error' => 'ต้องรับของหน้างานครบทุก Route ก่อนกดเสร็จงาน'];
+                }
+            }
             
             $this->db->beginTransaction();
             

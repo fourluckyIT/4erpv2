@@ -12,7 +12,7 @@
 
 class StatusMachine {
     
-    // All valid statuses (16 total)
+    // All valid statuses (17 total)
     const STATUSES = [
         'Draft',
         'Submitted',
@@ -20,6 +20,7 @@ class StatusMachine {
         'Planned',
         'Dispatched',
         'In Progress',
+        'Waiting for Return',
         'Returned',
         'WH Received',
         'POS Checked',
@@ -39,7 +40,8 @@ class StatusMachine {
         'Approved' => ['Planned', 'Voided'],       // After Approved = Voided only
         'Planned' => ['Dispatched', 'Voided'],
         'Dispatched' => ['In Progress', 'Returned', 'Voided'],
-        'In Progress' => ['Returned', 'Voided'],
+        'In Progress' => ['Waiting for Return', 'Returned', 'Voided'],
+        'Waiting for Return' => ['Returned'],
         'Returned' => ['WH Received'],
         'WH Received' => ['POS Checked'],
         'POS Checked' => ['Accounting Ready'],
@@ -61,6 +63,7 @@ class StatusMachine {
         'plan' => ['from' => 'Approved', 'to' => 'Planned'],
         'dispatch' => ['from' => 'Planned', 'to' => 'Dispatched'],
         'start' => ['from' => 'Dispatched', 'to' => 'In Progress'],
+        'finish_work' => ['from' => 'In Progress', 'to' => 'Waiting for Return'],
         'return' => ['from' => ['Dispatched', 'In Progress'], 'to' => 'Returned'],
         'wh_receive' => ['from' => 'Returned', 'to' => 'WH Received'],
         'pos_check' => ['from' => 'WH Received', 'to' => 'POS Checked'],
@@ -81,6 +84,7 @@ class StatusMachine {
         'plan' => ['ADM', 'PLN'],
         'dispatch' => ['ADM', 'PLN'],
         'start' => ['ADM', 'PLN', 'WH'],
+        'finish_work' => ['ADM', 'PLN', 'MGR'],
         'return' => ['ADM', 'PLN'],
         'wh_receive' => ['ADM', 'WH'],
         'pos_check' => ['ADM', 'WH'],
@@ -201,7 +205,7 @@ class StatusMachine {
      */
     public static function isFieldEditable(string $status, string $field): bool {
         // After Planned, nothing is directly editable
-        $afterPlanned = ['Planned', 'Dispatched', 'In Progress', 'Returned', 'WH Received', 
+        $afterPlanned = ['Planned', 'Dispatched', 'In Progress', 'Waiting for Return', 'Returned', 'WH Received', 
                          'POS Checked', 'Accounting Ready', 'Invoiced', 'Paid', 'Partial Paid', 
                          'Closed', 'Cancelled', 'Voided'];
         
@@ -247,6 +251,7 @@ class StatusMachine {
             'Planned' => 'warning',
             'Dispatched' => 'warning',
             'In Progress' => 'warning',
+            'Waiting for Return' => 'warning',
             'Returned' => 'info',
             'WH Received' => 'info',
             'POS Checked' => 'info',
@@ -271,6 +276,7 @@ class StatusMachine {
             'Planned' => 'วางแผนแล้ว',
             'Dispatched' => 'ส่งของแล้ว',
             'In Progress' => 'กำลังดำเนินการ',
+            'Waiting for Return' => 'รอคืนของ',
             'Returned' => 'รับคืนแล้ว',
             'WH Received' => 'คลังรับแล้ว',
             'POS Checked' => 'ตรวจสอบแล้ว',
@@ -296,6 +302,7 @@ class StatusMachine {
             'plan' => 'วางแผน',
             'dispatch' => 'ออกของ',
             'start' => 'เริ่มงาน',
+            'finish_work' => 'เสร็จงาน',
             'return' => 'รับคืน',
             'wh_receive' => 'คลังรับ',
             'pos_check' => 'ตรวจ POS',

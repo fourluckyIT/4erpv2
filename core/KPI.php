@@ -60,7 +60,7 @@ class KPI {
     public function getActiveJobsCount(): int {
         $stmt = $this->db->query("
             SELECT COUNT(*) FROM jobs 
-            WHERE status IN ('Approved', 'Planned', 'Dispatched', 'In Progress')
+            WHERE status IN ('Approved', 'Planned', 'Dispatched', 'In Progress', 'Waiting for Return')
         ");
         return (int) $stmt->fetchColumn();
     }
@@ -100,7 +100,7 @@ class KPI {
     public function getOverdueCount(): int {
         $jobsOverdue = $this->db->query("
             SELECT COUNT(*) FROM jobs 
-            WHERE status IN ('Approved', 'Planned', 'Dispatched', 'In Progress')
+            WHERE status IN ('Approved', 'Planned', 'Dispatched', 'In Progress', 'Waiting for Return')
               AND plan_end_date < CURDATE()
         ")->fetchColumn();
         
@@ -241,7 +241,7 @@ class KPI {
             WHERE status != 'Voided'
             GROUP BY status
             ORDER BY FIELD(status, 'Draft', 'Submitted', 'Approved', 'Planned', 
-                          'Dispatched', 'In Progress', 'Returned', 'WH Received',
+                          'Dispatched', 'In Progress', 'Waiting for Return', 'Returned', 'WH Received',
                           'POS Checked', 'Accounting Ready', 'Invoiced', 'Paid', 'Partial Paid', 'Closed')
         ");
         return $stmt->fetchAll();
@@ -258,7 +258,7 @@ class KPI {
                    DATEDIFF(CURDATE(), j.plan_end_date) as days_overdue
             FROM jobs j
             JOIN customers c ON j.customer_id = c.id
-            WHERE j.status IN ('Approved', 'Planned', 'Dispatched', 'In Progress')
+            WHERE j.status IN ('Approved', 'Planned', 'Dispatched', 'In Progress', 'Waiting for Return')
               AND j.plan_end_date < CURDATE()
             ORDER BY days_overdue DESC
         ");
@@ -376,7 +376,7 @@ class KPI {
                 JOIN plans p ON pa.plan_id = p.id
                 JOIN jobs j ON p.job_id = j.id
                 WHERE pa.people_id IS NOT NULL
-                  AND j.status IN ('Planned', 'Dispatched', 'In Progress')
+                  AND j.status IN ('Planned', 'Dispatched', 'In Progress', 'Waiting for Return')
             ")->fetchColumn();
         } catch (Exception $e) {
             $assignedPeople = 0;

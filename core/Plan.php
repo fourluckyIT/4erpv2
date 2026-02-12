@@ -448,7 +448,7 @@ class Plan {
     public function getById(int $id): ?array {
         $stmt = $this->db->prepare("
             SELECT p.*, 
-                   j.job_number, j.scope_short, j.customer_id,
+                   j.job_number, j.scope_short, j.customer_id, j.status as job_status,
                    c.name as customer_name,
                    u.full_name as created_by_name
             FROM plans p

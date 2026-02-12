@@ -5,7 +5,7 @@
  * 
  * Handles photo evidence for route events:
  * - Upload and validate photos
- * - Enforce 4 photos per event
+ * - Enforce minimum photos per event
  * - Validate before status transitions
  */
 
@@ -14,7 +14,8 @@ class EvidencePhoto {
     private AuditLog $audit;
     
     // Photo requirements
-    const PHOTOS_REQUIRED = 4;
+    const PHOTOS_MIN_REQUIRED = 1;
+    const PHOTOS_MAX = 4;
     const MAX_FILE_SIZE = 10485760; // 10MB
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
     const UPLOAD_DIR = 'uploads/evidence/';
@@ -35,8 +36,8 @@ class EvidencePhoto {
             }
             
             // Validate photo sequence
-            if ($photoSeq < 1 || $photoSeq > self::PHOTOS_REQUIRED) {
-                return ['success' => false, 'error' => 'Photo sequence ต้องเป็น 1-' . self::PHOTOS_REQUIRED];
+            if ($photoSeq < 1 || $photoSeq > self::PHOTOS_MAX) {
+                return ['success' => false, 'error' => 'Photo sequence ต้องเป็น 1-' . self::PHOTOS_MAX];
             }
             
             // Validate route exists
@@ -272,7 +273,7 @@ class EvidencePhoto {
      * Check if photos are complete for an event
      */
     public function isComplete(int $routeId, string $eventType): bool {
-        return $this->getPhotoCount($routeId, $eventType) >= self::PHOTOS_REQUIRED;
+        return $this->getPhotoCount($routeId, $eventType) >= self::PHOTOS_MIN_REQUIRED;
     }
     
     /**
@@ -286,8 +287,8 @@ class EvidencePhoto {
             $count = $this->getPhotoCount($routeId, $event);
             $status[$event] = [
                 'count' => $count,
-                'required' => self::PHOTOS_REQUIRED,
-                'complete' => $count >= self::PHOTOS_REQUIRED
+                    'required' => self::PHOTOS_MIN_REQUIRED,
+                    'complete' => $count >= self::PHOTOS_MIN_REQUIRED
             ];
         }
         
@@ -303,9 +304,9 @@ class EvidencePhoto {
             return [
                 'valid' => false,
                 'error' => sprintf(
-                    'กรุณาอัพโหลดรูป %s ให้ครบ %d รูป (ปัจจุบันมี %d รูป)',
+                    'กรุณาอัพโหลดรูป %s อย่างน้อย %d รูป (ปัจจุบันมี %d รูป)',
                     $eventType,
-                    self::PHOTOS_REQUIRED,
+                    self::PHOTOS_MIN_REQUIRED,
                     $count
                 )
             ];
